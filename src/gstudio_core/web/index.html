@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>GStudio</title>
+  <link rel="icon" href="/assets/brand.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到正文</a>
+  <button id="menu-toggle" class="menu-toggle" type="button" aria-controls="sidebar" aria-expanded="false" aria-label="打开导航">☰</button>
+  <button id="menu-backdrop" class="menu-backdrop" type="button" aria-label="关闭导航" hidden></button>
+  <aside id="sidebar" class="sidebar" aria-label="工作台导航">
+    <button id="menu-close" class="menu-close" type="button" aria-label="关闭导航">×</button>
+    <a class="brand" href="#home"><img src="/assets/brand.svg" alt=""><span>GStudio<small>本地工作台</small></span></a>
+    <nav class="sidebar-primary" aria-label="常驻页面">
+      <a href="#home" data-nav="home">任务台</a>
+      <a href="#projects" data-nav="projects">项目视图</a>
+      <a href="#archive" data-nav="archive">归档中心</a>
+      <a href="#review" data-nav="review">任务检视</a>
+      <a href="#library" data-nav="library">资料浏览</a>
+    </nav>
+    <div class="sidebar-section">工作区</div>
+    <nav id="workspace-nav" class="workspace-nav" aria-label="工作区项目与系统"></nav>
+    <div class="sidebar-bottom"><a href="#settings" data-nav="settings">设置</a><p id="workspace-state">正在读取工作区…</p></div>
+  </aside>
+  <main id="main-content" tabindex="-1"><div class="loading-state" role="status">正在读取工作区…</div></main>
+  <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+  <dialog id="workbench-dialog" class="paper-dialog" aria-labelledby="dialog-title">
+    <div class="dialog-head"><h2 id="dialog-title"></h2><button id="dialog-close" class="icon-button" type="button" aria-label="关闭弹窗">×</button></div>
+    <div id="dialog-body" class="dialog-body"></div>
+  </dialog>
+</body>
+</html>
