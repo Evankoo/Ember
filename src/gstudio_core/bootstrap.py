@@ -10,6 +10,8 @@ CONTRACT_FILES = ("AGENTS.md", "SOUL.md", "MEMORY.md", "RESOLVER.md", "WORKBENCH
 
 
 def install_workspace_contract(workspace):
+    from .store import _parse_markdown
+
     for name in CONTRACT_FILES:
         workspace._atomic_text(name, (PACKAGE / "templates" / name).read_text(encoding="utf-8"), new=True)
     skills = []
@@ -19,9 +21,10 @@ def install_workspace_contract(workspace):
             if source.is_file() and "__pycache__" not in source.parts and source.suffix != ".pyc":
                 relative = source.relative_to(skill_root).as_posix()
                 workspace._atomic_text(f".agents/skills/{name}/" + relative, source.read_text(encoding="utf-8"), new=True)
-        skills.append({"name": name, "path": f".agents/skills/{name}/SKILL.md", "purpose": purpose})
+        header, _ = _parse_markdown((skill_root / "SKILL.md").read_text(encoding="utf-8"), name)
+        skills.append({"name": name, "version": header["version"], "path": f".agents/skills/{name}/SKILL.md", "purpose": purpose})
     workspace._write_json("skills/manifest.json", {"version": 1, "skills": skills}, new=True)
-    workspace._atomic_text("skills/RESOLVER.md", "# Skills Resolver\n\n- 初始化新的 GStudio Core：读取 [gstudio-init](../.agents/skills/gstudio-init/SKILL.md)。\n- 日常任务、资料与交付：读取 [gstudio-core](../.agents/skills/gstudio-core/SKILL.md)，遵循系统级 [AGENTS.md](../AGENTS.md) 与任务卡正本。\n- 初始化 Skill 不重置现有工作区。\n", new=True)
+    workspace._atomic_text("skills/RESOLVER.md", "# Skills Resolver\n\n- 首次安装或建立新工作区：读取 [gstudio-init](../.agents/skills/gstudio-init/SKILL.md)。\n- 日常任务入口与只读检索：读取 [gstudio-core](../.agents/skills/gstudio-core/SKILL.md)，先判断是否需要任务卡；跟随系统级 [AGENTS.md](../AGENTS.md)、项目说明与原任务。\n- 其他业务 Skill 只在实际需要且可用时调用，不随 Core 安装。\n- 初始化 Skill 不重置、迁移或升级现有工作区。\n", new=True)
     # A user's chosen name is local data, not an installation default in source code.
     if not workspace._safe("config/workspace.json").exists():
         workspace._write_json("config/workspace.json", {"name": "GStudio"}, new=True)

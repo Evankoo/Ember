@@ -106,6 +106,53 @@ class StoreTests(unittest.TestCase):
             self.store.update_task(identifier, {"project": "independent"})
         self.assertEqual(self.store.snapshot()["tasks"][0]["status"], "waiting_user")
 
+    def test_execution_metadata_defaults_and_agent_values_survive_reopen(self):
+        manual = self.task()
+        agent = self.task("执行信息", executor="opencode", skills_used=["gstudio-core", "example-skill"])
+        Workspace(self.root).snapshot()
+        self.assertEqual(self.card(manual)[0]["executor"], "manual")
+        self.assertEqual(self.card(manual)[0]["skills_used"], ["gstudio-core"])
+        metadata, _ = self.card(agent)
+        self.assertEqual(metadata["executor"], "opencode")
+        self.assertEqual(metadata["skills_used"], ["gstudio-core", "example-skill"])
+
+    def test_execution_update_preserves_skill_history_and_task_scope(self):
+        identifier = self.task(executor="codex", skills_used=["gstudio-core", "example-skill"])
+        self.store.update_task(identifier, {"status": "waiting_user"})
+        before, body = self.card(identifier)
+        self.store.update_task(identifier, {"executor": "opencode", "skills_used": ["gstudio-core", "another-skill"]})
+        after, updated = self.card(identifier)
+        self.assertEqual(after["executor"], "opencode")
+        self.assertEqual(after["skills_used"], ["gstudio-core", "example-skill", "another-skill"])
+        for key in ("task_id", "title", "project", "status", "artifact_mode", "created_at"):
+            self.assertEqual(after[key], before[key])
+        self.assertIn(body.split("## 执行日志\n", 1)[1].strip(), updated)
+        self.assertFalse((self.root / "delivery/draft" / identifier).exists())
+
+    def test_invalid_execution_metadata_fails_without_writing(self):
+        identifier = self.task()
+        original = self.card(identifier)[1]
+        invalid = [{"executor": value} for value in (None, "", "  ", 7, "codex\nopencode")]
+        invalid += [{"skills_used": value} for value in (None, [], "gstudio-core", [""], [" "], [1], ["same", "same"], ["same", " same "])]
+        for payload in invalid:
+            with self.subTest(payload=payload):
+                with self.assertRaises(WorkspaceError):
+                    self.task("错误执行信息", **payload)
+                with self.assertRaises(WorkspaceError):
+                    self.store.update_task(identifier, payload)
+                self.assertEqual(self.card(identifier)[1], original)
+                self.assertEqual(len(self.store.snapshot()["tasks"]), 1)
+
+    def test_manual_invalid_execution_metadata_fails_check(self):
+        identifier = self.task()
+        metadata, body = self.card(identifier)
+        for field, value in (("executor", " "), ("skills_used", [" "])):
+            with self.subTest(field=field):
+                self.rewrite_card(identifier, {**metadata, field: value}, body.split("---", 2)[2])
+                with self.assertRaises(WorkspaceError):
+                    self.store.snapshot()
+                self.rewrite_card(identifier, metadata, body.split("---", 2)[2])
+
     def test_input_is_immutable_and_draft_is_separate(self):
         identifier = self.task()
         snapshot = self.store.add_material(identifier, {"kind": "input", "name": "来源.md", "content": "原始资料", "purpose": "样例依据"})

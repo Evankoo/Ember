@@ -6,11 +6,18 @@
 
 ## 用初始化 Skill 安装
 
-下载发行页的 [gstudio-init-1.0.0.zip](https://github.com/Evankoo/GStudio-Core/releases/download/v0.1.0/gstudio-init-1.0.0.zip)，解压，将 `gstudio-init` 文件夹放进你使用的 Agent 的 Skills 目录。对 Agent 说：**“使用 gstudio-init 安装 GStudio Core，建立一个空白工作区。”**
+下载发行页的 [gstudio-init-1.0.1.zip](https://github.com/Evankoo/GStudio-Core/releases/download/v0.1.1/gstudio-init-1.0.1.zip)，解压，将 `gstudio-init` 文件夹放进你使用的 Agent 的 Skills 目录。对 Agent 说：**“使用 gstudio-init 安装 GStudio Core，建立一个空白工作区。”**
 
 Skill 会逐项补齐缺少的目录和示例选择，建立独立环境、系统规则、任务模板和自己的 Skill 登记，再验证任务与交付流程。ZIP 内含 Core wheel，PyYAML 依赖仍需要联网或已有缓存。支持读取 `SKILL.md` 的其他 Agent 也可调用其中的标准库安装脚本。
 
 已有 Core 时，`gstudio skill-path` 可查看同样的初始化 Skill。新工作区内也会保留 `.agents/skills/gstudio-init/`，后续无需下载私有系统配置。
+
+## 两个基础 Skill
+
+- **`gstudio-init` 1.0.1**：首次安装或建立新工作区，不重置、迁移或升级已有工作区。
+- **`gstudio-core` 1.1.0**：完整版 `gstudio` 总入口职责的公开精简适配。先判断是否需要跟踪，普通只读问题不强制建卡；读取项目说明、继续原任务、登记实际执行与资料交付，校验后回读，保持人工确认边界。
+
+项目说明独立保存在本工作区，不依赖外部知识库。专业业务可按需要调用用户已有 Skill，但 Core 不随包安装它们、不启动 AI 执行器，也不取得其数据或发布权限。
 
 ## 手动安装与启动
 
@@ -31,7 +38,7 @@ gstudio serve --workspace ./workspace --port 8783
 安装发行页提供的 wheel 也可以：
 
 ```bash
-python -m pip install ./gstudio_core-0.1.0-py3-none-any.whl
+python -m pip install ./gstudio_core-0.1.1-py3-none-any.whl
 gstudio init ./workspace --example
 gstudio serve --workspace ./workspace
 ```
@@ -73,6 +80,7 @@ gstudio serve --workspace ./workspace
 
 - [与实际系统的对照和精简差异](docs/system-alignment.md)
 - [初始化 Skill 与安装验证](docs/initialization.md)
+- [v0.1.1 更新范围与已有工作区注意事项](docs/update-0.1.1.md)
 - [提炼范围](docs/extraction.md)
 - [工作区与使用说明](docs/workspace.md)
 - [HTTP 与存储接口](docs/api.md)

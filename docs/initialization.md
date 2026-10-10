@@ -22,9 +22,9 @@ Skill 先确定真实 Python 版本和系统，沿用用户已给出的选择，
 python3 /path/to/gstudio-init/scripts/bootstrap.py --app-dir /path/to/app --workspace /path/to/data --mode empty --name GStudio --port 8783
 ```
 
-使用本地代码或 wheel 时，加 `--source /path/to/source-or-wheel`。没有附带 wheel 时，下载固定的官方 GitHub v0.1.0 发行包。脚本以参数数组调用命令，不执行用户文本拼接的 shell 命令。
+使用本地代码或 wheel 时，加 `--source /path/to/source-or-wheel`。没有附带 wheel 时，下载固定的官方 GitHub v0.1.1 发行包。脚本以参数数组调用命令，不执行用户文本拼接的 shell 命令。
 
-工作区内会建立 `AGENTS.md`、`SOUL.md`、空白 `MEMORY.md`、`RESOLVER.md`、`WORKBENCH_DESIGN.md`、任务模板、Skill 登记和初始化 Skill。还包含最小日常任务入口 `gstudio-core`，对应新任务卡里的实际流程标记，避免登记一个不存在的 Skill。`AGENTS.md` 定义规则，Skill 引用规则，模板及 Resolver 各负责创建和位置，不引入第二套政策。
+工作区内会建立 `AGENTS.md`、`SOUL.md`、空白 `MEMORY.md`、`RESOLVER.md`、`WORKBENCH_DESIGN.md`、任务模板和 Skill 登记。只安装 `gstudio-init` 1.0.1 与日常入口 `gstudio-core` 1.1.0，manifest 记录对应版本，Resolver 路由首次安装和日常工作。`gstudio-core` 先判断是否需要任务卡，读取项目说明并继续原任务，按实际需要调用用户已有的业务 Skill；Core 不安装私人依赖。`AGENTS.md` 定义规则，Skill 引用规则，模板及 Resolver 各负责创建和位置，不引入第二套政策。
 
 空白模式没有项目、任务和业务文件。示例模式包含两个虚构项目、八项任务、十八个输入与交付等文件、Inbox 四种状态和两份检视报告。系统工作区可在安装后新建，不虚构一个已经运行的私人系统。
 
@@ -37,6 +37,8 @@ python3 /path/to/gstudio-init/scripts/bootstrap.py --app-dir /path/to/app --work
 应用目录的 `installation.json` 记录阶段、成功或失败、工作区、实际启动及检查参数。脚本结束时服务没有常驻运行；Skill 随后按收据在前台启动并检查页面。停止时对原服务进程按 Ctrl+C；重启同一命令会读回原数据。
 
 非空目录、路径重叠或端口占用在安装前拒绝。中途失败保留现场与收据，不自动删除或重试覆盖。没有后台守护、模型认证、NAS、业务数据导入或已有工作区迁移。
+
+升级应用不会自动替换已有工作区内的规则和 Skill。不要把 `init` 当升级命令；如需采用新版契约，先备份并逐项核对本地修改，按明确确认的范围同步。见 [v0.1.1 更新说明](update-0.1.1.md)。
 
 ## 开发验收
 

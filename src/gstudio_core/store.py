@@ -17,8 +17,9 @@ from uuid import uuid4
 
 import yaml
 
+from . import __version__
 
-VERSION = "0.1.0"
+VERSION = __version__
 LABELS = ("未分类", "处理中", "待归档", "可删除")
 STATUSES = ("active", "waiting_user", "blocked", "completed")
 WORK_TYPES = ("text", "image", "video", "audio", "data", "mixed", "system")
@@ -267,6 +268,21 @@ class Workspace:
         return value.strip()
 
     @staticmethod
+    def _executor(value) -> str:
+        if not isinstance(value, str) or not value.strip() or len(value) > 80 or any(char in value for char in ("\n", "\r", "\x00")):
+            raise WorkspaceError("executor 必须为 1–80 字符的单行执行工具名称，不是模型名称。")
+        return value.strip()
+
+    @staticmethod
+    def _skills(value) -> list[str]:
+        if not isinstance(value, list) or not value or any(not isinstance(item, str) or not item.strip() or len(item) > 80 or any(char in item for char in ("\n", "\r", "\x00")) for item in value):
+            raise WorkspaceError("skills_used 必须为非空、不重复的单行 Skill 名称列表。")
+        names = [item.strip() for item in value]
+        if len(set(names)) != len(names):
+            raise WorkspaceError("skills_used 必须为非空、不重复的单行 Skill 名称列表。")
+        return names
+
+    @staticmethod
     def _identifier(value, name: str = "id") -> str:
         if not isinstance(value, str) or not _ID.fullmatch(value):
             raise WorkspaceError(f"{name} 仅允许小写字母、数字、连字符和下划线（1–80 字符）。")
@@ -353,9 +369,8 @@ class Workspace:
                         datetime.fromisoformat(metadata[key])
                 except ValueError as exc:
                     raise WorkspaceError("任务时间不是有效日期。") from exc
-                skills = metadata["skills_used"]
-                if not isinstance(skills, list) or not skills or any(not isinstance(skill, str) for skill in skills) or len(set(skills)) != len(skills):
-                    raise WorkspaceError("skills_used 必须为非空、不重复的 Skill 名称列表。")
+                self._executor(metadata["executor"])
+                self._skills(metadata["skills_used"])
                 _validate_body(body)
                 self._verify_delivery(identifier, metadata, body)
                 related = metadata.get("related_task_ids", [])
@@ -718,11 +733,13 @@ class Workspace:
             artifact_mode = payload.get("artifact_mode", "delivery" if kind == "task_group" else "none")
             if artifact_mode not in ("none", "delivery", "system", "archive", "external") or (kind == "task_group" and artifact_mode != "delivery"):
                 raise WorkspaceError("artifact_mode 不合法；任务线使用 delivery。")
+            executor = self._executor(payload.get("executor", "manual"))
+            skills = self._skills(payload.get("skills_used", ["gstudio-core"]))
             identifier = f"task-{datetime.now(_ZONE).strftime('%Y%m%d')}-{uuid4().hex[:12]}"
             stamp = _now()
             metadata = {"type": "gstudio_task", "task_id": identifier, "title": title, "project": project,
-                        "work_type": work_type, "task_kind": kind, "status": "active", "executor": "manual",
-                        "created_at": stamp, "updated_at": stamp, "skills_used": ["gstudio-core"],
+                        "work_type": work_type, "task_kind": kind, "status": "active", "executor": executor,
+                        "created_at": stamp, "updated_at": stamp, "skills_used": skills,
                         "artifact_mode": artifact_mode}
             if related:
                 metadata["related_task_ids"] = related
@@ -750,15 +767,19 @@ class Workspace:
         with self._lock:
             self._require()
             self._payload(payload)
-            allowed = {"goal", "description", "current", "next", "log_entry", "status"}
+            allowed = {"goal", "description", "current", "next", "log_entry", "status", "executor", "skills_used"}
             if set(payload) - allowed or not payload:
-                raise WorkspaceError("仅可更新 goal/description/current/next/log_entry/status。")
+                raise WorkspaceError("仅可更新 goal/description/current/next/log_entry/status/executor/skills_used。")
             path, metadata, body = self._task(task_id)
             if metadata["status"] == "completed":
                 raise WorkspaceError("正式完成任务只读；最小版不提供重开覆盖正式交付。", 409)
             status = payload.get("status", metadata["status"])
             if status not in STATUSES or status == "completed":
                 raise WorkspaceError("完成必须使用明确确认的 complete 或 promote 接口。")
+            if "executor" in payload:
+                metadata["executor"] = self._executor(payload["executor"])
+            if "skills_used" in payload:
+                metadata["skills_used"] = list(dict.fromkeys(metadata["skills_used"] + self._skills(payload["skills_used"])))
             parts = _sections(body)
             for field, heading in (("goal", "任务目标"), ("description", "任务描述"), ("current", "当前结果"), ("next", "下一步")):
                 if field in payload:

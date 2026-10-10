@@ -32,8 +32,8 @@ snapshot()                           # 下面的公开视图
 read_file(file_id)                    # {id,name,kind,text?,bytes,media_type}; 非文本不提供 text
 raw_file(file_id)                     # (Path, metadata)，每次重新解析并校验
 create_project(payload)              # id/name/kind:project|system/description/focus/overview，registry + Markdown
-create_task(payload)                 # title/project/goal/description，可选 work_type/task_kind/related_task_ids/artifact_mode
-update_task(task_id, payload)         # goal/description/current/next/log_entry/status；完成必须走 promote 或非交付模式的 complete_task
+create_task(payload)                 # title/project/goal/description，可选 work_type/task_kind/related_task_ids/artifact_mode/executor/skills_used
+update_task(task_id, payload)         # goal/description/current/next/log_entry/status/executor/skills_used；完成必须走 promote 或非交付模式的 complete_task
 add_material(task_id, payload)        # kind: input|draft，name/content，UTF-8 新文件，拒绝覆盖；input 登记指纹
 add_reference(task_id, payload)      # path/purpose；已有受控工作区文件，登记不复制
 complete_task(task_id, payload)      # confirmation:true；none/system/archive/external 可完成，delivery 禁止绕过推广
@@ -45,6 +45,8 @@ build_context(payload)               # request,relation:new|continue|based,task_
 build_review_context(payload)        # task_ids:[] -> {text}，仅建议不改任务
 save_report(payload)                 # title,content,mode:selected|weekly,task_ids:[]；明确用户保存的记录
 ```
+
+`executor` 是真实执行工具或界面，不是模型名；`skills_used` 是实际调用的非空、无重复 Skill 名称列表。创建时未传则沿用 `manual` 与 `['gstudio-core']` 的既有默认值。续接更新只替换最新执行器，并把新 Skill 去重追加到原有历史，不改变项目、生命周期或交付。空值、非文本、多行名称及重复列表在写入前拒绝。这些字段不会启动执行器或安装 Skill；Agent 应按实际执行填写，而不是依赖默认值猜测历史。
 
 ## Snapshot
 

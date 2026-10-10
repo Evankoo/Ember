@@ -1,12 +1,11 @@
 ---
 name: gstudio-init
+version: 1.0.1
 description: 引导首次安装 GStudio Core，建立示例或空白工作区，安装系统规则与任务模板，并验证任务、资料、交付和本机工作台。用户说初始化 GStudio、安装系统或建立新工作区时使用；不用于重置、迁移或升级已有工作区。
-metadata:
-  version: 1.0.0
-  triggers: [初始化 GStudio, 安装 GStudio Core, 建立新工作区]
-  tools: [read_file, terminal, browser]
-  mutating: true
-  writes_pages: false
+triggers: [初始化 GStudio, 安装 GStudio Core, 建立新工作区]
+tools: [read_file, terminal, browser]
+mutating: true
+writes_pages: false
 ---
 
 # GStudio 系统初始化
@@ -45,7 +44,7 @@ metadata:
 python3 <Skill目录>/scripts/bootstrap.py --app-dir <应用目录> --workspace <数据目录> --mode empty|example --name <工作区名> --port 8783
 ```
 
-独立 Skill 安装包包含 `assets/gstudio_core-0.1.0-py3-none-any.whl`。如没有附带 wheel，脚本从固定的 GitHub v0.1.0 发行地址下载。开发或本地安装可加 `--source <本地源码目录或wheel>`。PyYAML 依赖需要联网下载或已经可用的包缓存；不要宣称安装完全离线。
+独立 Skill 安装包包含 `assets/gstudio_core-0.1.1-py3-none-any.whl`。如没有附带 wheel，脚本从固定的 GitHub v0.1.1 发行地址下载。开发或本地安装可加 `--source <本地源码目录或wheel>`。PyYAML 依赖需要联网下载或已经可用的包缓存；不要宣称安装完全离线。
 
 脚本创建 `<应用目录>/.venv`，安装 Core，再运行 `init` 与 `check`。它在临时工作区验证真实任务、输入、草稿、正式交付及无文件完成，不污染用户的空白工作区。成功和失败均记录安装阶段，失败时报告具体阶段与剩余事项。
 
@@ -61,7 +60,7 @@ python3 <Skill目录>/scripts/bootstrap.py --app-dir <应用目录> --workspace 
 
 ### 4. 交接
 
-报告实际应用目录、工作区、初始化 Skill 路径、示例选择、验证结果、工作台地址、启动与停止方法。用户明确提出首个项目时，收齐项目名称及用途后再通过工作台新建；没有这个要求就保持空白。
+报告实际应用目录、工作区、初始化 Skill 路径、示例选择、验证结果、工作台地址、启动与停止方法。后续日常工作交给工作区内 `.agents/skills/gstudio-core/SKILL.md`：先判断是否需要任务卡，再读取项目说明并继续原任务。用户明确提出首个项目时，收齐项目名称及用途后再通过工作台新建；没有这个要求就保持空白。
 
 ## Output Format
 

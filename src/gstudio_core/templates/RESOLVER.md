@@ -15,7 +15,8 @@
 | 项目归档 | archive/<project>/ |
 | 检视报告 | reports/ |
 | 呈现与归档台账 | .gstudio/ |
-| Skill 正本 | .agents/skills/gstudio-init/ |
+| 首次安装 Skill | .agents/skills/gstudio-init/SKILL.md |
+| 日常工作入口 Skill | .agents/skills/gstudio-core/SKILL.md |
 | Skill 注册与路由 | skills/manifest.json、skills/RESOLVER.md |
 | 任务创建模板 | templates/task-card.md |
 

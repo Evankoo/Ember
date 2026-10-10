@@ -7,6 +7,7 @@ GStudio Core 是可安装的本地工作台。它保留完整系统的基础数�
 - `src/gstudio_core/cli.py`：显式初始化、校验、启动。
 - `src/gstudio_core/bootstrap.py`、`templates/`：可移植系统入口、规则与任务卡模板。
 - `src/gstudio_core/skills/gstudio-init/`：首次安装引导、标准库安装脚本和验证。
+- `src/gstudio_core/skills/gstudio-core/`：日常总入口的公开适配，判断任务必要性、读取项目上下文、继续原任务并验证资料与交付。
 - `src/gstudio_core/store.py`：任务卡、项目、输入交付、检视报告和本地归档。
 - `src/gstudio_core/server.py`：只监听回环地址的 HTTP 服务。
 - `src/gstudio_core/web/`：六个常驻页面、项目与任务详情、共享样式、标志与字体。

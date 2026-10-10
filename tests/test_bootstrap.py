@@ -6,6 +6,9 @@ import socket
 import tempfile
 import unittest
 
+import yaml
+
+from gstudio_core import __version__
 from gstudio_core.bootstrap import CONTRACT_FILES, PACKAGE, verify_workspace_contract
 from gstudio_core.cli import main
 from gstudio_core.store import Workspace, WorkspaceError
@@ -44,6 +47,26 @@ class BootstrapTests(unittest.TestCase):
             if task["status"] == "completed":
                 self.assertEqual(task["next"], "")
         self.assertEqual(main(["check", "--workspace", str(workspace.path)]), 0)
+
+    def test_both_skills_have_conformant_frontmatter_and_registered_versions(self):
+        workspace = Workspace(self.root / "skills")
+        workspace.initialize()
+        manifest = workspace._json("skills/manifest.json")
+        resolver = (workspace.path / "skills/RESOLVER.md").read_text()
+        required = ["Contract", "When to Use", "References", "Phases", "Output Format", "Anti-Patterns", "Tools Used"]
+        self.assertEqual(len(manifest["skills"]), 2)
+        for record in manifest["skills"]:
+            text = (workspace.path / record["path"]).read_text()
+            header = yaml.safe_load(text.split("---", 2)[1])
+            self.assertEqual(header["name"], record["name"])
+            self.assertEqual(header["version"], record["version"])
+            self.assertTrue(header["description"])
+            self.assertTrue(header["triggers"])
+            self.assertTrue(header["tools"])
+            positions = [text.index("## " + heading) for heading in required]
+            self.assertEqual(positions, sorted(positions))
+            self.assertIn(record["path"].removeprefix(".agents/skills/"), resolver)
+        self.assertEqual(helper.VERSION, __version__)
 
     def test_missing_contract_cannot_pass_check(self):
         workspace = Workspace(self.root / "empty")

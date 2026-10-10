@@ -8,6 +8,8 @@ import unittest
 from urllib.parse import quote
 from unittest.mock import patch
 
+import yaml
+
 from gstudio_core.server import LocalServer, workspace_lock
 from gstudio_core.store import Workspace, WorkspaceError
 
@@ -119,6 +121,19 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(saved["current"], "已保存结果")
         self.assertTrue((self.root / "tasks/completed" / (identifier + ".md")).is_file())
         self.assertEqual((self.root / "delivery/formal" / identifier / "产物.md").read_text(), "完整产物")
+
+    def test_execution_metadata_is_persisted_through_existing_task_routes(self):
+        task = self.data("/api/tasks", "POST", {"title": "执行器登记", "goal": "如实记录", "executor": "codex", "skills_used": ["gstudio-core"]})
+        identifier = task["id"]
+        self.data(f"/api/tasks/{identifier}", "POST", {"executor": "opencode", "skills_used": ["example-skill"]})
+        path = self.root / f"tasks/active/{identifier}.md"
+        metadata = yaml.safe_load(path.read_text().split("---", 2)[1])
+        self.assertEqual(metadata["executor"], "opencode")
+        self.assertEqual(metadata["skills_used"], ["gstudio-core", "example-skill"])
+        before = path.read_bytes()
+        self.assertEqual(self.request(f"/api/tasks/{identifier}", "POST", {"executor": ""})[0], 400)
+        self.assertEqual(path.read_bytes(), before)
+        self.assertEqual(Workspace(self.root).snapshot()["tasks"][0]["status"], "active")
 
     def test_download_rejects_link_swap_at_final_open(self):
         original = self.workspace.raw_file

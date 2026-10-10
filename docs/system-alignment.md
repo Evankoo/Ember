@@ -22,13 +22,14 @@ Core 的动态工作区读取本地注册。用户可以新建 project（项目�
 | 设置 | 了解当前工作区、服务状态、可用能力和操作边界 | `scripts/gstudio_workbench.py` | `src/gstudio_core/web/app.js`、`src/gstudio_core/server.py` |
 | 视觉语言 | 暖纸色、深色侧栏、共享文字层级、留白、响应式阅读布局 | `WORKBENCH_DESIGN.md`、`scripts/gstudio_workbench_assets.py` | `src/gstudio_core/web/app.css`、`src/gstudio_core/templates/WORKBENCH_DESIGN.md` |
 
-Core 的项目或系统说明正本是 `projects/<id>.md`，`config/projects.json` 登记身份、kind、简短导航信息、当前重点和时间线。kind 只允许 project / system，旧记录省略时默认为 project。两类对象都拥有正式任务范围；independent 仍不能注册为工作区对象。已注册对象缺失说明会报错。完整系统将长期说明交给 EBrain；Core 明确用本地 Markdown 替代这一外部依赖。
+Core 的项目或系统说明正本是 `projects/<id>.md`，`config/projects.json` 登记身份、kind、简短导航信息、当前重点和时间线。kind 只允许 project / system，旧记录省略时默认为 project。两类对象都拥有正式任务范围；independent 仍不能注册为工作区对象。已注册对象缺失说明会报错。当前完整系统同样由 GStudio 自己维护项目说明，EBrain 是可选知识能力，不是建项或说明依赖。Core 保留独立本地 Markdown 正本，不导入外部知识页，也不移动专业源码或业务数据。
 
 ## 任务、输入和交付
 
 | 规则 | Core 保留的行为 | 完整系统来源 | Core 实现 |
 | --- | --- | --- | --- |
 | 紧凑任务头 | 新卡包含 type、task_id、title、project、work_type、task_kind、status、executor、created_at、updated_at、skills_used、artifact_mode 共 12 个必需字段；北京时区时间含明确偏移 | `AGENTS.md`、`skills/gstudio/references/task-card-template.md`、`scripts/task_gate.py` | `src/gstudio_core/store.py`、`src/gstudio_core/templates/templates/task-card.md` |
+| 真实执行登记 | 创建和续接接口可登记真实 executor 与 skills_used；续接追加 Skill 历史而不改变任务归属或生命周期；不推断模型或自动启动执行器 | `AGENTS.md`、`skills/gstudio/SKILL.md` | `src/gstudio_core/store.py`、`docs/api.md` |
 | 人类可读正文 | 任务目标、任务描述、当前结果、执行日志四个必需板块；下一步按需出现；日志是最后一个二级板块，最新记录在前 | `AGENTS.md`、`scripts/task_gate.py`、`scripts/gstudio_task.py` | `src/gstudio_core/store.py` |
 | 短标题 | 最多 20 个字符、单行完整名称、不含省略号；目标和背景分别写入正文 | `AGENTS.md`、`scripts/task_gate.py` | `src/gstudio_core/store.py`、`src/gstudio_core/web/app.js` |
 | 四个生命周期状态 | active、waiting_user、blocked、completed；新任务为 active，等待或阻碍由用户明确设置；不会从结果文字自动推断完成 | `AGENTS.md`、`scripts/gstudio_task.py`、`scripts/task_gate.py` | `src/gstudio_core/store.py`、`src/gstudio_core/web/app.js` |
@@ -60,19 +61,21 @@ Core 将系统规则与用户数据的位置一并明确。初始化拒绝覆盖
 | 完整系统入口 | Core 对应位置 |
 | --- | --- |
 | `AGENTS.md`、`SOUL.md`、`MEMORY.md`、`RESOLVER.md` | `src/gstudio_core/templates/` 中的公共模板，由 `src/gstudio_core/bootstrap.py` 安装到新工作区 |
-| `skills/RESOLVER.md` 与 `skills/gstudio/SKILL.md` 的启动路由职责 | 工作区 `skills/RESOLVER.md`、`skills/manifest.json`；初始化流程来自 `src/gstudio_core/skills/gstudio-init/`，日常操作遵循工作区系统级 `AGENTS.md` |
+| `skills/RESOLVER.md` 与 `skills/gstudio/SKILL.md` 的启动路由职责 | 工作区 `skills/RESOLVER.md`、带版本的 `skills/manifest.json`；`gstudio-init` 负责新安装，`gstudio-core` 精简适配总入口、任务必要性、项目上下文、续接、校验与人工确认职责 |
 | `skills/gstudio/references/task-card-template.md` | 工作区 `templates/task-card.md` |
 | `scripts/workspace_paths.py` 与机器环境解析 | `src/gstudio_core/cli.py` 显式指定工作区；工作区 `RESOLVER.md` 使用相对位置 |
 | `scripts/task_gate.py` 的执行前后数据验证职责 | `src/gstudio_core/store.py` 的读取及写入检查、`src/gstudio_core/bootstrap.py` 的契约检查、`gstudio check` |
 
 初始化 Skill 负责建立新安装和新工作区，不取得重置已有数据或运行私人集成的权限。它不替代日常任务卡，也不复制完整系统的所有下游 Skills。
 
+`gstudio-core` 与完整版 `gstudio` 对应的是通用职责，不是同一份文件。普通只读检索不强制建卡；同一目标调用其他 Skill 或换执行器仍继续原任务。Core 使用本地 `gstudio check` 与受控 Workspace / HTTP 接口落实流程，不照搬完整系统的 NAS、跨机租约、外部 MCP 或业务发布能力。
+
 ## 有意精简的差异
 
 | 方面 | 完整系统 | Core 的公开最小范围 |
 | --- | --- | --- |
 | 工作位置与同步 | 共享 NAS 正本、双 Mac 运行环境、共享锁及系统同步 | 用户明确指定的本地工作区，同一工作区一个服务；没有共享盘或双机同步 |
-| 项目与系统知识 | 注册类型、能力配置与 EBrain 项目或系统说明 | project / system 最小两类，本地 Markdown 说明；没有完整能力类型、EBrain 或知识写回 |
+| 项目说明与知识 | 注册类型、业务分类、能力配置；GStudio 共享项目说明正本，外部知识能力可选 | project / system 最小两类，本地 Markdown 说明；没有完整能力类型、业务分类或外部知识写回 |
 | 任务检视 | 所选整理、周报与周自动治理、控制任务、逐项执行回执 | 手动选择、构造建议上下文、保存人工报告；没有周自动治理 |
 | AI 执行 | 可以通过 Codex、OpenCode 等按钮进入已配置执行器 | 生成、阅读和复制六段上下文；不调用模型、不启动 Codex 或 OpenCode、不执行电脑操作 |
 | 资料摄入 | 文件快照、外部引用、配置容量阈值及归档路由 | 界面新增 UTF-8 文字最多 1 MiB；引用仅限已索引工作区文件；没有外部来源读取或自动下载 |
@@ -81,7 +84,7 @@ Core 将系统规则与用户数据的位置一并明确。初始化拒绝覆盖
 | 结构与修订 | 有逐项确认的合并、拆分以及正式交付重开门禁 | 可阅读任务线和准备结构建议；不执行合并拆分，不重开或改写正式交付 |
 | 数据兼容 | 兼容历史卡片和既有系统登记 | 只支持公开版声明的任务类型和路径；旧 kind/bytes 输入记录有有限读取兼容，不能据此整库迁移 |
 
-这些差异是首版范围，不应被描述为完整系统能力已经开源。后续增加能力时，应同时更新系统契约、可执行校验、页面行为和示例证据。
+这些差异是当前最小范围，不应被描述为完整系统能力已经开源。后续增加能力时，应同时更新系统契约、可执行校验、页面行为和示例证据。
 
 ## 验证对齐的方式
 
