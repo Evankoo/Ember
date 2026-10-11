@@ -19,7 +19,7 @@ Core 的动态工作区读取本地注册。用户可以新建 project（项目�
 | 归档中心 | 处理 Inbox 来源，查看按项目归档的文件与校验记录 | `scripts/gstudio_workbench.py`、`scripts/gstudio_archive_inbox.py`、`scripts/gstudio_archive_index.py` | `src/gstudio_core/web/app.js`、`src/gstudio_core/store.py` |
 | 任务检视 | 阅读任务、明确所选范围、准备整理上下文、保存与回看报告 | `scripts/gstudio_workbench.py`、`scripts/gstudio_task_organization.py`、`scripts/gstudio_weekly_organization.py` | `src/gstudio_core/web/app.js`、`src/gstudio_core/store.py` |
 | 资料浏览 | 以文件为主浏览、筛选、文本阅读和下载；任务是文件来源关系 | `scripts/gstudio_workbench.py`、`scripts/gstudio_task_inputs.py` | `src/gstudio_core/web/app.js`、`src/gstudio_core/store.py`、`src/gstudio_core/server.py` |
-| 设置 | 了解当前工作区、服务状态、可用能力和操作边界 | `scripts/gstudio_workbench.py` | `src/gstudio_core/web/app.js`、`src/gstudio_core/server.py` |
+| 设置 | 已保存本机环境摘要、动态软件清单、修改检查保存、基础 Skills 与操作边界 | `scripts/gstudio_workbench.py` | `src/gstudio_core/web/app.js`、`src/gstudio_core/server.py`、`src/gstudio_core/executors.py` |
 | 视觉语言 | 暖纸色、深色侧栏、共享文字层级、留白、响应式阅读布局 | `WORKBENCH_DESIGN.md`、`scripts/gstudio_workbench_assets.py` | `src/gstudio_core/web/app.css`、`src/gstudio_core/templates/WORKBENCH_DESIGN.md` |
 
 Core 的项目或系统说明正本是 `projects/<id>.md`，`config/projects.json` 登记身份、kind、简短导航信息、当前重点和时间线。kind 只允许 project / system，旧记录省略时默认为 project。两类对象都拥有正式任务范围；independent 仍不能注册为工作区对象。已注册对象缺失说明会报错。当前完整系统同样由 GStudio 自己维护项目说明，EBrain 是可选知识能力，不是建项或说明依赖。Core 保留独立本地 Markdown 正本，不导入外部知识页，也不移动专业源码或业务数据。
@@ -52,6 +52,8 @@ Core 的项目或系统说明正本是 `projects/<id>.md`，`config/projects.jso
 | 可核对归档 | 待归档资料需明确项目与确认；复制完成后比较内容指纹，保存含来源、目标、时间、项目和 SHA-256 指纹的回执；来源保留 | `AGENTS.md`、`skills/project-intake/SKILL.md`、`scripts/gstudio_archive_index.py` | `src/gstudio_core/store.py`、工作区 `.gstudio/archive-records.json` |
 | 正式交付归档 | 可通过接口明确复制所属项目的已完成正式交付；正式交付本身不自动视为归档，输入和草稿不能冒充归档源 | `AGENTS.md`、`skills/project-intake/SKILL.md` | `src/gstudio_core/store.py` |
 | 模型中立上下文 | 六段结构：任务、上下文、输入与真源、授权边界、成功标准、输出；基于当前所选记录，文件与外部材料不能扩大授权 | `skills/gstudio/references/shared-prompt-standard.md` | `src/gstudio_core/store.py`、`src/gstudio_core/web/app.js` |
+| 通用本机执行环境 | 只读发现常见软件或手工添加，默认项来自本机确认清单；持久化只写用户私有 Core 配置，已保存摘要与未保存草稿分开 | `scripts/gstudio_executor_settings.py`、`scripts/gstudio_workbench.py` | `src/gstudio_core/executors.py`、`src/gstudio_core/web/app.js` |
+| 明确复制并打开 | 用户核对上下文后可单独复制，或明确打开已保存默认软件；启动路径安全引用、不传业务提示词、用户手工粘贴发送，不改任务状态 | `scripts/gstudio_workbench_service.py` | `src/gstudio_core/server.py`、`src/gstudio_core/executors.py` |
 | 整理建议与报告 | 建议区分 no_change、task_group、merge、split；保存报告只记录文字，不授权结构、完成或删除操作 | `AGENTS.md`、`scripts/gstudio_task_organization.py`、`scripts/gstudio_weekly_organization.py` | `src/gstudio_core/store.py`、工作区 `reports/` |
 
 ## 初始化后的公共系统契约
@@ -77,7 +79,7 @@ Core 将系统规则与用户数据的位置一并明确。初始化拒绝覆盖
 | 工作位置与同步 | 共享 NAS 正本、双 Mac 运行环境、共享锁及系统同步 | 用户明确指定的本地工作区，同一工作区一个服务；没有共享盘或双机同步 |
 | 项目说明与知识 | 注册类型、业务分类、能力配置；GStudio 共享项目说明正本，外部知识能力可选 | project / system 最小两类，本地 Markdown 说明；没有完整能力类型、业务分类或外部知识写回 |
 | 任务检视 | 所选整理、周报与周自动治理、控制任务、逐项执行回执 | 手动选择、构造建议上下文、保存人工报告；没有周自动治理 |
-| AI 执行 | 可以通过 Codex、OpenCode 等按钮进入已配置执行器 | 生成、阅读和复制六段上下文；不调用模型、不启动 Codex 或 OpenCode、不执行电脑操作 |
+| AI 执行 | 通用软件清单和专用 Agent 路由、模型及能力治理 | 六段上下文；明确确认后只打开本机已登记软件，不调用模型、不自动提交；没有私人 Agent 路由或能力授权 |
 | 资料摄入 | 文件快照、外部引用、配置容量阈值及归档路由 | 界面新增 UTF-8 文字最多 1 MiB；引用仅限已索引工作区文件；没有外部来源读取或自动下载 |
 | 归档流程 | NAS 来源、归档队列、项目归档后端及严格选择确认的删除流程 | 本地确认复制、内容校验与回执；没有队列、远程后端或 NAS 删除操作 |
 | 正式推广 | 将已批准草稿目录推广到正式目录，更新卡片位置与导航 | 复制校验到正式目录并完成卡片，保留草稿副本追溯；当前交付正本仍由单一 state/folder 指向正式目录 |
@@ -90,4 +92,4 @@ Core 将系统规则与用户数据的位置一并明确。初始化拒绝覆盖
 
 使用空工作区和独立虚构示例验证：新建项目与任务、重启回读、输入引用不复制、快照损坏检测、无文件完成、正式交付确认、重要性 revision、Inbox 标签不移动来源、归档指纹与回执、六段上下文无写入，以及桌面和手机页面职责。
 
-存储、HTTP 与初始化测试位于 `tests/`；界面另外通过真实浏览器检查。工作区 `gstudio check` 验证当前数据与初始化契约。通过检查只说明该版本满足上述公开范围，不证明与完整系统的所有功能等价。
+存储、HTTP、软件登记与初始化测试位于 `tests/`；`test_browser.py` 可选使用真实 Chromium 检查设置和复制打开边界，软件启动全部模拟。工作区 `gstudio check` 验证当前数据与初始化契约。通过检查只说明该版本满足上述公开范围，不证明与完整系统的所有功能等价。本版没有把内部系统的飞书、AList 或运行 Agent 故障清单复制到公开设置页。

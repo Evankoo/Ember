@@ -11,7 +11,9 @@ from unittest.mock import patch
 import yaml
 
 from gstudio_core.server import LocalServer, workspace_lock
+from gstudio_core.executors import ExecutorRegistry
 from gstudio_core.store import Workspace, WorkspaceError
+from test_executors import software_fixture
 
 
 class HTTPTests(unittest.TestCase):
@@ -20,7 +22,8 @@ class HTTPTests(unittest.TestCase):
         self.root = Path(self.temp.name) / "workspace"
         self.workspace = Workspace(self.root)
         self.workspace.initialize(example=True)
-        self.server = LocalServer(self.workspace, 0)
+        self.registry = ExecutorRegistry(Path(self.temp.name) / "machine-home")
+        self.server = LocalServer(self.workspace, 0, executor_registry=self.registry)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         self.port = self.server.server_port
@@ -63,6 +66,57 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(health["contract"]["skills"], ["gstudio-init", "gstudio-core"])
         (self.root / "AGENTS.md").unlink()
         self.assertEqual(self.request("/api/health")[0], 404)
+
+    def test_settings_readback_exposes_only_installed_core_skills_and_local_metadata(self):
+        manifest_path = self.root / "skills/manifest.json"
+        manifest = json.loads(manifest_path.read_text())
+        manifest["skills"].extend([
+            {"name": "private-custom-skill", "path": ".agents/skills/private-custom-skill/SKILL.md", "purpose": "Not part of Core"},
+            {"name": "gstudio-core", "path": "unregistered/private/SKILL.md", "purpose": "Unregistered duplicate"},
+            None,
+        ])
+        manifest_path.write_text(json.dumps(manifest))
+        before = {str(path.relative_to(self.root)): path.read_bytes() for path in self.root.rglob("*") if path.is_file()}
+        with patch.object(self.registry, "discover") as discovery, patch("gstudio_core.executors.subprocess.run") as launch:
+            settings = self.data("/api/settings")
+        self.assertEqual({item["name"] for item in settings["skills"]}, {"gstudio-init", "gstudio-core"})
+        self.assertEqual(len(settings["skills"]), 2)
+        self.assertEqual(settings["execution_environment"]["executors"], [])
+        self.assertFalse(self.registry.path.exists())
+        self.assertEqual(before, {str(path.relative_to(self.root)): path.read_bytes() for path in self.root.rglob("*") if path.is_file()})
+        discovery.assert_not_called()
+        launch.assert_not_called()
+
+    def test_executor_check_save_open_require_tokens_confirmation_and_current_revision(self):
+        entries = software_fixture(self.registry.home)
+        payload = {"executors": entries, "default_executor": "other-app", "expected_revision": self.registry.snapshot()["revision"]}
+        before = self.workspace.snapshot()
+        self.assertEqual(self.request("/api/executors/save", "POST", payload, {"X-GStudio-Token": "invalid"})[0], 403)
+        self.assertFalse(self.registry.path.exists())
+        self.data("/api/executors/check", "POST", payload)
+        self.assertFalse(self.registry.path.exists())
+        saved = self.data("/api/executors/save", "POST", payload)
+        open_payload = {"executor_id": "other-app", "expected_revision": saved["revision"], "confirmation": False}
+        with patch("gstudio_core.executors.sys.platform", "darwin"), patch("gstudio_core.executors.subprocess.run") as launch:
+            self.assertEqual(self.request("/api/executors/open", "POST", open_payload)[0], 400)
+            self.assertEqual(self.request("/api/executors/open", "POST", {**open_payload, "confirmation": True, "path": "/bin/sh"})[0], 400)
+            launch.assert_not_called()
+            result = self.data("/api/executors/open", "POST", {**open_payload, "confirmation": True})
+            self.assertTrue(result["opened"])
+            self.assertFalse(result["submitted"])
+            self.assertEqual(launch.call_args.args[0], ["/usr/bin/open", "-a", entries[0]["path"]])
+        self.assertEqual(self.workspace.snapshot(), before)
+        self.assertFalse(self.registry.path.is_relative_to(self.root))
+
+    def test_discovery_is_explicit_read_only_and_cannot_accept_arbitrary_scan_roots(self):
+        response = {"candidates": [], "warnings": [], "limited": False, "scope": "fixture"}
+        with patch.object(self.registry, "discover", return_value=response) as discovery:
+            self.assertEqual(self.request("/api/executors/discover", "POST", {}, {"Origin": "https://evil.example"})[0], 403)
+            self.assertEqual(self.request("/api/executors/discover", "POST", {"roots": ["/private"]})[0], 400)
+            discovery.assert_not_called()
+            self.assertEqual(self.data("/api/executors/discover", "POST", {}), response)
+            discovery.assert_called_once_with()
+        self.assertFalse(self.registry.path.exists())
 
     def test_reference_and_nonfile_completion_are_persisted(self):
         task = self.data("/api/tasks", "POST", {"title": "引用与无文件验证", "project": "independent", "goal": "保留引用与结果", "artifact_mode": "none"})

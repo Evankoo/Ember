@@ -4,7 +4,7 @@ const app = (() => {
   const main = document.getElementById("main-content");
   const dialog = document.getElementById("workbench-dialog");
   const dialogBody = document.getElementById("dialog-body");
-  const state = { data: null, route: "home", id: "", dialogReturn: null, toastTimer: null, preview: null };
+  const state = { data: null, route: "home", id: "", dialogReturn: null, toastTimer: null, preview: null, settings: null, settingsRequest: 0 };
   const filters = {
     home: { query: "", project: "", type: "", status: "" },
     review: { query: "", project: "", type: "", status: "" },
@@ -12,6 +12,7 @@ const app = (() => {
     project: { query: "", kind: "tasks", status: "" }
   };
   const ui = { review: new Set(), library: new Set(), inbox: new Set(), inboxLabel: "未分类", archiveProject: "", expanded: new Set(), reviewTask: "", reviewReport: "", file: "", projectId: "", recordQuery: "" };
+  const software = { entries: [], default: "", editing: false, manual: { label: "", kind: "command", path: "" }, epoch: 0, saving: false };
   const statusNames = { active: "进行中", waiting_user: "待确认", blocked: "受阻", completed: "已完成" };
   const workNames = { text: "文字", image: "图像", video: "视频", audio: "音频", data: "数据", mixed: "综合", system: "系统" };
   const labels = ["未分类", "处理中", "待归档", "可删除"];
@@ -322,7 +323,116 @@ const app = (() => {
   }
 
   function renderSettings() {
-    main.innerHTML = `${pageHead("设置", "GStudio Core · 单机本地工作区", `<button id="health-check-button" class="button" type="button" data-action="health-check">检查服务状态</button>`)}<div id="health-result" class="muted">读取工作区成功。服务状态检查只在点击后执行。</div><div class="settings-grid"><section class="setting-item"><h2>当前工作区</h2><p>${esc(data().workspace_name || "本地工作区")}</p><p>版本 ${esc(data().version || "未知")} · ${data().projects.filter(p => p.kind !== "system").length} 个项目 · ${data().projects.filter(p => p.kind === "system").length} 个系统 · ${data().tasks.length} 项任务</p><p>数据保存到启动命令指定的 <code>--workspace</code> 目录。任务卡、项目说明、资料与报告可直接读取；停止服务后仍保留。</p><p>收件箱和归档库均属于这个工作区。此安装包没有接入 NAS 或其他私人系统。</p></section><section class="setting-item"><h2>核心能力</h2><ul class="capability-list"><li>项目、系统与任务卡的本地保存、检索与更新</li><li>输入资料和交付文件分别保存</li><li>明确确认后的正式交付与任务完成</li><li>收件箱标签、校验归档与来源保留</li><li>任务上下文准备与整理报告记录</li></ul></section><section class="setting-item"><h2>外部 AI 工具</h2><p>AI 按钮会准备当前对象的上下文，供你阅读和复制。模型调用与电脑执行由你选择的外部工具负责。</p><p>可将上下文粘贴到已经使用的 Codex、OpenCode、聊天助手或其他工具；本安装包不注册执行器、不读取账号，也不自动发送请求。</p></section><section class="setting-item"><h2>操作边界</h2><p>写入需要当前本地服务的请求令牌。任务完成与归档复制都有显式确认；没有永久删除接口。</p><p>文件按文本安全阅读，HTML、SVG 与脚本不会在工作台中执行。下载后请用合适的应用检查内容。</p></section></div>`;
+    main.innerHTML = `<div class="settings-page">${pageHead("设置", "先配置本机软件，再查看工作区与基础能力。", `<button id="health-check-button" class="button" type="button" data-action="health-check">检查服务状态</button>`)}<section id="execution-environment" class="setting-section"><h2>执行环境</h2><div id="software-content" aria-live="polite">正在读取本机已保存的软件清单…</div></section><div id="health-result" class="settings-health muted">服务状态检查只在点击后执行；不会验证软件登录或调用模型。</div><section class="setting-section"><h2>基础 Skills</h2><div id="settings-skills">正在读取当前工作区的登记…</div><p class="muted">Core 只附带安装与日常任务两个基础 Skill。登记与安装不代表模型已登录或能够执行；业务 Skill 由你另行准备。</p></section><div class="settings-grid"><section class="setting-item"><h2>当前工作区</h2><p>${esc(data().workspace_name || "本地工作区")}</p><p>版本 ${esc(data().version || "未知")} · ${data().projects.filter(p => p.kind !== "system").length} 个项目 · ${data().projects.filter(p => p.kind === "system").length} 个系统 · ${data().tasks.length} 项任务</p><p>任务、项目说明、资料与报告保存在 <code>--workspace</code> 目录。本机软件清单独立保存在当前用户的电脑上，不随工作区或开源包同步。</p></section><section class="setting-item"><h2>核心能力</h2><ul class="capability-list"><li>本地项目、系统与任务卡</li><li>分别保存输入资料与交付</li><li>明确确认后的正式交付与任务完成</li><li>收件箱标签、校验归档与来源保留</li><li>上下文预览、复制和明确确认后的软件打开</li></ul></section><section class="setting-item"><h2>操作边界</h2><p>软件查找只读取受限的安装目录；检查路径不会启动软件。保存只修改 Core 的本机清单，不读取或修改客户端的模型、账号、权限和会话。</p><p>上下文预览中的“复制并打开”只打开已保存的默认软件。你仍需手工粘贴、发送；Core 不调用模型、不自动提交，也不因此完成或改写任务。</p><p>文件按文本安全阅读，HTML、SVG 与脚本不在工作台中执行；没有永久删除接口。</p></section></div></div>`;
+    readSettings();
+  }
+
+  const cloneEntries = entries => entries.map(entry => ({ ...entry }));
+  const softwareSignature = () => JSON.stringify([software.entries, software.default, software.manual]);
+  const softwarePayload = () => ({ executors: software.entries, default_executor: software.default, expected_revision: state.settings.execution_environment.revision });
+
+  async function readSettings() {
+    const request = ++state.settingsRequest;
+    try {
+      const result = await api("/api/settings");
+      if (request !== state.settingsRequest || state.route !== "settings") return;
+      state.settings = result;
+      resetSoftware();
+      renderSoftware();
+      document.getElementById("settings-skills").innerHTML = result.skills.map(item => `<div class="core-skill"><strong>${esc(item.name)}</strong><span>${esc(item.version)}</span><span>${esc(item.purpose || "已登记基础 Skill")}</span></div>`).join("") || empty("登记结果为空；请检查工作区契约，不要把它当作能力已验证。");
+    } catch (error) {
+      if (request !== state.settingsRequest || state.route !== "settings") return;
+      document.getElementById("software-content").innerHTML = `<p class="form-error">${esc(error.message)} · 原配置保留，未当作空清单。</p><button class="button" type="button" data-action="settings-reload">重新读取</button>`;
+      document.getElementById("settings-skills").textContent = "登记暂不可读，不能确定已安装能力。";
+    }
+  }
+
+  function resetSoftware() {
+    const saved = state.settings.execution_environment;
+    software.epoch++;
+    software.entries = cloneEntries(saved.executors);
+    software.default = saved.default_executor;
+    software.editing = !saved.ready;
+    software.manual = { label: "", kind: "command", path: "" };
+  }
+
+  function renderSoftware() {
+    const saved = state.settings.execution_environment;
+    const current = saved.executors.find(entry => entry.id === saved.default_executor);
+    const status = saved.ready ? "saved" : !saved.registry_readable || saved.default_executor ? "unavailable" : "empty";
+    const heading = saved.ready ? "已配置 · 软件路径可用" : !saved.registry_readable ? "配置暂不可读" : current ? "软件路径需要修复" : "尚未配置本机环境";
+    const rows = software.entries.map(entry => `<div class="software-registered-row" data-software-id="${esc(entry.id)}"><label>软件名称<input data-software-field="label" value="${esc(entry.label)}" maxlength="80"></label><label>类型<select data-software-field="kind">${option("command", "命令行程序", entry.kind)}${option("app", "macOS 应用", entry.kind)}</select></label><label>软件路径<input data-software-field="path" value="${esc(entry.path)}" maxlength="4096"></label><button class="button ghost" type="button" data-action="remove-software" data-id="${esc(entry.id)}">移除</button></div>`).join("");
+    document.getElementById("software-content").innerHTML = `<div id="software-summary" class="software-summary" data-environment-state="${status}"><div><p class="section-label">当前生效环境</p><h3 id="current-software-name">${esc(current?.label || "未选择默认软件")}</h3><p>${esc(heading)}${current ? ` · ${current.kind === "app" ? "macOS 应用" : "命令行程序"}` : ""}</p>${current ? `<code class="software-locator">${esc(current.path)}</code>` : ""}<p class="muted">${esc(saved.error || (saved.ready ? "上下文预览中可明确确认复制并打开；请在软件中手工粘贴、发送。" : "添加本机软件、选择默认项，检查后明确保存。没有预设的两个固定选项。"))}</p></div><div class="software-summary-actions"><button id="edit-software" class="button" type="button" data-action="edit-software" aria-controls="software-editor" aria-expanded="${software.editing}">${saved.ready ? "修改配置" : "配置 / 修复"}</button><span class="muted">${saved.registry_readable ? `已保存 ${saved.executors.length} 项本机软件` : "本机清单未知"}</span></div></div><p class="muted">这里只检查软件路径；模型、登录与权限由软件自己管理。要修改环境，打开“修改配置”，编辑后检查并保存；取消不会改动已保存环境。</p><div id="software-editor"${software.editing ? "" : " hidden"}><section class="software-step"><h3>1 · 添加或修改本机软件</h3><div class="actions"><button id="find-software" class="button" type="button" data-action="discover-software">自动查找软件</button></div><div id="software-candidates" class="stack" hidden></div><div id="software-registered-list">${rows || '<p class="muted">清单为空。先查找，或手工添加有效的本机应用 / 命令行程序。</p>'}</div><div class="software-manual"><label>软件名称<input id="software-name" maxlength="80" value="${esc(software.manual.label)}"></label><label>类型<select id="software-kind">${option("command", "命令行程序", software.manual.kind)}${option("app", "macOS 应用", software.manual.kind)}</select></label><label>软件路径<input id="software-path" maxlength="4096" value="${esc(software.manual.path)}" placeholder="绝对路径或 ~/ 开头的路径"></label><button id="add-software" class="button" type="button" data-action="add-software">手工添加</button></div></section><section class="software-step"><h3>2 · 选择默认软件</h3><label class="software-default">日常上下文预览使用<select id="default-software">${softwareOptions()}</select></label></section><section class="software-step"><h3>3 · 检查并保存</h3><p id="software-editor-state" data-state="unchanged" role="status" aria-live="polite">这是已保存配置的编辑副本；更改、查找和检查都不会自动保存。</p><div class="actions"><button id="check-software" class="button" type="button" data-action="check-software">检查软件路径</button><button id="save-software" class="button primary" type="button" data-action="save-software">保存配置</button><button id="cancel-software" class="button ghost" type="button" data-action="cancel-software">取消修改</button></div></section></div><p class="software-source muted">本机配置：<code>${esc(saved.config_path)}</code> · 不随工作区复制或备份。</p>`;
+  }
+
+  function softwareOptions() {
+    return option("", "请选择本机软件", software.default) + software.entries.map(entry => option(entry.id, entry.label, software.default)).join("");
+  }
+
+  function softwareStatus(kind, message) {
+    const node = document.getElementById("software-editor-state");
+    if (node) { node.dataset.state = kind; node.textContent = message; }
+  }
+
+  function softwareChanged() {
+    software.epoch++;
+    softwareStatus("dirty", "修改尚未保存。当前生效环境仍是上方已保存的配置。");
+    const select = document.getElementById("default-software");
+    if (select) select.innerHTML = softwareOptions();
+  }
+
+  function addSoftware(entry, manual = false) {
+    if (!entry.label.trim() || !entry.path.trim()) throw new Error("请填写软件名称和路径，再添加到清单。");
+    if (software.entries.some(item => item.kind === entry.kind && item.path === entry.path)) throw new Error("这个路径已经在清单中，请修改现有条目。");
+    if (software.entries.length >= 32) throw new Error("本机清单最多登记 32 项软件。");
+    software.entries.push({ id: entry.id, label: entry.label, kind: entry.kind, path: entry.path });
+    if (manual) software.manual = { label: "", kind: "command", path: "" };
+    software.epoch++;
+    renderSoftware();
+    softwareStatus("dirty", "已添加到编辑清单，尚未保存；请自行选择默认软件，检查后保存。");
+    document.querySelector(`[data-software-id="${entry.id}"] [data-software-field="path"]`).focus();
+  }
+
+  async function softwareRequest(kind, button) {
+    if (software.saving) return;
+    if (kind !== "discover" && (software.manual.label.trim() || software.manual.path.trim())) throw new Error("手工填写的软件还未添加，请先点“手工添加”，或清空未添加的草稿。");
+    const epoch = software.epoch, signature = softwareSignature();
+    if (kind === "save") {
+      software.saving = true;
+      document.querySelectorAll("#software-editor input,#software-editor select,#software-editor button,#edit-software").forEach(node => { node.disabled = true; });
+    }
+    try {
+      if (kind === "discover") {
+        const result = await api("/api/executors/discover", {});
+        if (epoch !== software.epoch || state.route !== "settings") return;
+        const node = document.getElementById("software-candidates");
+        node.hidden = false;
+        const candidates = result.candidates.filter(entry => /^[a-z0-9][a-z0-9_-]{0,63}$/.test(entry.id) && ["app", "command"].includes(entry.kind) && typeof entry.path === "string" && typeof entry.label === "string");
+        ui.foundSoftware = candidates;
+        node.innerHTML = `<p class="muted">${esc(result.scope)}${result.limited ? " · 查找范围受限，结果可能不完整。" : ""}${result.warnings.map(item => " · " + esc(item)).join("")}</p>` + (candidates.map((entry, index) => `<div class="software-candidate"><div><strong>${esc(entry.label)}</strong><code>${esc(entry.path)}</code></div><button class="button" type="button" data-action="add-found-software" data-id="${index}">添加此软件</button></div>`).join("") || `<p>${result.warnings.length || result.limited ? "未得到完整结果；可重试或手工添加。" : "在常见安装目录未找到支持的软件；可手工添加，不会自动安装。"}</p>`);
+        return;
+      }
+      softwareStatus(kind === "save" ? "saving" : "checking", kind === "save" ? "正在保存本机清单…" : "正在检查路径；不会启动软件或保存…");
+      const result = await api(`/api/executors/${kind}`, softwarePayload());
+      if (kind === "check") {
+        if (epoch === software.epoch && signature === softwareSignature() && state.route === "settings") softwareStatus("checked", "路径检查通过，但尚未保存；模型和登录没有验证。");
+      } else {
+        state.settings.execution_environment = result;
+        resetSoftware();
+        if (state.route === "settings") renderSoftware();
+        notice("本机环境已保存。客户端模型、账号、会话与任务记录均未修改。");
+      }
+    } catch (error) {
+      if (epoch === software.epoch && state.route === "settings") {
+        softwareStatus("error", error.message);
+        throw error;
+      }
+    } finally {
+      if (kind === "save") {
+        software.saving = false;
+        document.querySelectorAll("#software-editor input,#software-editor select,#software-editor button,#edit-software").forEach(node => { node.disabled = false; });
+      }
+    }
   }
 
   function renderRoute() {
@@ -363,8 +473,13 @@ const app = (() => {
     openDialog("准备上下文", `<form id="context-dialog-form" class="stack" data-form="context" data-files="${esc(JSON.stringify(fileIds))}"><p class="muted">${target ? `关联任务：${esc(target.title)}` : "新任务"}${fileIds.length ? ` · ${fileIds.length} 个资料文件` : ""}</p><input type="hidden" name="relation" value="${esc(relation)}"><input type="hidden" name="task_id" value="${esc(taskId)}"><label>本次要求<textarea id="dialog-context-request" name="request" required>${esc(request)}</textarea></label><p class="form-error" role="alert"></p><div class="form-actions"><button class="button primary" type="submit">生成并阅读上下文</button></div></form>`);
   }
 
-  function showContext(text) {
-    openDialog("上下文预览", `<p class="muted">检查内容后复制到你的外部 AI 工具。此处没有自动调用，也没有创建或修改任务。</p><label class="stack"><span class="section-label">当前工作区上下文</span><textarea id="context-output" readonly rows="18">${esc(text)}</textarea></label><div class="form-actions"><button id="copy-context-button" class="button primary" type="button" data-action="copy-context">复制上下文</button><button class="button ghost" type="button" data-action="close-dialog">关闭</button></div>`);
+  async function showContext(text) {
+    let environment = null, failure = "";
+    try { environment = (await api("/api/settings")).execution_environment; }
+    catch (error) { failure = error.message; }
+    state.preview = { text, environment };
+    const selected = environment?.executors.find(entry => entry.id === environment.default_executor);
+    openDialog("上下文预览", `<p class="muted">先阅读上下文。复制或打开软件都不会发送模型请求，也不会创建、修改或完成任务。</p><label class="stack"><span class="section-label">当前工作区上下文</span><textarea id="context-output" readonly rows="18">${esc(text)}</textarea></label><div class="context-environment"><strong>${environment?.ready ? esc(selected.label) : "未配置可用的默认软件"}</strong>${selected ? `<code>${esc(selected.path)}</code>` : ""}<p>${esc(failure || environment?.error || "点击“复制并打开”会先复制上下文，再打开这一本机软件。请手工粘贴和发送；登录、模型与权限由客户端管理。")}</p>${!environment?.ready ? '<button class="button" type="button" data-action="open-settings">到设置页配置</button>' : ""}</div><div class="form-actions"><button id="copy-context-button" class="button" type="button" data-action="copy-context">只复制上下文</button><button id="copy-open-context-button" class="button primary" type="button" data-action="copy-open-context"${environment?.ready ? "" : " disabled"}>复制并打开${selected ? " · " + esc(selected.label) : ""}</button><button class="button ghost" type="button" data-action="close-dialog">关闭</button></div>`);
   }
 
   function newReport() {
@@ -413,7 +528,7 @@ const app = (() => {
           payload.file_ids = form.dataset.files ? JSON.parse(form.dataset.files) : fields.getAll("file_ids");
           if (!payload.task_id) delete payload.task_id;
           const result = await api("/api/context", payload);
-          showContext(result.text); break;
+           await showContext(result.text); break;
         }
         case "report": await mutate("/api/reports", { ...payload, task_ids: [...ui.review] }); closeDialog(); notice("整理报告已保存。"); break;
         case "archive": await mutate("/api/archive", { id: form.dataset.id, project: payload.project, confirmation: fields.has("confirmation"), revision: data().inbox_revision }); ui.inbox.clear(); closeDialog(); renderArchive(); notice("归档副本已校验，来源已保留。"); break;
@@ -427,6 +542,21 @@ const app = (() => {
     const id = button.dataset.id;
     switch (button.dataset.action) {
       case "close-dialog": closeDialog(); return;
+      case "open-settings": closeDialog(); go("settings"); return;
+      case "settings-reload": await readSettings(); return;
+      case "edit-software":
+        software.editing = true; renderSoftware();
+        (document.querySelector("[data-software-field=label]") || document.getElementById("software-name")).focus(); return;
+      case "cancel-software":
+        if (software.saving) return;
+        resetSoftware(); renderSoftware();
+        (state.settings.execution_environment.ready ? document.getElementById("edit-software") : document.getElementById("default-software")).focus(); return;
+      case "add-software": addSoftware({ ...software.manual, id: "local-" + crypto.randomUUID().replaceAll("-", "") }, true); return;
+      case "add-found-software": addSoftware(ui.foundSoftware[Number(id)]); return;
+      case "remove-software":
+        software.entries = software.entries.filter(entry => entry.id !== id);
+        if (software.default === id) software.default = "";
+        software.epoch++; renderSoftware(); softwareStatus("dirty", "已从编辑清单移除，尚未保存。"); return;
       case "new-task": newTask(button.dataset.project); return;
       case "new-project": newProject(); return;
       case "edit-task": editTask(id); return;
@@ -481,7 +611,7 @@ const app = (() => {
       switch (button.dataset.action) {
         case "file-read": await readFile(id); break;
         case "review-context": {
-          const result = await api("/api/review/context", { task_ids: [...ui.review] }); showContext(result.text); break;
+           const result = await api("/api/review/context", { task_ids: [...ui.review] }); await showContext(result.text); break;
         }
         case "important": await mutate(`/api/tasks/${encodeURIComponent(id)}/important`, { important: !task(id).important, revision: data().revision }); notice("重点状态已保存。任务内容与生命周期未改变。"); break;
         case "set-inbox-label": {
@@ -492,6 +622,23 @@ const app = (() => {
         case "health-check": {
           const health = await api("/api/health");
           document.getElementById("health-result").innerHTML = `<p>检查时间：${esc(new Date().toLocaleString())}</p><pre>${esc(JSON.stringify(health, null, 2))}</pre>`;
+          break;
+        }
+        case "discover-software": await softwareRequest("discover", button); break;
+        case "check-software": await softwareRequest("check", button); break;
+        case "save-software": await softwareRequest("save", button); break;
+        case "copy-open-context": {
+          const preview = state.preview;
+          if (!preview?.environment?.ready) throw new Error("请先在设置页保存有效的本机环境。");
+          try { await navigator.clipboard.writeText(preview.text); }
+          catch {
+            const output = document.getElementById("context-output"); output.focus(); output.select();
+            notice("无法复制，因此没有打开软件。请手工复制并打开客户端。", true); break;
+          }
+          try {
+            const opened = await api("/api/executors/open", { executor_id: preview.environment.default_executor, expected_revision: preview.environment.revision, confirmation: true });
+            notice(`已复制并打开 ${opened.label}。请手工粘贴、发送；没有调用模型。`);
+          } catch (error) { notice(`上下文已复制，但软件没有打开：${error.message}`, true); }
           break;
         }
       }
@@ -507,6 +654,14 @@ const app = (() => {
   });
   document.addEventListener("input", event => {
     const control = event.target;
+    if (control.closest("#software-editor")) {
+      if (control.tagName === "SELECT") return;
+      const row = control.closest("[data-software-id]");
+      if (row && control.dataset.softwareField) software.entries.find(entry => entry.id === row.dataset.softwareId)[control.dataset.softwareField] = control.value;
+      if (control.id === "software-name") software.manual.label = control.value;
+      if (control.id === "software-path") software.manual.path = control.value;
+      softwareChanged(); return;
+    }
     if (control.dataset.filter) {
       const key = control.dataset.filter; filters[key][control.dataset.field] = control.value;
       if (key === "home" || key === "review") renderTaskResults(key);
@@ -516,6 +671,12 @@ const app = (() => {
   });
   document.addEventListener("change", event => {
     const control = event.target;
+    if (control.id === "default-software") { software.default = control.value; softwareChanged(); return; }
+    if (control.id === "software-kind") { software.manual.kind = control.value; softwareChanged(); return; }
+    if (control.dataset.softwareField === "kind") {
+      software.entries.find(entry => entry.id === control.closest("[data-software-id]").dataset.softwareId).kind = control.value;
+      softwareChanged(); return;
+    }
     if (control.id === "context-relation") document.getElementById("context-task").required = control.value !== "new";
     if (control.id === "material-kind") {
       const reference = control.value === "reference";

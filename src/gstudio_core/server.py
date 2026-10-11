@@ -1,4 +1,4 @@
-"""Small HTTP boundary for a single local workspace; no executor bridge."""
+"""Loopback workspace APIs and explicitly confirmed, saved-software opening."""
 from __future__ import annotations
 
 from contextlib import contextmanager
@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from . import __version__
 from .store import WorkspaceError
+from .executors import ExecutorRegistry
 
 WEB = Path(__file__).resolve().parent / "web"
 MAX_BODY = 1_048_576
@@ -24,8 +25,9 @@ CSP = ("default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self';
 class LocalServer(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, workspace, port=8783):
+    def __init__(self, workspace, port=8783, *, executor_registry=None):
         self.workspace = workspace
+        self.executor_registry = executor_registry or ExecutorRegistry()
         self.csrf_token = secrets.token_urlsafe(32)
         super().__init__(("127.0.0.1", port), Handler)
 
@@ -85,6 +87,15 @@ class Handler(BaseHTTPRequestHandler):
                 contract = verify_workspace_contract(self.server.workspace)
                 state = self.server.workspace.snapshot()
                 self.json({"status": "ready", "version": __version__, "tasks": len(state["tasks"]), "contract": contract})
+            elif path == "/api/settings":
+                from .bootstrap import verify_workspace_contract
+                verify_workspace_contract(self.server.workspace)
+                records = [item for item in self.server.workspace._json("skills/manifest.json").get("skills", [])
+                           if isinstance(item, dict) and item.get("name") in {"gstudio-init", "gstudio-core"}
+                           and item.get("path") == f".agents/skills/{item['name']}/SKILL.md"]
+                self.json({"execution_environment": self.server.executor_registry.snapshot(),
+                           "skills": [{"name": item["name"], "version": item.get("version", "未登记版本"),
+                                      "purpose": item.get("purpose", ""), "registered": True} for item in records]})
             elif path in {"/api/file", "/api/raw"}:
                 file_id = query.get("id", [""])[0]
                 if path == "/api/file":
@@ -145,9 +156,17 @@ class Handler(BaseHTTPRequestHandler):
                 "/api/context": w.build_context,
                 "/api/review/context": w.build_review_context,
                 "/api/reports": w.save_report,
+                "/api/executors/check": self.server.executor_registry.validate,
+                "/api/executors/save": self.server.executor_registry.save,
             }
             if path in routes:
                 result = routes[path](payload)
+            elif path == "/api/executors/discover":
+                if payload:
+                    raise WorkspaceError("查找只使用受限的本机安装目录，不接受自定义扫描参数。")
+                result = self.server.executor_registry.discover()
+            elif path == "/api/executors/open":
+                result = self.server.executor_registry.open_software(payload, w.path)
             elif path.startswith("/api/tasks/"):
                 parts = path.split("/")[3:]
                 task_id = parts[0]

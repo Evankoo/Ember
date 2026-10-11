@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gstudio-core"
-version = "0.1.1"
+version = "0.2.0"
 description = "A local, task-card-driven workbench for preparing AI context and preserving work."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -22,6 +22,7 @@ gstudio = "gstudio_core.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+namespaces = false
 
 [tool.setuptools.package-data]
 gstudio_core = ["web/**/*", "web/*", "examples/**/*", "examples/workspace/.gstudio/*.json", "templates/**/*", "templates/*", "skills/**/*"]
