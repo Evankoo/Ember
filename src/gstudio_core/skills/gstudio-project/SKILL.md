@@ -1,14 +1,14 @@
 ---
 name: gstudio-project
 version: 1.0.0
-description: 为 GStudio Core 新建业务项目或系统工作区。先读取现有登记并查重，收齐名称、用途、范围和类型，展示独立项目说明及建项方案，用户确认后通过既有接口登记并验证；不迁移资料或重分配任务。
+description: 为 GStudio 新建业务项目或系统工作区。先读取现有登记并查重，收齐名称、用途、范围和类型，展示独立项目说明及建项方案，用户确认后通过既有接口登记并验证；不迁移资料或重分配任务。
 triggers: [新建项目, 建立系统工作区, 首个业务项目, 项目建项]
 tools: [read_file, terminal, browser]
 mutating: true
 writes_pages: false
 ---
 
-# GStudio Core 项目建项
+# GStudio 项目建项
 
 ## Contract
 

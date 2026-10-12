@@ -15,7 +15,7 @@ import sys
 import tempfile
 import urllib.request
 
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 WHEEL = f"gstudio_core-{VERSION}-py3-none-any.whl"
 RELEASE = f"https://github.com/Evankoo/GStudio-Core/releases/download/v{VERSION}/{WHEEL}"
 
@@ -172,8 +172,18 @@ def run(args):
         save()
         write_back()
         command(check)
+        # Let AI tools in any folder find this workspace; never replace a different existing default.
+        registered = subprocess.run([str(python), "-m", "gstudio_core", "use", str(workspace)], capture_output=True, text=True)
+        receipt["default_workspace"] = "registered" if registered.returncode == 0 else "kept-existing"
+        if registered.returncode:
+            receipt["default_workspace_note"] = registered.stderr.strip()[:1000]
+        save()
         print(json.dumps(receipt, ensure_ascii=False, indent=2))
         print(f"安装收据：{receipt_path}\n首任务：{workspace / receipt['task_path']}\n验收草稿：{workspace / receipt['report_path']}\n启动：{shlex.join(start)}\n停止：在服务进程按 Ctrl+C\n下一步：打开工作台，回读首任务和三项 Skill；首个业务项目另行确认，人工验收后才正式交付。")
+        if receipt["default_workspace"] == "registered":
+            print(f"本机默认工作区：{workspace}（记录在 ~/.config/gstudio-core/workspace.json）")
+        else:
+            print(f"本机已有另一个默认工作区，未替换：{receipt['default_workspace_note']}")
         return 0
     except Exception as error:
         if receipt.get("writeback_status") == "pending":
@@ -191,7 +201,7 @@ def run(args):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="在新目录中安装 GStudio Core 并验证初始化")
+    parser = argparse.ArgumentParser(description="在新目录中安装 GStudio 并验证初始化")
     parser.add_argument("--app-dir", required=True)
     parser.add_argument("--workspace", required=True)
     parser.add_argument("--mode", choices=("empty", "example"), required=True)

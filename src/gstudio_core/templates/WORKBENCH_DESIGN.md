@@ -1,4 +1,4 @@
-# GStudio Core Workbench Design
+# GStudio Workbench Design
 
 继承 GStudio 的暖纸色阅读表面、深色侧栏与轻衬线标题；使用共享样式，不为各页创建不同视觉体系。
 

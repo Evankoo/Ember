@@ -1,4 +1,4 @@
-# GStudio Core contributors
+# GStudio contributors
 
 Keep this package local, small and readable. Workspaces contain user data; never add a real workspace, secret, account configuration or production system history to this repository.
 

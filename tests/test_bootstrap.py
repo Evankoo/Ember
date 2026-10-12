@@ -2,6 +2,7 @@
 import argparse
 import importlib.util
 import json
+import os
 from pathlib import Path
 import socket
 import subprocess
@@ -127,7 +128,10 @@ class BootstrapTests(unittest.TestCase):
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", 0))
             port = probe.getsockname()[1]
-        with patch.object(helper.subprocess, "run", side_effect=run):
+        self.home = self.root / "home"
+        self.home.mkdir(exist_ok=True)
+        # Installer subprocesses write machine config under HOME; never touch the real one.
+        with patch.object(helper.subprocess, "run", side_effect=run), patch.dict(os.environ, {"HOME": str(self.home)}):
             result = helper.run(self.args(source=str(Path(__file__).resolve().parents[1]), port=port))
         return result, json.loads((self.root / "app/installation.json").read_text())
 
@@ -143,6 +147,21 @@ class BootstrapTests(unittest.TestCase):
         self.assertEqual(state["tasks"][0]["id"], receipt["task_id"])
         self.assertEqual(state["tasks"][0]["status"], "active")
         self.assertTrue((workspace.path / receipt["report_path"]).is_file())
+        self.assertEqual(receipt["default_workspace"], "registered")
+        registered = json.loads((self.home / ".config/gstudio-core/workspace.json").read_text())
+        self.assertEqual(registered["workspace"], str(workspace.path))
+
+    def test_installer_keeps_a_different_existing_default_workspace(self):
+        self.home = self.root / "home"
+        config = self.home / ".config/gstudio-core/workspace.json"
+        config.parent.mkdir(parents=True)
+        existing = {"version": 1, "workspace": str(self.root / "earlier"), "python": sys.executable}
+        config.write_text(json.dumps(existing))
+        result, receipt = self.run_installer_fixture()
+        self.assertEqual(result, 0)
+        self.assertEqual(receipt["default_workspace"], "kept-existing")
+        self.assertIn("--replace", receipt["default_workspace_note"])
+        self.assertEqual(json.loads(config.read_text()), existing)
 
     def test_real_installer_failure_is_written_to_same_task_and_retains_test_directory(self):
         result, receipt = self.run_installer_fixture(fail_workflow=True)

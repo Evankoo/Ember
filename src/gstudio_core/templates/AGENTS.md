@@ -1,4 +1,4 @@
-# GStudio Core System Operating Contract
+# GStudio System Operating Contract
 
 这是整个本地工作区的系统级规则，适用于在这里工作的所有 Agent。具体 Agent 的身份文档使用单数 `AGENT.md`；Skill 使用 `SKILL.md`，不要混淆。
 
@@ -12,7 +12,7 @@
 
 ## 启动与任务
 
-开始处理工作前，读取本文件、`SOUL.md`、`MEMORY.md`、`RESOLVER.md` 与 `skills/RESOLVER.md`。从当前目录及启动命令的 `--workspace` 确认工作区，不从旧路径或其他机器复制配置。
+开始处理工作前，读取本文件、`SOUL.md`、`MEMORY.md`、`RESOLVER.md` 与 `skills/RESOLVER.md`。从当前目录、启动命令的 `--workspace` 或本机登记的默认工作区（`~/.config/gstudio-core/workspace.json`，由初始化或 `gstudio use` 写入）确认工作区，不从旧路径或其他机器复制配置。在其他项目目录协作时，任务卡仍写入本工作区，当前目录的资料留在原位并在任务中注明位置。
 
 解释、浏览和没有独立交付或状态修改的普通只读检索可不建任务。文件处理、独立成果、多步或持续工作、状态修改使用一个任务卡：先找可以继续的任务，否则明确项目或使用 independent。同一目标换执行器或调用其他 Skill 不另建任务，也不改变项目。读选定项目说明与任务的目标、要求、输入、当前结果及确认记录，使用现有 `Workspace` 方法或工作台 HTTP 接口写入；写入后重新读取任务与实际文件验证。受跟踪操作前运行 `gstudio check --workspace <当前工作区>`，失败不进入下游生产。
 

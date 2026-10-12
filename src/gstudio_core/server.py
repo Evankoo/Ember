@@ -214,7 +214,7 @@ def workspace_lock(workspace):
 def run(workspace, port=8783):
     with workspace_lock(workspace):
         server = LocalServer(workspace, port)
-        print(f"GStudio Core {__version__} · http://127.0.0.1:{server.server_port}/", flush=True)
+        print(f"GStudio {__version__} · http://127.0.0.1:{server.server_port}/", flush=True)
         print("仅本机访问；按 Ctrl+C 停止。", flush=True)
         try:
             server.serve_forever()

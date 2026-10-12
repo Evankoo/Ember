@@ -49,9 +49,9 @@ def begin_installation(workspace: Workspace, *, app_dir: Path, executor: str = "
     with workspace._lock:
         _factory_workspace(workspace, mode)
         proposal = plan_project(workspace, {"id": "gstudio", "name": "GStudio", "kind": "system",
-                               "description": "管理本机 GStudio Core 的安装、验收和后续独立系统维护；不代替业务项目。",
+                               "description": "管理本机 GStudio 的安装、验收和后续独立系统维护；不代替业务项目。",
                                "focus": "完成本次首次安装与人工验收",
-                               "overview": "# GStudio\n\n## 系统用途\n\n本机 GStudio Core 的安装、验收与维护入口。业务目标使用独立业务项目。\n\n## 边界\n\n只管理本地工作区；不配置模型凭据、不自动运行 AI，也不提供归档或删除接口。\n"})
+                               "overview": "# GStudio\n\n## 系统用途\n\n本机 GStudio 的安装、验收与维护入口。业务目标使用独立业务项目。\n\n## 边界\n\n只管理本地工作区；不配置模型凭据、不自动运行 AI，也不提供归档或删除接口。\n"})
         if not proposal["can_create"]:
             raise WorkspaceError("GStudio 系统项目已存在；继续原任务，不重复创建。", 409)
         workspace.create_project(proposal["project"])
@@ -108,7 +108,7 @@ def record_installation(workspace: Workspace, receipt: dict) -> dict:
             next_step = ("按启动命令打开工作台，回读 GStudio 系统项目、首任务和三项 Skill；按需要确认第一个业务项目，再由用户人工验收和确认正式交付。" if status == "ready"
                          else "检查保留的收据、失败日志及隔离测试目录；修复后继续原任务，禁止覆盖安装目录或假定成功。")
             name = "安装验收.md" if status == "ready" else "安装失败说明.md"
-            content = (f"# GStudio Core 安装记录\n\n- 版本：{__version__}\n- 安装状态：{status}\n- 阶段：{stage}\n"
+            content = (f"# GStudio 安装记录\n\n- 版本：{__version__}\n- 安装状态：{status}\n- 阶段：{stage}\n"
                        f"- 应用目录：{original['app_dir']}\n- 工作区：{workspace.path}\n- 模式：{original['mode']}\n"
                        f"- 检查：{'、'.join(checks) or '尚无'}\n\n{current}\n\n"
                        "技术测试使用隔离工作区；不向真实工作区添加模拟测试任务。此记录不是用户验收，不自动完成或正式交付。\n\n"

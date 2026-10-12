@@ -8,7 +8,7 @@ import sys
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="GStudio Core 项目方案与确认登记")
+    parser = argparse.ArgumentParser(description="GStudio 项目方案与确认登记")
     parser.add_argument("--workspace", required=True)
     parser.add_argument("--plan", required=True, help="包含 id/name/kind/description/focus/overview 的 JSON 对象")
     parser.add_argument("--task-id", help="本次登记所属的未完成任务")
@@ -19,7 +19,7 @@ def main(argv=None):
         from gstudio_core.project_registration import plan_project, register_project
         from gstudio_core.store import Workspace, WorkspaceError
     except ImportError:
-        print("请使用已安装 GStudio Core 应用的 Python 运行建项脚本。", file=sys.stderr)
+        print("请使用已安装 GStudio 应用的 Python 运行建项脚本。", file=sys.stderr)
         return 1
     try:
         content = Path(args.plan).read_bytes()

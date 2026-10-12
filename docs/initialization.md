@@ -1,14 +1,14 @@
 # 分步初始化与安装首任务
 
-`gstudio-init` 1.2.0 建立新安装；`gstudio-project` 1.0.0 组织建项；`gstudio-core` 1.4.0 接管日常工作。三项 Skill 同时放在初始 ZIP 和 wheel 中，并登记到新工作区。
+`gstudio-init` 建立新安装；`gstudio-project` 组织建项；`gstudio-core` 接管日常工作。三项 Skill 同时放在初始 ZIP 和 wheel 中，并登记到新工作区。
 
 ## 初始包与使用方式
 
-下载官方 v0.4.0 的 `gstudio-init-1.2.0.zip`，解压后有三个同级目录：`gstudio-init/`、`gstudio-core/`、`gstudio-project/`。将它们放到所用 Agent 的 Skills 目录，先调用 `gstudio-init`。客户端的 Skill 发现规则由客户端自己管理；安装不自动适配四种 AI 客户端的全局配置，也不认证模型。
+从[最新发行版](https://github.com/Evankoo/GStudio-Core/releases/latest)下载 `gstudio-init-*.zip`，解压后有三个同级目录：`gstudio-init/`、`gstudio-core/`、`gstudio-project/`。将它们放到所用 Agent 的 Skills 目录，先调用 `gstudio-init`。客户端的 Skill 发现规则由客户端自己管理；初始化只在用户确认后把 `gstudio-core` 写入一个用户级 Skills 目录，不改客户端账号、权限或模型设置。
 
-`gstudio-init` 中的标准库脚本编排安装，`assets/` 附带 `gstudio_core-0.4.0-py3-none-any.whl`。wheel 包含 Core、三项 Skill、系统规则、模板、页面及虚构示例。PyYAML 仍需要网络或缓存；源码及 Skill 为 MIT，字体保留 OFL 许可证。
+`gstudio-init` 中的标准库脚本编排安装，`assets/` 附带同版本的 `gstudio_core-*.whl`。wheel 包含程序、三项 Skill、系统规则、模板、页面及虚构示例。PyYAML 仍需要网络或缓存；源码及 Skill 为 MIT，字体保留 OFL 许可证。
 
-## 九步引导
+## 十步引导
 
 1. **确认环境与选择。** 检查实际 Python ≥3.10、macOS / Linux；复用已经给出的选择，只问缺少的程序目录、工作区目录及空白 / 示例模式。默认名称 GStudio、端口 8783。两个目录必须为空或不存在且互不包含；说明会保留真实安装任务，再取得安装确认。
 2. **说明并建立目录。** 程序环境放在应用目录，任务与资料放在工作区。先展示用途，确认后创建，不把工作区放进程序目录。
@@ -17,8 +17,9 @@
 5. **回读登记。** 核对项目说明、首任务、输入来源 / 摘要、三项 Skill 版本及路由。系统项目不是私人生产系统的复制，不导入账号或历史。
 6. **隔离测试并写回。** 先检查真实工作区，再在拥有的临时工作区验证新建项目和任务、输入、草稿、正式交付、无文件完成、引用与本机 HTTP 健康。模拟测试任务不留在用户工作区。成功清理临时测试目录，失败保留；进度、实际错误及验收草稿写回同一首任务。
 7. **启动并检查工作台。** 按收据实际参数在前台启动，检查健康接口、五个页面、系统项目、首任务和 Skill 登记。分清“安装就绪”和“当前服务正在运行”；停止为服务进程 `Ctrl+C`，再次用同一命令回读数据。
-8. **可选建立第一个业务项目。** 问用户实际用途、名称与边界；不需要时跳过，不虚构项目。调用 `gstudio-project` 只读查重并展示完整方案，用户确认相同方案后登记 `config/projects.json` 和 `projects/<id>.md`，回读。此步骤仍用安装跟踪任务；后续独立业务目标另建业务任务。
-9. **人工验收与交接。** 展示实际证据与下一步。技术测试通过仍是 `active` 任务及草稿；只有用户确认验收和正式交付后才走受控推广完成。接着交给 `gstudio-core`，不把首任务变成全部维护工作的永久容器。
+8. **让任意目录的 AI 找到工作区。** 安装脚本已执行 `gstudio use`，把工作区和程序 Python 记在 `~/.config/gstudio-core/workspace.json`；本机已登记另一个工作区时保留原登记，收据记为 `kept-existing`，只有用户明确选择才用 `--replace` 切换。随后确定所用 AI 工具的用户级 Skills 目录，经用户确认运行 `install-skill --target <目录>` 安装 `gstudio-core`；已有内容不同的副本会停止，不覆盖。最后在工作区以外的目录运行 `where` 验证。不需要 MCP。
+9. **可选建立第一个业务项目。** 问用户实际用途、名称与边界；不需要时跳过，不虚构项目。调用 `gstudio-project` 只读查重并展示完整方案，用户确认相同方案后登记 `config/projects.json` 和 `projects/<id>.md`，回读。此步骤仍用安装跟踪任务；后续独立业务目标另建业务任务。
+10. **人工验收与交接。** 展示实际证据与下一步。技术测试通过仍是 `active` 任务及草稿；只有用户确认验收和正式交付后才走受控推广完成。接着交给 `gstudio-core`，不把首任务变成全部维护工作的永久容器。
 
 ## 目录与首次结果
 
@@ -47,9 +48,9 @@ data/                        工作区目录
 python3 /path/to/gstudio-init/scripts/bootstrap.py --app-dir /path/to/app --workspace /path/to/data --mode empty --name GStudio --port 8783 --executor opencode
 ```
 
-`--executor` 填真实调用工具，未知用 `manual`，不猜模型。`--source` 可指定本地源码或 wheel；没有附带 wheel 时只下载固定官方 v0.4.0 包。命令使用参数数组，不执行拼接的用户 shell 文本。
+`--executor` 填真实调用工具，未知用 `manual`，不猜模型。`--source` 可指定本地源码或 wheel；没有附带 wheel 时只下载与脚本同版本的官方包。命令使用参数数组，不执行拼接的用户 shell 文本。
 
-`installation.json` 记录版本、状态、阶段、目录、首任务、验收草稿、检查结果和真实 check / startup 参数。`ready` 要求契约、保存流程与 HTTP 三项技术检查及成功清理隔离测试；不意味着前台服务已经启动或用户已经验收。写回失败会明确失败并保留现场，不把“生成了文件”当作验收成功。
+`installation.json` 记录版本、状态、阶段、目录、首任务、验收草稿、检查结果、默认工作区登记结果（`default_workspace`）和真实 check / startup 参数。`ready` 要求契约、保存流程与 HTTP 三项技术检查及成功清理隔离测试；不意味着前台服务已经启动或用户已经验收。写回失败会明确失败并保留现场，不把“生成了文件”当作验收成功。
 
 中途失败不覆盖或重新初始化现场。建立首任务之后的失败写回原卡；若程序尚未安装或任务尚未建立，则只有应用收据，不能假报任务已经存在。重复创建首系统 / 首任务、修改过的示例、额外文件、篡改输入或外工作区收据都被拒绝；人工改过的交付不会被脚本覆盖。
 
@@ -57,10 +58,10 @@ python3 /path/to/gstudio-init/scripts/bootstrap.py --app-dir /path/to/app --work
 
 ## 已有安装与安全边界
 
-复用已安装的相同版本 Core 只能对确认的新工作区建立引导；重新构造这个工作区的 check / serve 参数及收据，不复用旧收据目录。已有数据、旧规则和 Skill 不自动升级；先备份并确认单独变更范围，不把 `init` 当作升级命令。
+复用已安装的相同版本 GStudio 只能对确认的新工作区建立引导；重新构造这个工作区的 check / serve 参数及收据，不复用旧收据目录。已有数据、旧规则和 Skill 不自动升级；先备份并确认单独变更范围，不把 `init` 当作升级命令。
 
-安装不配置后台守护、NAS、模型认证、Mem0 或业务数据，不查找、登记或打开 AI 软件，也不恢复归档中心。前台服务只监听回环地址。详见 [v0.4.0 变化](update-0.4.0.md)。
+安装不配置后台守护、MCP、网络存储、模型认证或业务数据，不查找、登记或打开 AI 软件，也不恢复归档中心。前台服务只监听回环地址。版本变化见 [更新记录](../CHANGELOG.md)。
 
 ## 验证
 
-`test_bootstrap.py` 验证完整编排成功和失败写回；`test_onboarding.py` 验证首任务、收据、隔离边界、查重、确认方案及写锁；真实 Chromium 验证首任务和三项 Skill 的桌面 / 手机显示。发布还必须使用打包的三 Skill ZIP 和 wheel 做空白、示例新安装与公开下载后的回读，不仅依赖源码测试。
+`test_bootstrap.py` 验证完整编排成功、失败写回和默认工作区登记；`test_locator.py` 验证本机登记与全局 Skill 安装；`test_onboarding.py` 验证首任务、收据、隔离边界、查重、确认方案及写锁；真实 Chromium 验证首任务和三项 Skill 的桌面 / 手机显示。发布还必须使用打包的三 Skill ZIP 和 wheel 做空白、示例新安装与公开下载后的回读，不仅依赖源码测试。

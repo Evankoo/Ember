@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import sys
 
 from . import __version__
+from .locator import install_skill, read_default, register_default, resolve_workspace
 from .store import Workspace, WorkspaceError
 
 
@@ -18,17 +20,40 @@ def main(argv=None):
     init.add_argument("--example", action="store_true", help="安装完整虚构示例")
     init.add_argument("--name", help="工作区名称")
     serve = commands.add_parser("serve", help="启动本机工作台")
-    serve.add_argument("--workspace", required=True, type=Path)
+    serve.add_argument("--workspace", type=Path, help="默认使用本机登记的工作区")
     serve.add_argument("--port", type=int, default=8783)
     check = commands.add_parser("check", help="读取并校验工作区")
-    check.add_argument("--workspace", required=True, type=Path)
+    check.add_argument("--workspace", type=Path, help="默认使用本机登记的工作区")
+    use = commands.add_parser("use", help="把工作区登记为本机默认，供任意目录的 AI 找到")
+    use.add_argument("workspace", type=Path)
+    use.add_argument("--replace", action="store_true", help="明确替换已登记的另一个默认工作区")
+    commands.add_parser("where", help="显示本机登记的默认工作区")
+    skill = commands.add_parser("install-skill", help="把日常 Skill 安装到 AI 工具的全局 Skills 目录")
+    skill.add_argument("--target", required=True, type=Path, help="AI 工具的用户级 Skills 目录")
     commands.add_parser("skill-path", help="显示可安装或读取的初始化 Skill 目录")
     args = parser.parse_args(argv)
     if args.command == "skill-path":
         print(Path(__file__).resolve().parent / "skills" / "gstudio-init")
         return 0
     try:
-        workspace = Workspace(args.workspace)
+        if args.command == "install-skill":
+            print(json.dumps(install_skill(args.target), ensure_ascii=False))
+            return 0
+        if args.command == "where":
+            stored = read_default()
+            if stored is None:
+                raise WorkspaceError("尚未登记默认工作区：运行 gstudio use <工作区>。")
+            from .bootstrap import verify_workspace_contract
+            try:
+                verify_workspace_contract(Workspace(stored["workspace"]))
+            except WorkspaceError as error:
+                raise WorkspaceError(f"已登记的默认工作区不可用：{stored['workspace']}（{error}）") from None
+            print(json.dumps(stored, ensure_ascii=False, indent=2))
+            return 0
+        if args.command == "use":
+            print(json.dumps(register_default(Workspace(args.workspace), replace=args.replace), ensure_ascii=False, indent=2))
+            return 0
+        workspace = Workspace(args.workspace) if args.command == "init" else resolve_workspace(args.workspace)
         if args.command == "init":
             if args.name is not None and (not args.name.strip() or len(args.name.strip()) > 80):
                 raise WorkspaceError("工作区名称应为 1–80 字符")
@@ -37,6 +62,7 @@ def main(argv=None):
                 workspace._write_json("config/workspace.json", {"name": args.name.strip()})
             print(f"工作区已建立：{args.workspace.resolve()}")
             print(f"启动：gstudio serve --workspace {args.workspace} --port 8783")
+            print(f"设为本机默认（让任意目录的 AI 找到它）：gstudio use {args.workspace}")
         elif args.command == "check":
             from .bootstrap import verify_workspace_contract
             verify_workspace_contract(workspace)

@@ -1,4 +1,4 @@
-# GStudio Core Resolver
+# GStudio Resolver
 
 当前文件所在目录就是本地数据工作区。安装代码与虚拟环境在初始化时选择的安装目录；启动命令通过 `--workspace` 明确本目录。
 

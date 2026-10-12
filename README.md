@@ -1,111 +1,121 @@
-# GStudio Core
+# GStudio
 
-一个本地运行、以 Markdown 任务卡为正本的工作台。把项目背景、任务、输入资料、草稿和正式交付放在清楚的位置，再导出上下文交给你选择的 AI 工具。
+**延续每一次 AI 协作。**
 
-这是从 GStudio 工作系统提炼出的单机最小版，包含可操作的示例工作区。它使用暖纸色页面、深色侧栏和克制的文字层级；任务台、项目视图、任务检视、资料浏览与设置始终可进入。
+你和各类 AI 协作时，GStudio 把值得留下的任务记成本地文件：目标、资料、结果、下一步。换个对话、换个 AI 工具，也能从上次停下的地方继续。
 
-## 用初始化 Skill 安装
+本仓库是 GStudio 的开源单机版。MIT 许可，支持 macOS / Linux。
 
-下载发行页的 [gstudio-init-1.2.0.zip](https://github.com/Evankoo/GStudio-Core/releases/download/v0.4.0/gstudio-init-1.2.0.zip)，解压，将其中的 `gstudio-init`、`gstudio-core`、`gstudio-project` 文件夹放进你使用的 Agent 的 Skills 目录。对 Agent 说：**“使用 gstudio-init 安装 GStudio Core，建立一个空白业务工作区，并把安装验收作为 GStudio 系统的第一项任务。”**
+[介绍页](https://ai.evan-manual.com/gstudio/) · [在线演示](https://ai.evan-manual.com/gstudio/demo/) · [最新发行版](https://github.com/Evankoo/GStudio-Core/releases/latest) · [更新记录](CHANGELOG.md)
 
-Skill 会分步引导：确认程序与数据目录 → 安装环境和规则 → 建立 `GStudio` 系统项目及真实安装任务 → 隔离测试并写回验收草稿 → 启动工作台 → 按需确认第一个业务项目 → 人工验收。默认没有虚构业务任务，但保留本次真实安装记录；测试任务只在临时工作区执行，不污染新工作区。ZIP 内含 Core wheel 与三项 Skill，PyYAML 依赖仍需要联网或已有缓存。
+![GStudio 工作台：一张任务卡的目标、当前结果、下一步、执行日志和任务资料](docs/images/workbench.png)
 
-已有 Core 时，`gstudio skill-path` 可查看同样的初始化 Skill。新工作区内也会保留 `.agents/skills/gstudio-init/`，后续无需下载私有系统配置。
+## 为什么需要
 
-## 三个基础 Skill
+AI 用得越多，上下文越分散：
 
-- **`gstudio-init` 1.2.0**：分步引导首次安装、建立系统项目及安装首任务、隔离验证并写回、启动和人工交接；不重置、迁移或升级已有工作区。
-- **`gstudio-core` 1.4.0**：完整版 `gstudio` 总入口职责的公开精简适配。普通只读问题不强制建卡；读取项目说明、继续同一目标的原任务，为独立维护目标建立新卡，登记实际执行与资料交付，校验后回读，保持人工确认边界。
-- **`gstudio-project` 1.0.0**：查重、准备项目或系统的完整方案，用户确认后通过既有接口登记并回读独立项目说明；使用原跟踪任务，不迁移资料或改写任务归属。
+- 新开一个对话，背景又要重讲一遍。
+- 上次确认过的方案，埋在哪段聊天记录里？
+- 换了个 AI 工具，之前的积累一样也带不走。
 
-项目说明独立保存在本工作区，不依赖外部知识库。专业业务可按需要调用用户已有 Skill，但 Core 不随包安装它们，也不取得其数据或发布权限。软件打开必须单独确认，不意味着模型或任务已经执行。
+GStudio 把这些收在一处：每项值得留下的工作，都是一张本地任务卡。
 
-## 手动安装与启动
+## 安装
 
-需要 Python 3.10 或更新版本。支持 macOS 和 Linux；Windows 尚未验证。
+### 让 AI 帮你安装（推荐）
 
-从 GitHub 下载源码或克隆仓库后，在仓库目录执行：
+把这句话发给能读写本机文件的 AI 工具，比如 Codex、Claude Code、OpenCode：
+
+```text
+请按官方初始化 Skill，帮我安装 GStudio：
+https://github.com/Evankoo/GStudio-Core
+```
+
+AI 会从[最新发行版](https://github.com/Evankoo/GStudio-Core/releases/latest)下载 `gstudio-init-*.zip`，解压出三个 Skill，然后由初始化 Skill 一步一步带你完成：
+
+1. 确认程序目录和工作区目录；
+2. 安装独立的 Python 环境和工作区规则；
+3. 建立 `GStudio` 系统项目，并把这次安装记成第一张真实任务卡；
+4. 在临时目录里验证任务、资料和交付，把结果写回这张任务卡；
+5. 把工作区登记为本机默认，并在你确认后把日常 Skill 装进 AI 工具的全局 Skills 目录，让任意目录里的 AI 都能找到它；
+6. 启动工作台，按需建立第一个业务项目，由你验收。
+
+### 手动安装
+
+需要 Python 3.10 或更新版本。在仓库目录执行：
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install .
 gstudio init ./workspace --example
-gstudio serve --workspace ./workspace --port 8783
+gstudio use ./workspace
+gstudio serve
 ```
 
-浏览器打开 **http://127.0.0.1:8783/**。停止服务按 `Ctrl+C`，再次运行最后一条命令即可读取原来的工作区。
+浏览器打开 **http://127.0.0.1:8783/**，按 `Ctrl+C` 停止。`--example` 会放入完全虚构的示例客户、项目和任务；去掉它就是空白工作区。
 
-安装发行页提供的 wheel 也可以：
+## 怎么用
+
+**照常协作，随时接续。**
+
+1. **照常和 AI 协作。** 在能读写本机文件的 AI 工具里，像平时一样提需求。
+2. **AI 记成任务卡。** 日常 Skill `gstudio-core` 让 AI 边工作边建卡、续卡，写回目标、资料、结果和下一步。任务卡始终写进 GStudio 工作区，你正在做的项目目录不会多出文件。
+3. **随时接续。** 下次说一句“接着上次的秋季方案”，AI 就从那张任务卡读起；忘了上次的结论，也能在工作台里搜到。
+
+也可以在工作台里挑好资料、整理成任务说明，复制给任意 AI 工具，在那个工具里确认发送。
+
+### AI 怎么找到工作区
+
+初始化（或 `gstudio use <工作区>`）会把工作区位置和程序的 Python 路径记在 `~/.config/gstudio-core/workspace.json`。日常 Skill 在当前目录不是工作区时读取这个文件。`gstudio where` 可以查看当前登记；本机已登记另一个工作区时不会被悄悄替换，需要明确使用 `--replace`。
+
+全局 Skill 也可以手动安装：
 
 ```bash
-python -m pip install ./gstudio_core-0.4.0-py3-none-any.whl
-gstudio init ./workspace --example
-gstudio serve --workspace ./workspace
+gstudio install-skill --target ~/.claude/skills
 ```
 
-安装时需要下载 PyYAML。Core 服务本身不请求外部模型或账号服务；用户确认打开的第三方软件有自己的联网行为。`python -m gstudio_core` 与 `gstudio` 命令等价。
+目标目录以你所用 AI 工具的文档为准，例如 Claude Code `~/.claude/skills`、Codex `~/.agents/skills`、OpenCode `~/.config/opencode/skills`。目标已有内容不同的副本时会停止，不覆盖。不需要安装 MCP。
 
-## 从示例开始
+## 设计原则
 
-低层 `gstudio init --example` 的演示客户、项目、文件、任务及历史全部虚构：两个项目、八项任务（含一条任务线）、输入与交付、四种 Inbox 资料标签和两份检视报告。通过初始化 Skill 安装示例模式时，另加一个真实 `GStudio` 系统项目和一项安装任务，合计三项目 / 九任务；原演示数据不改写。
+**你的工作，始终在你手里。**
 
-1. 在任务台搜索“秋季”，查看待确认的方案和相关资料。
-2. 进入“晨屿咖啡内容合作”，在任务、交付文件和输入资料之间切换。
-3. 在任务详情记录当前结果、下一步或执行日志，添加文字输入或草稿；已有资料可登记为引用，保留来源。
-4. 确认草稿后执行正式交付，文件复制校验后进入正式目录，任务进入已完成。没有文件成果的任务可通过单独的确认操作完成。
-5. 在任务检视选择任务，生成上下文；把外部 AI 的建议粘贴回来保存为报告。保存报告不会合并任务或改变任务状态。
+- **本地普通文件。** 任务卡是 Markdown，成果保留原格式，用任何编辑器都能打开。
+- **换 AI 工具照样用。** 任务卡不属于任何一个 AI 工具，今天用 Codex，明天换 Claude Code，上下文都在。
+- **你确认才算定稿。** AI 写完只是草稿，你确认采用，才复制成正式成果并完成任务。
+- **开源，只在本机运行。** 代码公开可查；服务只监听本机，不调用模型，不自动发送提示词，打开 AI 软件前都要你确认。
 
-手动 `gstudio init ./my-workspace` 只建立零项目 / 零任务的底层结构。需要完整首任务引导时使用上面的初始化 Skill，默认生成一系统 / 一项真实安装任务；业务项目由 `gstudio-project` 另行确认。初始化拒绝覆盖非空目录。`gstudio check --workspace ./workspace` 检查系统契约、任务卡、引用与输入快照的存在、大小和 SHA-256；检查通过不等于用户验收或自动完成任务。
+## 包含什么
 
-## 配置本机执行环境
-
-设置页顶部显示已保存的默认软件、类型、路径与状态；点击“修改配置”编辑。可以只读查找常见 AI 软件，也可手工添加本机 `.app` 或可执行命令行程序，选默认项后检查并保存。选项来自这台电脑的已确认清单，不固定为 Codex / OpenCode。草稿、检查通过但未保存和取消修改都有明确反馈；软件路径可用不等于账号或模型可用。
-
-这份机器配置只保存在 `~/.config/gstudio-core/executors.json`，与工作区分开；明确保存时先备份原配置，不复制任何模型、账号或私人集成。新电脑从空清单开始，目录不可读或查找不完整会明确提示，不把未知当作没有软件。
-
-任务台或任务检视生成上下文后，先阅读并核对，再选择 **“复制上下文”** 或 **“复制并打开”**。后者只有明确点击后才打开已保存的默认软件；复制失败不打开，配置或路径改变时停止，文本保留供手动使用。macOS 支持应用及新 Terminal 窗口，Linux 命令行软件需要可用的图形终端；没有终端时可只复制并手动打开。
-
-**仍须在软件中自行粘贴、确认并发送。** Core 不把提示词放进启动命令，不调用模型，不读取或修改客户端账号、权限和模型设置，也不因软件打开而修改任务或交付状态。请只登记你信任的软件；客户端自身启动后的行为由它管理。
-
-## 核心边界
-
-| 保留 | 用途 |
+| 部分 | 说明 |
 | --- | --- |
-| 项目、系统与独立任务 | 动态工作区、概览和任务入口；独立任务有自己的范围 |
-| 任务卡与任务线 | 目标、描述、当前结果、下一步、日志；任务线只引用关联任务 |
-| 输入、草稿、正式交付 | 分开存放；新增输入与草稿拒绝同名覆盖 |
-| 任务检视 | 选择任务、导出上下文、保存人工确认的检视报告 |
-| 资料浏览 | 以文件为主浏览、文本预览和下载 |
-| AI 上下文与本机软件 | 单独复制，或明确确认后打开已登记软件；不自动提交或调用模型 |
+| 工作台 | 任务台、项目视图、任务检视、资料浏览、设置五个页面，加项目与任务详情 |
+| 任务卡 | 目标、描述、当前结果、下一步和执行日志；任务线只引用关联任务 |
+| 资料与交付 | 输入、草稿、正式交付分开存放；同名文件拒绝覆盖 |
+| 三个 Skill | `gstudio-init` 首次安装，`gstudio-core` 日常接续，`gstudio-project` 确认后建项目 |
+| 命令行 | `init`、`use`、`where`、`check`、`serve`、`install-skill` |
 
-**v0.3.0 起暂不发布归档中心**：导航、页面、复制接口、归档台账及示例归档已移除，而非仅隐藏入口。已有工作区的归档文件不删除、不迁移；旧卡明确引用的文件仍可作为输入读取。升级注意事项见 [v0.3.0 发布范围](docs/update-0.3.0.md)。旧发行版和 Git 历史保留。
+开源版是单机基础版，不包含完整版的归档中心、多机同步、知识库、运行 Agent、模型认证和自动发布，也不提供永久删除、自动合并任务或自动备份。请自行备份工作区。详见 [开源版范围](docs/scope.md)。
 
-双机同步、NAS 挂载、EBrain、运行 Agent、模型认证、邮件、业务 Skills、自动发布和后台服务属于完整系统的集成层，本仓库不包含它们。它也不提供归档操作、永久删除、自动任务合并或自动备份。请自行备份工作区。
+服务只监听本机回环地址，不提供公网部署或多用户登录，请勿用反向代理把工作区公开到网上。
 
-服务只监听本机回环地址，不提供公网部署与多用户登录。请勿直接用反向代理公开工作区。
+## 更多文档
 
-## 数据与开发
-
-任务 Markdown、项目 Markdown 和实际文件是工作区正本，`.gstudio` 中保存展示与 Inbox 标签。标签仅为资料元数据，不触发复制或删除。业务资料使用相对路径、访问限制在工作区内；只有用户明确点击查找时，另对常见软件目录做有界的本机元数据查找。不要将自己的工作区或机器软件配置提交到公开仓库。
-
-- [与实际系统的对照和精简差异](docs/system-alignment.md)
-- [初始化 Skill 与安装验证](docs/initialization.md)
-- [v0.1.1 更新范围与已有工作区注意事项](docs/update-0.1.1.md)
-- [v0.2.0 通用设置与执行环境](docs/update-0.2.0.md)
-- [v0.3.0 归档中心发布范围调整](docs/update-0.3.0.md)
-- [v0.4.0 分步初始化与安装首任务](docs/update-0.4.0.md)
-- [提炼范围](docs/extraction.md)
 - [工作区与使用说明](docs/workspace.md)
+- [初始化流程](docs/initialization.md)
 - [HTTP 与存储接口](docs/api.md)
+- [开源版范围](docs/scope.md)
 - [安全边界](SECURITY.md)
-- [第三方声明](NOTICE.md)
+- [更新记录](CHANGELOG.md)
+
+## 开发
 
 ```bash
 python -m unittest discover -s tests -v
-python -m pip wheel . --no-deps -w dist
+rm -rf build src/*.egg-info && python -m pip wheel . --no-deps -w dist
 ```
 
-真实浏览器回归是可选开发验证，不增加运行依赖：先安装本项目，再 `python -m pip install playwright==1.60.0`、`python -m playwright install chromium`，运行 `python -m unittest discover -s tests -p test_browser.py -v`。测试使用独立虚构工作区及临时机器配置，软件打开被模拟；不会启动你安装的 AI 软件。
+打包前先清理 `build/`，避免旧文件混进 wheel。真实浏览器测试是可选的：安装 `playwright==1.60.0` 和 Chromium 后运行 `python -m unittest discover -s tests -p test_browser.py -v`，测试使用独立的虚构工作区。
 
-原创代码、示例和初始化 Skill 采用 [MIT](LICENSE)；标题字体单独遵守 SIL Open Font License 1.1，见 `src/gstudio_core/web/fonts/OFL.txt`。
+原创代码、示例和 Skill 采用 [MIT](LICENSE)；标题字体单独遵守 SIL Open Font License 1.1，见 `src/gstudio_core/web/fonts/OFL.txt`。
