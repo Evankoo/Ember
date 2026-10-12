@@ -128,7 +128,7 @@ class BootstrapTests(unittest.TestCase):
             probe.bind(("127.0.0.1", 0))
             port = probe.getsockname()[1]
         with patch.object(helper.subprocess, "run", side_effect=run):
-            result = helper.run(self.args(source=str(PACKAGE.parents[1]), port=port))
+            result = helper.run(self.args(source=str(Path(__file__).resolve().parents[1]), port=port))
         return result, json.loads((self.root / "app/installation.json").read_text())
 
     def test_real_installer_stages_write_back_one_installation_task(self):
