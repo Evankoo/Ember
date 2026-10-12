@@ -242,6 +242,9 @@ class SettingsBrowserTests(unittest.TestCase):
             self.page.set_viewport_size({"width": width, "height": 1000})
             self.assertTrue(self.page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1"))
         self.page.locator("#edit-software").click()
+        # Measure resting styles: no button under the pointer, transitions finished.
+        self.page.mouse.move(0, 0)
+        self.page.wait_for_timeout(300)
         palette = self.page.locator("#execution-environment .button").evaluate_all(
             "nodes=>nodes.filter(n=>n.getClientRects().length).map(n=>[getComputedStyle(n).backgroundColor,getComputedStyle(n).color,getComputedStyle(n).borderTopStyle])")
         self.assertEqual(len({item[0] for item in palette}), 1)
