@@ -7,7 +7,7 @@ from .store import Workspace, WorkspaceError
 
 def plan_project(workspace: Workspace, payload: dict) -> dict:
     workspace._payload(payload)
-    if set(payload) - {"id", "name", "kind", "description", "focus", "overview"}:
+    if set(payload) - {"id", "name", "kind", "description", "focus", "overview", "locations"}:
         raise WorkspaceError("建项方案只能包含项目登记与说明字段。")
     identifier = workspace._identifier(payload.get("id"), "project id")
     if identifier == "independent":
@@ -18,12 +18,13 @@ def plan_project(workspace: Workspace, payload: dict) -> dict:
         raise WorkspaceError("请先确认建立业务项目还是系统工作区。")
     description = workspace._string(payload, "description", required=True, limit=5000)
     focus = workspace._string(payload, "focus", limit=5000)
-    overview = workspace._string(payload, "overview") or f"# {name}\n\n## 项目概况\n\n{description}\n"
+    locations = workspace._locations(payload.get("locations", []))
+    overview = workspace._string(payload, "overview") or workspace.project_overview(name, kind, description, focus, locations)
     matches = [{"id": item["id"], "name": item["name"], "kind": item["kind"]}
                for item in workspace.snapshot()["projects"]
                if item["id"] == identifier or item["name"].casefold() == name.casefold()]
     return {"project": {"id": identifier, "name": name, "kind": kind, "description": description,
-                        "focus": focus, "overview": overview}, "matches": matches, "can_create": not matches,
+                        "focus": focus, "overview": overview, "locations": locations}, "matches": matches, "can_create": not matches,
             "canonical_paths": ["config/projects.json", f"projects/{identifier}.md"],
             "boundaries": "只登记项目和说明；不迁移资料、重分配任务、调用模型或发布。"}
 

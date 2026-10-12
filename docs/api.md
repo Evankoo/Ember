@@ -5,7 +5,7 @@
 ## 工作区结构
 
 ```text
-config/projects.json          # {"projects": [{id,name,kind:project|system,description,focus,timeline: [{date,title,text}]}]}
+config/projects.json          # {"projects": [{id,name,kind:project|system,description,focus,timeline: [{date,title,text}],locations?: [绝对路径]}]}
 projects/<project_id>.md      # 项目说明正本；全文作为 overview
 tasks/active/<task_id>.md
 tasks/completed/<task_id>.md
@@ -29,7 +29,9 @@ initialize(example=False)             # 拒绝覆盖非空目录；安装契约�
 snapshot()                           # 下面的公开视图
 read_file(file_id)                    # {id,name,kind,text?,bytes,media_type}; 非文本不提供 text
 raw_file(file_id)                     # (Path, metadata)，每次重新解析并校验
-create_project(payload)              # id/name/kind:project|system/description/focus/overview，registry + Markdown
+create_project(payload)              # id/name/kind:project|system/description/focus/overview/locations，registry + Markdown
+update_project_locations(id, {"add"|"remove": 绝对路径})  # 只改登记的工作目录，不改项目说明
+project_for_directory(dir)           # 按最具体的工作目录返回 {directory, project|None, name, location}
 create_task(payload)                 # title/project/goal/description，可选 work_type/task_kind/related_task_ids/artifact_mode/executor/skills_used
 update_task(task_id, payload)         # goal/description/current/next/log_entry/status/executor/skills_used；完成必须走 promote 或非交付模式的 complete_task
 add_material(task_id, payload)        # kind: input|draft，name/content/purpose/source_locator?，拒绝覆盖；input 登记指纹

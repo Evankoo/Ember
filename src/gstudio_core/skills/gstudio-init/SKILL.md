@@ -1,6 +1,6 @@
 ---
 name: gstudio-init
-version: 1.3.0
+version: 1.4.0
 description: 一步一步引导首次安装 GStudio，确认程序与数据目录，建立 GStudio 系统项目和真实安装首任务，登记三项基础 Skill，在隔离工作区验证任务与交付并把结果写回，登记本机默认工作区并经确认把日常 Skill 装到 AI 工具的全局目录，启动工作台后引导可选的首个业务项目和人工验收。不重置、迁移或升级已有工作区。
 triggers: [初始化 GStudio, 安装 GStudio, 安装 GStudio Core, 建立新工作区, 首次使用 GStudio]
 tools: [read_file, terminal, browser]
@@ -49,7 +49,7 @@ writes_pages: false
 <真实Python> <Skill目录>/scripts/bootstrap.py --app-dir <程序目录> --workspace <数据目录> --mode empty|example --name <名称> --port 8783 --executor <实际调用工具>
 ```
 
-实际调用工具可为 opencode、codex、workbuddy、claude-code 等；未知则 manual，不能填模型名。独立初始包含 `gstudio-init`、`gstudio-core`、`gstudio-project` 三个 Skill 文件夹，init 内含 `assets/gstudio_core-0.5.0-py3-none-any.whl`；没有 wheel 时用固定 v0.5.0 地址。开发可传 `--source`。PyYAML 依赖仍须网络或缓存，不声称完全离线。
+实际调用工具可为 opencode、codex、workbuddy、claude-code 等；未知则 manual，不能填模型名。独立初始包含 `gstudio-init`、`gstudio-core`、`gstudio-project` 三个 Skill 文件夹，init 内含 `assets/gstudio_core-0.6.0-py3-none-any.whl`；没有 wheel 时用固定 v0.6.0 地址。开发可传 `--source`。PyYAML 依赖仍须网络或缓存，不声称完全离线。
 
 ### 4. 建立系统项目和真实首任务
 
@@ -74,14 +74,14 @@ writes_pages: false
 向用户说明：以后在别的项目目录里和 AI 协作时，AI 要能找到这个工作区，才能续接或记录任务。
 
 - **默认工作区。** 安装脚本已自动执行 `gstudio use`，把工作区和程序 Python 记在 `~/.config/gstudio-core/workspace.json`；回读收据 `default_workspace`。若为 `kept-existing`，说明本机已有另一个默认工作区，向用户展示两者，只有用户明确选择切换才运行 `<程序Python> -m gstudio_core use <新工作区> --replace`。
-- **全局日常 Skill。** 工作区内的 Skill 只在工作区目录里生效。确定当前 AI 工具的用户级 Skills 目录（以该工具文档为准，例如 Claude Code `~/.claude/skills`、Codex `~/.agents/skills`、OpenCode `~/.config/opencode/skills`），说明将写入 `<目录>/gstudio-core/`，取得用户确认后运行 `<程序Python> -m gstudio_core install-skill --target <目录>`。结果 `unchanged` 表示已是同一版本；遇到内容不同的已有副本会停止，不覆盖，请用户先比较。用户使用多个 AI 工具时逐个确认。
+- **全局日常 Skill。** 工作区内的 Skill 只在工作区目录里生效。确定当前 AI 工具的用户级 Skills 目录（以该工具文档为准，例如 Claude Code `~/.claude/skills`、Codex `~/.agents/skills`、OpenCode `~/.config/opencode/skills`），说明将写入 `<目录>/gstudio-core/`，取得用户确认后运行 `<程序Python> -m gstudio_core install-skill --target <目录>`。结果 `unchanged` 表示已是同一版本，`upgraded` 表示识别为官方旧版本并已替换；内容被本地改过的副本会停止，不覆盖，请用户先比较。装过的目录会被记住，以后升级程序后运行 `<程序Python> -m gstudio_core install-skill`（不带参数）即可全部更新。用户使用多个 AI 工具时逐个确认。
 - **不需要 MCP。** 日常 Skill 通过本机文件和命令工作，能读写本机文件的 AI 工具都可以使用；不安装 MCP、插件或修改客户端账号、权限和模型设置。
 
 完成后用一句话验证：在工作区以外的目录让 AI 运行 `<程序Python> -m gstudio_core where`，能显示该工作区即为成功。
 
 ### 9. 引导首个业务项目（可跳过）
 
-问用户现在是否有具体业务需要。没有就停在系统项目，不猜分类或造“我的项目”。有的话，读取 `gstudio-project`，收齐名称、用途、范围与 project/system 类型，查重并展示完整方案；得到明确确认后登记、回读和 check。本次首个项目记在原安装任务日志，不改其归属；以后真实业务目标另按 `gstudio-core` 判断是否建任务。
+问用户现在是否有具体业务需要。没有就停在系统项目，不猜分类或造“我的项目”。有的话，读取 `gstudio-project`，收齐名称、用途、范围、project/system 类型与本机工作目录，查重并展示完整方案；得到明确确认后登记、回读和 check。本次首个项目记在原安装任务日志，不改其归属；以后真实业务目标另按 `gstudio-core` 判断是否建任务。
 
 ### 10. 人工验收和交接
 

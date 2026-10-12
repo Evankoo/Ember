@@ -15,7 +15,7 @@ import sys
 import tempfile
 import urllib.request
 
-VERSION = "0.5.0"
+VERSION = "0.6.0"
 WHEEL = f"gstudio_core-{VERSION}-py3-none-any.whl"
 RELEASE = f"https://github.com/Evankoo/GStudio-Core/releases/download/v{VERSION}/{WHEEL}"
 

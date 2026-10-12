@@ -2,6 +2,16 @@
 
 每个版本都不会自动改写已有工作区里的任务、项目说明、规则或 Skill。升级程序前请备份工作区；要采用新版规则或 Skill，先与本地修改逐项比较，再单独合并。`gstudio init` 只接受空目录，不能用来升级。
 
+## 0.6.0：按目录对应项目，Skill 可升级
+
+- 项目工作目录：`config/projects.json` 可登记 `locations`（本机绝对路径）。新命令 `gstudio which-project [--dir]` 返回目录所属项目（取最具体的登记目录），`gstudio project-location <项目> <目录> [--remove]` 登记或移除；项目页显示本机工作目录。登记表的改写加了文件锁，命令行和工作台不会互相覆盖。
+- 新项目说明采用“总览 / 工作位置与入口 / 范围与要求 / 当前阶段 / 时间线”骨架；已有项目说明不变。
+- 全局日常 Skill：识别官方旧版本（包括 0.5.0 用命令安装和从初始包复制的两种副本）并直接升级，被改过的副本仍停止不覆盖；先装到临时目录，完整后一次替换，失败不留半成品；记住装过的目录，`gstudio install-skill` 不带参数即可全部更新；0.5.0 时装在 Claude Code、Codex、OpenCode 常用 Skills 目录里的副本也会被自动找到。
+- `gstudio-core` 1.6.0 先按当前目录对应项目；`gstudio-project` 1.1.0 建项时收集工作目录，并可为已有项目登记；`gstudio-init` 1.4.0 同步说明。
+- 新增测试，确保安装包、程序、安装脚本和初始化 Skill 里的版本号一致。
+
+已有工作区：升级程序后运行 `gstudio install-skill` 更新全局 Skill；需要按目录对应项目时，用 `gstudio project-location` 登记。工作区内的旧规则和 Skill 不会自动替换。
+
 ## 0.5.0：在任意目录接续
 
 - 本机默认工作区：新命令 `gstudio use <工作区>` 把工作区位置和程序 Python 记在 `~/.config/gstudio-core/workspace.json`；`gstudio where` 查看登记；`check` 与 `serve` 不带 `--workspace` 时使用默认工作区。已登记另一个工作区时不会被替换，除非明确使用 `--replace`；配置不可读时报错，不当作没有登记。

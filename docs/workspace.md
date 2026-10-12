@@ -12,7 +12,7 @@ WORKBENCH_DESIGN.md  统一设计约定
 skills/             Skill 登记与路由
 templates/          任务卡创建模板
 config/             项目/系统注册与工作区名称
-projects/           项目说明 Markdown
+projects/           项目说明 Markdown（总览 / 工作位置与入口 / 范围与要求 / 当前阶段 / 时间线）
 tasks/active/       活跃、等待确认或阻碍中的任务卡
 tasks/completed/    已完成任务卡
 inputs/             每项任务的输入快照
@@ -28,6 +28,10 @@ reports/            已保存的检视报告
 同一目标的续接继续原任务；有独立目标、验收结果或后续生命周期的维护工作另建任务卡，不能把原发布卡当作所有维护工作的永久容器。两者都归属于实际项目，不因更换执行工具重复建卡。
 
 通过 `gstudio-init` 引导建立新工作区时，先登记 `GStudio` 系统及真实安装首任务；安装选择放在 inputs，隔离测试结果形成草稿，人工验收前保持 active。底层 `gstudio init` 仅建立空结构。业务项目由 `gstudio-project` 查重、完整方案确认后登记；不因调用另一项 Skill 重复创建安装任务，也不自动改变旧任务归属。详见 [初始化流程](initialization.md)。
+
+## 项目与工作目录
+
+项目可以登记本机工作目录（`config/projects.json` 的 `locations`，绝对路径）。在这些目录或其子目录里协作时，`gstudio which-project` 会返回对应项目，日常 Skill 据此续接该项目的任务；查不到时由用户确认，不按目录名猜。用 `gstudio project-location <项目> <目录>` 登记，`--remove` 移除；只改登记，不改项目说明正文。工作目录本身留在原位，不搬进工作区。
 
 ## 输入与交付
 

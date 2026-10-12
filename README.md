@@ -63,6 +63,8 @@ gstudio serve
 2. **AI 记成任务卡。** 日常 Skill `gstudio-core` 让 AI 边工作边建卡、续卡，写回目标、资料、结果和下一步。任务卡始终写进 GStudio 工作区，你正在做的项目目录不会多出文件。
 3. **随时接续。** 下次说一句“接着上次的秋季方案”，AI 就从那张任务卡读起；忘了上次的结论，也能在工作台里搜到。
 
+给项目登记本机工作目录后，AI 在那个目录里协作时会自动对应到这个项目，不用每次说明“这是哪个项目的事”。
+
 也可以在工作台里挑好资料、整理成任务说明，复制给任意 AI 工具，在那个工具里确认发送。
 
 ### AI 怎么找到工作区
@@ -75,7 +77,16 @@ gstudio serve
 gstudio install-skill --target ~/.claude/skills
 ```
 
-目标目录以你所用 AI 工具的文档为准，例如 Claude Code `~/.claude/skills`、Codex `~/.agents/skills`、OpenCode `~/.config/opencode/skills`。目标已有内容不同的副本时会停止，不覆盖。不需要安装 MCP。
+目标目录以你所用 AI 工具的文档为准，例如 Claude Code `~/.claude/skills`、Codex `~/.agents/skills`、OpenCode `~/.config/opencode/skills`。已装的官方旧版本会被直接升级；被你改过的副本会停止，不覆盖。装过的目录会被记住，升级 GStudio 后运行 `gstudio install-skill`（不带参数）即可全部更新。不需要安装 MCP。
+
+### AI 怎么知道是哪个项目
+
+```bash
+gstudio project-location autumn-site ~/code/autumn-site
+gstudio which-project --dir ~/code/autumn-site/src
+```
+
+第一条把目录登记到项目 `autumn-site`，第二条返回它对应的项目。日常 Skill 会先这样查；查不到时问你，不按目录名猜。
 
 ## 设计原则
 
@@ -94,7 +105,7 @@ gstudio install-skill --target ~/.claude/skills
 | 任务卡 | 目标、描述、当前结果、下一步和执行日志；任务线只引用关联任务 |
 | 资料与交付 | 输入、草稿、正式交付分开存放；同名文件拒绝覆盖 |
 | 三个 Skill | `gstudio-init` 首次安装，`gstudio-core` 日常接续，`gstudio-project` 确认后建项目 |
-| 命令行 | `init`、`use`、`where`、`check`、`serve`、`install-skill` |
+| 命令行 | `init`、`use`、`where`、`check`、`serve`、`install-skill`、`which-project`、`project-location` |
 
 开源版是单机基础版，不包含完整版的归档中心、多机同步、知识库、运行 Agent、模型认证和自动发布，也不提供永久删除、自动合并任务或自动备份。请自行备份工作区。详见 [开源版范围](docs/scope.md)。
 

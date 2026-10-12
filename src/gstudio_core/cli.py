@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 
 from . import __version__
-from .locator import install_skill, read_default, register_default, resolve_workspace
+from .locator import install_skill, read_default, refresh_targets, register_default, resolve_workspace
 from .store import Workspace, WorkspaceError
 
 
@@ -29,7 +29,15 @@ def main(argv=None):
     use.add_argument("--replace", action="store_true", help="明确替换已登记的另一个默认工作区")
     commands.add_parser("where", help="显示本机登记的默认工作区")
     skill = commands.add_parser("install-skill", help="把日常 Skill 安装到 AI 工具的全局 Skills 目录")
-    skill.add_argument("--target", required=True, type=Path, help="AI 工具的用户级 Skills 目录")
+    skill.add_argument("--target", type=Path, help="AI 工具的用户级 Skills 目录；省略时更新以前安装过的全部目录")
+    which = commands.add_parser("which-project", help="查找某个目录对应的项目")
+    which.add_argument("--dir", type=Path, default=Path.cwd(), help="默认当前目录")
+    which.add_argument("--workspace", type=Path, help="默认使用本机登记的工作区")
+    location = commands.add_parser("project-location", help="为项目登记或移除本机工作目录")
+    location.add_argument("project")
+    location.add_argument("dir", type=Path)
+    location.add_argument("--remove", action="store_true")
+    location.add_argument("--workspace", type=Path, help="默认使用本机登记的工作区")
     commands.add_parser("skill-path", help="显示可安装或读取的初始化 Skill 目录")
     args = parser.parse_args(argv)
     if args.command == "skill-path":
@@ -37,7 +45,20 @@ def main(argv=None):
         return 0
     try:
         if args.command == "install-skill":
-            print(json.dumps(install_skill(args.target), ensure_ascii=False))
+            if args.target:
+                print(json.dumps(install_skill(args.target), ensure_ascii=False))
+                return 0
+            targets = refresh_targets()
+            if not targets:
+                raise WorkspaceError("还没有安装过日常 Skill：请用 --target 指定 AI 工具的 Skills 目录。")
+            print(json.dumps([install_skill(target) for target in targets], ensure_ascii=False, indent=2))
+            return 0
+        if args.command == "which-project":
+            print(json.dumps(resolve_workspace(args.workspace).project_for_directory(args.dir), ensure_ascii=False))
+            return 0
+        if args.command == "project-location":
+            change = {"remove" if args.remove else "add": str(args.dir.expanduser().absolute())}
+            print(json.dumps(resolve_workspace(args.workspace).update_project_locations(args.project, change), ensure_ascii=False))
             return 0
         if args.command == "where":
             stored = read_default()

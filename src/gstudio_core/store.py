@@ -12,6 +12,7 @@ import shutil
 import stat
 import tempfile
 import threading
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
@@ -317,10 +318,47 @@ class Workspace:
                 raise WorkspaceError("项目必须有名称。")
             if item.get("kind", "project") not in ("project", "system"):
                 raise WorkspaceError("工作区类型必须为 project 或 system。")
+            self._locations(item.get("locations", []))
             overview = self._safe(f"projects/{identifier}.md", exists=True)
             if not overview.is_file() or not self._text(f"projects/{identifier}.md").strip():
                 raise WorkspaceError("已注册项目必须有非空的 Markdown 项目说明正本。")
-        return [{**item, "kind": item.get("kind", "project")} for item in result]
+        return [{**item, "kind": item.get("kind", "project"), "locations": item.get("locations", [])} for item in result]
+
+    @staticmethod
+    def _locations(value) -> list[str]:
+        """Local working directories that identify a project; absolute, single-line and unique."""
+        if not isinstance(value, list) or len(value) > 20:
+            raise WorkspaceError("工作目录应为最多 20 项的列表。")
+        result = []
+        for item in value:
+            if (not isinstance(item, str) or not item.startswith("/") or len(item) > 4096
+                    or any(ord(char) < 32 for char in item) or item in result):
+                raise WorkspaceError("工作目录必须是不重复的单行绝对路径。")
+            result.append(item)
+        return result
+
+    @staticmethod
+    def project_overview(name: str, kind: str, description: str, focus: str, locations: list[str]) -> str:
+        entity = "系统" if kind == "system" else "项目"
+        rows = [f"| 本机工作目录 | `{path}` | 在这里与 AI 协作时对应本{entity} |" for path in locations] or [
+            f"| 本机工作目录 | 待确认 | 用 `gstudio project-location` 登记后，AI 可按当前目录对应本{entity} |"]
+        return "\n".join([f"# {name}", "", f"## {entity}总览", "", description or "待确认。", "",
+                          "## 工作位置与入口", "", "| 类型 | 路径或网址 | 用途 |", "|---|---|---|", *rows, "",
+                          "## 范围与要求", "", "待确认。", "", "## 当前阶段", "", focus or "待确认。", "",
+                          "## 时间线", "", f"- {_now()[:10]}：登记{entity}。"])
+
+    @contextmanager
+    def _registry_lock(self):
+        """Serialize project-registry rewrites across the service and command-line processes."""
+        import fcntl
+        path = self._safe(".gstudio/projects.lock")
+        path.parent.mkdir(exist_ok=True)
+        fd = os.open(path, os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            yield
+        finally:
+            os.close(fd)
 
     def _project(self, identifier: str, *, independent: bool = False) -> dict:
         self._identifier(identifier, "project")
@@ -580,7 +618,7 @@ class Workspace:
                 relative = f"projects/{item['id']}.md"
                 projects.append({"id": item["id"], "name": item["name"], "kind": item["kind"], "description": item.get("description", ""),
                                  "focus": item.get("focus", ""), "overview": self._text(relative),
-                                 "timeline": item.get("timeline", [])})
+                                 "timeline": item.get("timeline", []), "locations": item["locations"]})
             tasks = []
             for identifier, (_, metadata, body) in cards.items():
                 parts = _sections(body)
@@ -674,7 +712,7 @@ class Workspace:
             return result
 
     def create_project(self, payload: dict) -> dict:
-        with self._lock:
+        with self._lock, self._registry_lock():
             self._require()
             self._payload(payload)
             identifier = self._identifier(payload.get("id"), "project id")
@@ -689,8 +727,12 @@ class Workspace:
                 raise WorkspaceError("工作区类型必须为 project 或 system。")
             description = self._string(payload, "description", limit=10000)
             focus = self._string(payload, "focus", limit=10000)
-            overview = self._string(payload, "overview", limit=100000) or f"# {name}\n\n{description}\n\n## 当前重点\n\n{focus}"
+            locations = self._locations(payload.get("locations", []))
+            overview = (self._string(payload, "overview", limit=100000)
+                        or self.project_overview(name, kind, description, focus, locations))
             record = {"id": identifier, "name": name, "kind": kind, "description": description, "focus": focus, "timeline": []}
+            if locations:
+                record["locations"] = locations
             relative = f"projects/{identifier}.md"
             self._atomic_text(relative, overview + "\n", new=True)
             try:
@@ -698,7 +740,47 @@ class Workspace:
             except Exception:
                 self._safe(relative).unlink()
                 raise
-            return {**record, "overview": overview}
+            return {**record, "locations": locations, "overview": overview}
+
+    def update_project_locations(self, identifier: str, payload: dict) -> dict:
+        """Add or remove one working directory; the human project card is left unchanged."""
+        if set(payload) not in ({"add"}, {"remove"}):
+            raise WorkspaceError("请只提供 add 或 remove 一个工作目录。")
+        with self._lock, self._registry_lock():
+            self._require()
+            projects = self._projects()
+            project = next((item for item in projects if item["id"] == identifier), None)
+            if project is None:
+                raise WorkspaceError("项目不存在。", 404)
+            path = self._locations([next(iter(payload.values()))])[0]
+            locations = [item for item in project["locations"] if item != path]
+            if "add" in payload:
+                locations.append(path)
+            if locations != project["locations"]:
+                stored = self._json("config/projects.json")
+                for item in stored["projects"]:
+                    if item["id"] == identifier:
+                        if locations:
+                            item["locations"] = self._locations(locations)
+                        else:
+                            item.pop("locations", None)
+                self._write_json("config/projects.json", stored)
+            return {"project": identifier, "locations": locations}
+
+    def project_for_directory(self, directory) -> dict:
+        """The registered project whose working directory most specifically contains this one."""
+        with self._lock:
+            self._require()
+            current = Path(os.path.abspath(os.path.expanduser(str(directory)))).resolve()
+            best = None
+            for project in self._projects():
+                for location in project["locations"]:
+                    root = Path(location).resolve()
+                    if (current == root or root in current.parents) and (best is None or len(root.parts) > len(best[1].parts)):
+                        best = (project, root, location)
+            if best is None:
+                return {"directory": str(current), "project": None}
+            return {"directory": str(current), "project": best[0]["id"], "name": best[0]["name"], "location": best[2]}
 
     def _related(self, payload: dict, project: str) -> list[str]:
         values = payload.get("related_task_ids", [])

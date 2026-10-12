@@ -14,7 +14,7 @@ from gstudio_core.store import Workspace
 from test_executors import software_fixture
 
 try:
-    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import expect, sync_playwright
 except ImportError:
     sync_playwright = None
 
@@ -69,6 +69,18 @@ class SettingsBrowserTests(unittest.TestCase):
         for path in self.native:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("invalid private model configuration: must stay untouched\n")
+
+    def test_project_page_shows_registered_working_directories(self):
+        location = str(Path(self.temp.name) / "code/chenyu-site")
+        self.workspace.update_project_locations("chenyu", {"add": location})
+        self.addCleanup(self.workspace.update_project_locations, "chenyu", {"remove": location})
+        self.page.goto(self.base + "/#project/chenyu")
+        expect(self.page.locator("main")).to_contain_text("本机工作目录")
+        expect(self.page.locator("main code", has_text=location)).to_be_visible()
+        self.page.goto(self.base + "/#project/studio")
+        expect(self.page.locator("main h1")).to_contain_text("栖木")
+        expect(self.page.locator("main")).not_to_contain_text("本机工作目录")
+        self.assertEqual(self.errors, [])
 
     def workspace_bytes(self):
         return {str(path.relative_to(self.workspace.path)): hashlib.sha256(path.read_bytes()).hexdigest()

@@ -8,6 +8,7 @@ import unittest
 from unittest import mock
 
 from gstudio_core.cli import main
+from gstudio_core import locator
 from gstudio_core.locator import config_path, install_skill, read_default, register_default
 from gstudio_core.store import Workspace, WorkspaceError
 
@@ -92,14 +93,14 @@ class LocatorTests(unittest.TestCase):
 
     def test_daily_skill_installs_globally_without_overwriting_different_content(self):
         target = self.home / ".claude/skills"
-        result = install_skill(target)
+        result = install_skill(target, home=self.home)
         installed = target / "gstudio-core/SKILL.md"
-        self.assertEqual(result, {"status": "installed", "path": str(target / "gstudio-core")})
+        self.assertEqual((result["status"], result["path"]), ("installed", str(target / "gstudio-core")))
         self.assertIn("~/.config/gstudio-core/workspace.json", installed.read_text(encoding="utf-8"))
-        self.assertEqual(install_skill(target)["status"], "unchanged")
+        self.assertEqual(install_skill(target, home=self.home)["status"], "unchanged")
         installed.write_text("local edit", encoding="utf-8")
         with self.assertRaises(WorkspaceError) as caught:
-            install_skill(target)
+            install_skill(target, home=self.home)
         self.assertEqual(caught.exception.status, 409)
         self.assertEqual(installed.read_text(encoding="utf-8"), "local edit")
 
@@ -108,7 +109,7 @@ class LocatorTests(unittest.TestCase):
         real.mkdir()
         link = self.home / "skills"
         link.symlink_to(real, target_is_directory=True)
-        self.assertEqual(install_skill(link)["status"], "installed")
+        self.assertEqual(install_skill(link, home=self.home)["status"], "installed")
         self.assertTrue((real / "gstudio-core/SKILL.md").is_file())
         elsewhere = self.root / "elsewhere"
         elsewhere.mkdir()
@@ -116,7 +117,7 @@ class LocatorTests(unittest.TestCase):
         target.mkdir()
         (target / "gstudio-core").symlink_to(elsewhere, target_is_directory=True)
         with self.assertRaises(WorkspaceError):
-            install_skill(target)
+            install_skill(target, home=self.home)
         self.assertEqual(list(elsewhere.iterdir()), [])
 
     def test_cli_installs_the_daily_skill(self):
@@ -125,6 +126,81 @@ class LocatorTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(json.loads(output)["status"], "installed")
         self.assertTrue((target / "gstudio-core/agents/openai.yaml").is_file())
+
+
+    def fake_official_copy(self, target, text="old official"):
+        old = target / "gstudio-core"
+        (old / "agents").mkdir(parents=True)
+        (old / "SKILL.md").write_text(text, encoding="utf-8")
+        (old / "agents/openai.yaml").write_text("old", encoding="utf-8")
+        return {"9.9.9": locator.fingerprint(locator._read_tree(old))}
+
+    def test_previous_official_copy_is_upgraded_in_place(self):
+        target = self.home / ".claude/skills"
+        known = self.fake_official_copy(target)
+        with mock.patch.object(locator, "_official_fingerprints", return_value=known):
+            result = install_skill(target, home=self.home)
+        self.assertEqual((result["status"], result["from"]), ("upgraded", "9.9.9"))
+        self.assertIn("~/.config/gstudio-core/workspace.json", (target / "gstudio-core/SKILL.md").read_text(encoding="utf-8"))
+        self.assertEqual(sorted(p.name for p in target.iterdir()), ["gstudio-core"])
+
+    def test_released_fingerprint_matches_both_installed_and_zip_copies(self):
+        self.assertEqual(locator._official_fingerprints()["1.5.0"],
+                         "75a2c4033058cabd2a05dccbedb852a6f86818dc4e6a0247f586651fde5a55a2")
+        target = self.home / ".claude/skills"
+        install_skill(target, home=self.home)
+        (target / "gstudio-core/LICENSE").write_text("MIT", encoding="utf-8")
+        self.assertEqual(install_skill(target, home=self.home)["status"], "unchanged")
+
+    def test_failed_install_leaves_no_partial_skill(self):
+        target = self.home / ".claude/skills"
+        real_rename = os.rename
+        with mock.patch.object(locator.os, "rename", side_effect=OSError("disk full")):
+            with self.assertRaises(OSError):
+                install_skill(target, home=self.home)
+        self.assertEqual(list(target.iterdir()), [])
+        known = self.fake_official_copy(target)
+        before = locator._read_tree(target / "gstudio-core")
+        calls = []
+
+        def fail_second(source, destination):
+            calls.append(destination)
+            if len(calls) == 2:
+                raise OSError("interrupted")
+            return real_rename(source, destination)
+
+        with mock.patch.object(locator, "_official_fingerprints", return_value=known), \
+                mock.patch.object(locator.os, "rename", side_effect=fail_second):
+            with self.assertRaises(OSError):
+                install_skill(target, home=self.home)
+        self.assertEqual(locator._read_tree(target / "gstudio-core"), before)
+        self.assertEqual(sorted(p.name for p in target.iterdir()), ["gstudio-core"])
+
+    def test_install_skill_without_target_refreshes_every_remembered_folder(self):
+        code, _, errors = self.run_cli("install-skill")
+        self.assertEqual(code, 1)
+        self.assertIn("--target", errors)
+        first, second = self.home / ".claude/skills", self.home / ".agents/skills"
+        for target in (first, second):
+            self.assertEqual(self.run_cli("install-skill", "--target", str(target))[0], 0)
+        (first / "gstudio-core").rename(self.root / "removed-by-user")
+        code, output, _ = self.run_cli("install-skill")
+        self.assertEqual(code, 0)
+        statuses = {item["path"]: item["status"] for item in json.loads(output)}
+        self.assertEqual(statuses, {str(first / "gstudio-core"): "installed", str(second / "gstudio-core"): "unchanged"})
+
+
+    def test_refresh_finds_copies_installed_before_targets_were_remembered(self):
+        claude, codex = self.home / ".claude/skills", self.home / ".agents/skills"
+        known = self.fake_official_copy(claude)
+        codex.mkdir(parents=True)
+        with mock.patch.object(locator, "_official_fingerprints", return_value=known):
+            code, output, _ = self.run_cli("install-skill")
+        self.assertEqual(code, 0)
+        self.assertEqual([(item["path"], item["status"]) for item in json.loads(output)],
+                         [(str(claude / "gstudio-core"), "upgraded")])
+        self.assertFalse((codex / "gstudio-core").exists())
+        self.assertEqual(locator.remembered_targets(self.home), [str(claude)])
 
 
 if __name__ == "__main__":
