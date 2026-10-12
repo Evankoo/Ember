@@ -319,10 +319,19 @@ class Workspace:
             if item.get("kind", "project") not in ("project", "system"):
                 raise WorkspaceError("工作区类型必须为 project 或 system。")
             self._locations(item.get("locations", []))
+            self._category(item.get("category", ""))
             overview = self._safe(f"projects/{identifier}.md", exists=True)
             if not overview.is_file() or not self._text(f"projects/{identifier}.md").strip():
                 raise WorkspaceError("已注册项目必须有非空的 Markdown 项目说明正本。")
-        return [{**item, "kind": item.get("kind", "project"), "locations": item.get("locations", [])} for item in result]
+        return [{**item, "kind": item.get("kind", "project"), "locations": item.get("locations", []),
+                 "category": item.get("category", "")} for item in result]
+
+    @staticmethod
+    def _category(value) -> str:
+        """A short, user-defined label for grouping projects; empty means uncategorized."""
+        if not isinstance(value, str) or len(value.strip()) > 20 or any(ord(char) < 32 for char in value):
+            raise WorkspaceError("项目分类应为不超过 20 字的单行文字。")
+        return value.strip()
 
     @staticmethod
     def _locations(value) -> list[str]:
@@ -618,7 +627,8 @@ class Workspace:
                 relative = f"projects/{item['id']}.md"
                 projects.append({"id": item["id"], "name": item["name"], "kind": item["kind"], "description": item.get("description", ""),
                                  "focus": item.get("focus", ""), "overview": self._text(relative),
-                                 "timeline": item.get("timeline", []), "locations": item["locations"]})
+                                 "timeline": item.get("timeline", []), "locations": item["locations"],
+                                 "category": item["category"]})
             tasks = []
             for identifier, (_, metadata, body) in cards.items():
                 parts = _sections(body)
@@ -654,7 +664,8 @@ class Workspace:
                               "next": parts.get("下一步", ""), "logs": logs,
                               "inputs": input_ids,
                               "outputs": [item["id"] for item in owned if item["kind"] in ("draft", "formal")],
-                              "related": metadata.get("related_task_ids", []), "important": identifier in views["important_task_ids"]})
+                              "related": metadata.get("related_task_ids", []), "important": identifier in views["important_task_ids"],
+                              "executor": metadata.get("executor", ""), "skills_used": metadata.get("skills_used", [])})
             inbox = []
             for path in sorted(self._safe("inbox").iterdir(), key=lambda value: value.name):
                 info = _package_info(path)
@@ -728,11 +739,14 @@ class Workspace:
             description = self._string(payload, "description", limit=10000)
             focus = self._string(payload, "focus", limit=10000)
             locations = self._locations(payload.get("locations", []))
+            category = self._category(payload.get("category", ""))
             overview = (self._string(payload, "overview", limit=100000)
                         or self.project_overview(name, kind, description, focus, locations))
             record = {"id": identifier, "name": name, "kind": kind, "description": description, "focus": focus, "timeline": []}
             if locations:
                 record["locations"] = locations
+            if category:
+                record["category"] = category
             relative = f"projects/{identifier}.md"
             self._atomic_text(relative, overview + "\n", new=True)
             try:
@@ -740,7 +754,26 @@ class Workspace:
             except Exception:
                 self._safe(relative).unlink()
                 raise
-            return {**record, "locations": locations, "overview": overview}
+            return {**record, "locations": locations, "category": category, "overview": overview}
+
+    def update_project_category(self, identifier: str, payload: dict) -> dict:
+        """Change the grouping label only; the human project card is left unchanged."""
+        if set(payload) != {"category"}:
+            raise WorkspaceError("请只提供 category。")
+        with self._lock, self._registry_lock():
+            self._require()
+            category = self._category(payload["category"])
+            if not any(item["id"] == identifier for item in self._projects()):
+                raise WorkspaceError("项目不存在。", 404)
+            stored = self._json("config/projects.json")
+            for item in stored["projects"]:
+                if item["id"] == identifier:
+                    if category:
+                        item["category"] = category
+                    else:
+                        item.pop("category", None)
+            self._write_json("config/projects.json", stored)
+            return {"project": identifier, "category": category}
 
     def update_project_locations(self, identifier: str, payload: dict) -> dict:
         """Add or remove one working directory; the human project card is left unchanged."""

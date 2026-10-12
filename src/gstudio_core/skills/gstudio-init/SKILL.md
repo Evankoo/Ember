@@ -1,6 +1,6 @@
 ---
 name: gstudio-init
-version: 1.4.0
+version: 1.5.0
 description: 一步一步引导首次安装 GStudio，确认程序与数据目录，建立 GStudio 系统项目和真实安装首任务，登记三项基础 Skill，在隔离工作区验证任务与交付并把结果写回，登记本机默认工作区并经确认把日常 Skill 装到 AI 工具的全局目录，启动工作台后引导可选的首个业务项目和人工验收。不重置、迁移或升级已有工作区。
 triggers: [初始化 GStudio, 安装 GStudio, 安装 GStudio Core, 建立新工作区, 首次使用 GStudio]
 tools: [read_file, terminal, browser]
@@ -49,7 +49,7 @@ writes_pages: false
 <真实Python> <Skill目录>/scripts/bootstrap.py --app-dir <程序目录> --workspace <数据目录> --mode empty|example --name <名称> --port 8783 --executor <实际调用工具>
 ```
 
-实际调用工具可为 opencode、codex、workbuddy、claude-code 等；未知则 manual，不能填模型名。独立初始包含 `gstudio-init`、`gstudio-core`、`gstudio-project` 三个 Skill 文件夹，init 内含 `assets/gstudio_core-0.6.0-py3-none-any.whl`；没有 wheel 时用固定 v0.6.0 地址。开发可传 `--source`。PyYAML 依赖仍须网络或缓存，不声称完全离线。
+实际调用工具可为 opencode、codex、workbuddy、claude-code 等；未知则 manual，不能填模型名。独立初始包含 `gstudio-init`、`gstudio-core`、`gstudio-project` 三个 Skill 文件夹，init 内含 `assets/gstudio_core-0.7.0-py3-none-any.whl`；没有 wheel 时用固定 v0.7.0 地址。开发可传 `--source`。PyYAML 依赖仍须网络或缓存，不声称完全离线。
 
 ### 4. 建立系统项目和真实首任务
 

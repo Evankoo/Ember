@@ -38,6 +38,11 @@ def main(argv=None):
     location.add_argument("dir", type=Path)
     location.add_argument("--remove", action="store_true")
     location.add_argument("--workspace", type=Path, help="默认使用本机登记的工作区")
+    category = commands.add_parser("project-category", help="设置或清除项目分类")
+    category.add_argument("project")
+    category.add_argument("name", nargs="?", default="")
+    category.add_argument("--clear", action="store_true")
+    category.add_argument("--workspace", type=Path, help="默认使用本机登记的工作区")
     commands.add_parser("skill-path", help="显示可安装或读取的初始化 Skill 目录")
     args = parser.parse_args(argv)
     if args.command == "skill-path":
@@ -55,6 +60,12 @@ def main(argv=None):
             return 0
         if args.command == "which-project":
             print(json.dumps(resolve_workspace(args.workspace).project_for_directory(args.dir), ensure_ascii=False))
+            return 0
+        if args.command == "project-category":
+            if bool(args.name) == args.clear:
+                raise WorkspaceError("请提供分类名称，或使用 --clear 清除。")
+            result = resolve_workspace(args.workspace).update_project_category(args.project, {"category": args.name})
+            print(json.dumps(result, ensure_ascii=False))
             return 0
         if args.command == "project-location":
             change = {"remove" if args.remove else "add": str(args.dir.expanduser().absolute())}

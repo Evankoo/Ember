@@ -107,7 +107,7 @@ class SettingsBrowserTests(unittest.TestCase):
         self.assertEqual(self.errors, [])
 
     def test_five_public_pages_and_retired_archive_route_on_desktop_and_mobile(self):
-        routes = {'home': '任务台', 'projects': '项目视图', 'review': '任务检视', 'library': '资料浏览', 'settings': '设置'}
+        routes = {'home': '想让 AI 帮你做什么', 'projects': '项目视图', 'review': '任务检视', 'library': '资料浏览', 'settings': '设置'}
         for width in (1440, 1024, 390):
             self.page.set_viewport_size({'width': width, 'height': 1000})
             for route, title in routes.items():

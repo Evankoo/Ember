@@ -8,7 +8,7 @@
 
 [介绍页](https://ai.evan-manual.com/gstudio/) · [在线演示](https://ai.evan-manual.com/gstudio/demo/) · [最新发行版](https://github.com/Evankoo/GStudio-Core/releases/latest) · [更新记录](CHANGELOG.md)
 
-![GStudio 工作台：一张任务卡的目标、当前结果、下一步、执行日志和任务资料](docs/images/workbench.png)
+![GStudio 工作台：侧栏按分类列出项目，一张任务卡的目标、当前结果、下一步、执行日志和交付文件](docs/images/workbench.png)
 
 ## 为什么需要
 
@@ -88,6 +88,14 @@ gstudio which-project --dir ~/code/autumn-site/src
 
 第一条把目录登记到项目 `autumn-site`，第二条返回它对应的项目。日常 Skill 会先这样查；查不到时问你，不按目录名猜。
 
+### 给项目分类
+
+```bash
+gstudio project-category autumn-site 内容运营
+```
+
+分类名由你自己起，项目视图和侧栏按分类分组；`--clear` 清除。常用项目可在侧栏点星标收藏，收藏只记在当前浏览器里。
+
 ## 设计原则
 
 **你的工作，始终在你手里。**
@@ -101,11 +109,11 @@ gstudio which-project --dir ~/code/autumn-site/src
 
 | 部分 | 说明 |
 | --- | --- |
-| 工作台 | 任务台、项目视图、任务检视、资料浏览、设置五个页面，加项目与任务详情 |
+| 工作台 | 任务台、项目视图、任务检视、资料浏览、设置五个页面，加项目与任务详情；界面取自完整版工作台 |
 | 任务卡 | 目标、描述、当前结果、下一步和执行日志；任务线只引用关联任务 |
 | 资料与交付 | 输入、草稿、正式交付分开存放；同名文件拒绝覆盖 |
 | 三个 Skill | `gstudio-init` 首次安装，`gstudio-core` 日常接续，`gstudio-project` 确认后建项目 |
-| 命令行 | `init`、`use`、`where`、`check`、`serve`、`install-skill`、`which-project`、`project-location` |
+| 命令行 | `init`、`use`、`where`、`check`、`serve`、`install-skill`、`which-project`、`project-location`、`project-category` |
 
 开源版是单机基础版，不包含完整版的归档中心、多机同步、知识库、运行 Agent、模型认证和自动发布，也不提供永久删除、自动合并任务或自动备份。请自行备份工作区。详见 [开源版范围](docs/scope.md)。
 
@@ -127,6 +135,6 @@ python -m unittest discover -s tests -v
 rm -rf build src/*.egg-info && python -m pip wheel . --no-deps -w dist
 ```
 
-打包前先清理 `build/`，避免旧文件混进 wheel。真实浏览器测试是可选的：安装 `playwright==1.60.0` 和 Chromium 后运行 `python -m unittest discover -s tests -p test_browser.py -v`，测试使用独立的虚构工作区。
+打包前先清理 `build/`，避免旧文件混进 wheel。界面样式表 `web/assets/workbench.css` 从完整版工作台原样复制，不要直接修改；本仓库的补充样式写在 `web/app.css`。维护者用 `python tools/sync_workbench_styles.py --source <工作台目录>` 重新复制，复制前会检查并拒绝任何本机路径、机器名或私有系统名。真实浏览器测试是可选的：安装 `playwright==1.60.0` 和 Chromium 后运行 `python -m unittest discover -s tests -p test_browser.py -v`，测试使用独立的虚构工作区。
 
 原创代码、示例和 Skill 采用 [MIT](LICENSE)；标题字体单独遵守 SIL Open Font License 1.1，见 `src/gstudio_core/web/fonts/OFL.txt`。
