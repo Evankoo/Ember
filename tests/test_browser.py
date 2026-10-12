@@ -148,6 +148,51 @@ class SettingsBrowserTests(unittest.TestCase):
             self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'))
         self.assert_untouched()
 
+    def test_guided_installation_first_task_and_three_skills_are_visible_without_completion(self):
+        from gstudio_core import __version__
+        from gstudio_core.onboarding import begin_installation, record_installation
+        with tempfile.TemporaryDirectory() as temporary:
+            app = Path(temporary) / 'app'
+            app.mkdir()
+            workspace = Workspace(Path(temporary) / 'new-data')
+            workspace.initialize()
+            first = begin_installation(workspace, app_dir=app, executor='opencode')
+            record_installation(workspace, {**first, 'version': __version__, 'workspace': str(workspace.path),
+                                'app_dir': str(app.resolve()), 'mode': 'empty', 'status': 'ready', 'stage': 'complete',
+                                'checks': ['workspace-contract', 'persisted-workflow', 'loopback-health'],
+                                'verification_workspace_cleaned': True, 'service_running': False})
+            before = {str(p.relative_to(workspace.path)): p.read_bytes() for p in workspace.path.rglob('*') if p.is_file()}
+            server = LocalServer(workspace, 0, executor_registry=ExecutorRegistry(Path(temporary) / 'home'))
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            base = f'http://127.0.0.1:{server.server_port}'
+            try:
+                for width in (1440, 390):
+                    self.page.set_viewport_size({'width': width, 'height': 1000})
+                    self.page.goto(base + '/#home')
+                    self.page.locator('#home-task-list', has_text='GStudio初始化验收').wait_for()
+                    self.assertEqual(self.page.locator('#home-count').inner_text(), '1')
+                    self.page.goto(base + '/#project/gstudio')
+                    self.page.locator('#main-content h1', has_text='GStudio').wait_for()
+                    self.assertIn('GStudio初始化验收', self.page.locator('#main-content').inner_text())
+                    self.page.goto(base + '/#task/' + first['task_id'])
+                    self.page.locator('#main-content h1', has_text='GStudio初始化验收').wait_for()
+                    self.assertIn('人工验收尚未完成', self.page.locator('#main-content').inner_text())
+                    self.page.goto(base + '/#settings')
+                    self.page.locator('#settings-skills .core-skill').first.wait_for()
+                    self.assertEqual(self.page.locator('#settings-skills .core-skill strong').all_text_contents(),
+                                     ['gstudio-init', 'gstudio-core', 'gstudio-project'])
+                    self.assertIn('三项基础 Skill', self.page.locator('#main-content').inner_text())
+                    self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'))
+                self.assertEqual(before, {str(p.relative_to(workspace.path)): p.read_bytes() for p in workspace.path.rglob('*') if p.is_file()})
+                self.assertEqual(workspace.snapshot()['tasks'][0]['status'], 'active')
+                self.assertFalse((workspace.path / 'delivery/formal' / first['task_id']).exists())
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join()
+        self.assert_untouched()
+
     def test_empty_manual_check_save_and_saved_summary_share_light_buttons(self):
         self.settings()
         self.assertEqual(self.page.locator("#default-software option").count(), 1)

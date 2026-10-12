@@ -15,7 +15,7 @@ import sys
 import tempfile
 import urllib.request
 
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 WHEEL = f"gstudio_core-{VERSION}-py3-none-any.whl"
 RELEASE = f"https://github.com/Evankoo/GStudio-Core/releases/download/v{VERSION}/{WHEEL}"
 
@@ -40,6 +40,9 @@ def validate(args):
         raise ValueError("应用目录和数据目录必须独立，不能互相包含")
     if not args.name.strip() or len(args.name.strip()) > 80:
         raise ValueError("工作区名称应为 1–80 字符")
+    executor = getattr(args, "executor", "manual")
+    if not isinstance(executor, str) or not executor.strip() or len(executor) > 80 or any(c in executor for c in ("\n", "\r", "\x00")):
+        raise ValueError("executor 应为真实执行工具的单行名称，不是模型名称")
     if not 1 <= args.port <= 65535:
         raise ValueError("端口应为 1–65535")
     with socket.socket() as probe:
@@ -93,7 +96,8 @@ def run(args):
     app, workspace, source = validate(args)
     receipt = {"version": VERSION, "status": "installing", "stage": "environment",
                "app_dir": str(app), "workspace": str(workspace), "mode": args.mode,
-               "name": args.name.strip(), "created_at": datetime.now(timezone.utc).isoformat()}
+               "name": args.name.strip(), "executor": getattr(args, "executor", "manual").strip(),
+               "checks": [], "created_at": datetime.now(timezone.utc).isoformat()}
     app.mkdir(parents=True, exist_ok=True)
     receipt_path = app / "installation.json"
 
@@ -103,12 +107,25 @@ def run(args):
     def command(argv):
         subprocess.run([str(item) for item in argv], check=True)
 
+    def capture(argv):
+        result = subprocess.run([str(item) for item in argv], capture_output=True, text=True)
+        if result.returncode:
+            raise RuntimeError(result.stderr.strip()[:4000] or "安装阶段子进程失败")
+        return json.loads(result.stdout)
+
+    def write_back():
+        result = capture([python, "-m", "gstudio_core.onboarding", "record", "--workspace", workspace, "--receipt", receipt_path])
+        receipt.update(result, writeback_status="verified")
+        save()
+
     save()
     try:
+        print("1/5 建立独立应用目录与 Python 环境", flush=True)
         command([sys.executable, "-m", "venv", app / ".venv"])
         python = app / ".venv/bin/python"
         receipt["stage"] = "package"
         save()
+        print("2/5 安装 Core 与三项基础 Skill", flush=True)
         if source is None:
             bundled = Path(__file__).resolve().parents[1] / "assets" / WHEEL
             if bundled.is_file():
@@ -122,31 +139,53 @@ def run(args):
         command([python, "-m", "pip", "install", source])
         receipt["stage"] = "workspace"
         save()
+        print("3/5 建立已确认的新工作区与规范目录", flush=True)
         init = [python, "-m", "gstudio_core", "init", workspace, "--name", args.name.strip()]
         if args.mode == "example":
             init.append("--example")
         command(init)
+        receipt["stage"] = "system-project-and-task"
+        save()
+        print("4/5 登记 GStudio 系统项目和本次真实安装任务", flush=True)
+        receipt.update(capture([python, "-m", "gstudio_core.onboarding", "begin", "--workspace", workspace,
+                               "--app-dir", app, "--executor", receipt["executor"], "--mode", args.mode]))
+        save()
         check = [str(python), "-m", "gstudio_core", "check", "--workspace", str(workspace)]
         start = [str(python), "-m", "gstudio_core", "serve", "--workspace", str(workspace), "--port", str(args.port)]
         receipt.update(stage="verification", check_argv=check, startup_argv=start)
         save()
+        write_back()
+        print("5/5 检查真实工作区；在隔离工作区验证任务、交付和 HTTP，再写回首任务", flush=True)
         command(check)
+        receipt["checks"].append("workspace-contract")
         verification = Path(tempfile.mkdtemp(prefix="gstudio-init-check-"))
-        receipt["verification_workspace"] = str(verification)
+        receipt.update(stage="workflow-verification", verification_workspace=str(verification))
         save()
+        write_back()
         command([python, "-c", SMOKE, verification])
+        receipt["checks"].extend(["persisted-workflow", "loopback-health"])
         shutil.rmtree(verification)
         receipt["verification_workspace_cleaned"] = True
         receipt.update(status="ready", stage="complete", service_running=False,
                        skill_path=str(workspace / ".agents/skills/gstudio-init/SKILL.md"),
-                       checks=["workspace-contract", "persisted-workflow", "loopback-health"])
+                       writeback_status="pending")
         save()
+        write_back()
+        command(check)
         print(json.dumps(receipt, ensure_ascii=False, indent=2))
-        print(f"安装收据：{receipt_path}\n启动：{shlex.join(start)}\n停止：在服务进程按 Ctrl+C")
+        print(f"安装收据：{receipt_path}\n首任务：{workspace / receipt['task_path']}\n验收草稿：{workspace / receipt['report_path']}\n启动：{shlex.join(start)}\n停止：在服务进程按 Ctrl+C\n下一步：打开工作台，回读首任务和三项 Skill；首个业务项目另行确认，人工验收后才正式交付。")
         return 0
     except Exception as error:
+        if receipt.get("writeback_status") == "pending":
+            receipt["stage"] = "result-writeback"
         receipt.update(status="failed", error=str(error))
         save()
+        if receipt.get("task_id"):
+            try:
+                write_back()
+            except Exception as writeback_error:
+                receipt.update(writeback_status="failed", writeback_error=str(writeback_error))
+                save()
         print(f"安装失败（{receipt['stage']}）：{error}\n现场及收据保留：{receipt_path}", file=sys.stderr)
         return 1
 
@@ -159,6 +198,7 @@ def main(argv=None):
     parser.add_argument("--name", default="GStudio")
     parser.add_argument("--port", type=int, default=8783)
     parser.add_argument("--source", help="本地源码目录或 wheel；默认使用附带 wheel 或官方发行版")
+    parser.add_argument("--executor", default="manual", help="真实调用本 Skill 的工具名称；未知则 manual，不填模型")
     args = parser.parse_args(argv)
     try:
         return run(args)

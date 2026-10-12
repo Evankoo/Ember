@@ -91,7 +91,7 @@ class Handler(BaseHTTPRequestHandler):
                 from .bootstrap import verify_workspace_contract
                 verify_workspace_contract(self.server.workspace)
                 records = [item for item in self.server.workspace._json("skills/manifest.json").get("skills", [])
-                           if isinstance(item, dict) and item.get("name") in {"gstudio-init", "gstudio-core"}
+                           if isinstance(item, dict) and item.get("name") in {"gstudio-init", "gstudio-core", "gstudio-project"}
                            and item.get("path") == f".agents/skills/{item['name']}/SKILL.md"]
                 self.json({"execution_environment": self.server.executor_registry.snapshot(),
                            "skills": [{"name": item["name"], "version": item.get("version", "未登记版本"),

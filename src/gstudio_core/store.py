@@ -811,6 +811,7 @@ class Workspace:
             if not isinstance(content, str) or len(content.encode("utf-8")) > 1024 * 1024:
                 raise WorkspaceError("资料必须为不超过 1 MiB 的 UTF-8 文本。")
             purpose = self._string(payload, "purpose", limit=5000, default="输入快照" if kind == "input" else "草稿交付")
+            source_locator = self._string(payload, "source_locator", required=True, limit=1000, default="workbench:text-entry")
             relative = f"{'inputs' if kind == 'input' else 'delivery/draft'}/{task_id}/{name}"
             self._atomic_text(relative, content, new=True)
             try:
@@ -822,7 +823,7 @@ class Workspace:
                     input_data["folder"] = f"inputs/{task_id}/"
                     input_data.setdefault("items", []).append({"id": "input-" + uuid4().hex[:12], "name": name,
                                                                "storage": "snapshot", "path": relative, "purpose": purpose,
-                                                               "source_locator": "workbench:text-entry", "source_environment": "local",
+                                                               "source_locator": source_locator, "source_environment": "local",
                                                                "size": len(content.encode("utf-8")), "sha256": fingerprint(self._safe(relative)),
                                                                "required": False, "added_at": stamp})
                 else:

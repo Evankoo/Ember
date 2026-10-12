@@ -6,16 +6,17 @@
 
 ## 用初始化 Skill 安装
 
-下载发行页的 [gstudio-init-1.1.0.zip](https://github.com/Evankoo/GStudio-Core/releases/download/v0.3.0/gstudio-init-1.1.0.zip)，解压，将 `gstudio-init` 文件夹放进你使用的 Agent 的 Skills 目录。对 Agent 说：**“使用 gstudio-init 安装 GStudio Core，建立一个空白工作区。”**
+下载发行页的 [gstudio-init-1.2.0.zip](https://github.com/Evankoo/GStudio-Core/releases/download/v0.4.0/gstudio-init-1.2.0.zip)，解压，将其中的 `gstudio-init`、`gstudio-core`、`gstudio-project` 文件夹放进你使用的 Agent 的 Skills 目录。对 Agent 说：**“使用 gstudio-init 安装 GStudio Core，建立一个空白业务工作区，并把安装验收作为 GStudio 系统的第一项任务。”**
 
-Skill 会逐项补齐缺少的目录和示例选择，建立独立环境、系统规则、任务模板和自己的 Skill 登记，再验证任务与交付流程。ZIP 内含 Core wheel，PyYAML 依赖仍需要联网或已有缓存。支持读取 `SKILL.md` 的其他 Agent 也可调用其中的标准库安装脚本。
+Skill 会分步引导：确认程序与数据目录 → 安装环境和规则 → 建立 `GStudio` 系统项目及真实安装任务 → 隔离测试并写回验收草稿 → 启动工作台 → 按需确认第一个业务项目 → 人工验收。默认没有虚构业务任务，但保留本次真实安装记录；测试任务只在临时工作区执行，不污染新工作区。ZIP 内含 Core wheel 与三项 Skill，PyYAML 依赖仍需要联网或已有缓存。
 
 已有 Core 时，`gstudio skill-path` 可查看同样的初始化 Skill。新工作区内也会保留 `.agents/skills/gstudio-init/`，后续无需下载私有系统配置。
 
-## 两个基础 Skill
+## 三个基础 Skill
 
-- **`gstudio-init` 1.1.0**：首次安装或建立新工作区，不重置、迁移或升级已有工作区。
-- **`gstudio-core` 1.3.0**：完整版 `gstudio` 总入口职责的公开精简适配。先判断是否需要跟踪，普通只读问题不强制建卡；读取项目说明、继续同一目标的原任务，为独立维护目标建立新卡，登记实际执行与资料交付，校验后回读，保持人工确认边界。
+- **`gstudio-init` 1.2.0**：分步引导首次安装、建立系统项目及安装首任务、隔离验证并写回、启动和人工交接；不重置、迁移或升级已有工作区。
+- **`gstudio-core` 1.4.0**：完整版 `gstudio` 总入口职责的公开精简适配。普通只读问题不强制建卡；读取项目说明、继续同一目标的原任务，为独立维护目标建立新卡，登记实际执行与资料交付，校验后回读，保持人工确认边界。
+- **`gstudio-project` 1.0.0**：查重、准备项目或系统的完整方案，用户确认后通过既有接口登记并回读独立项目说明；使用原跟踪任务，不迁移资料或改写任务归属。
 
 项目说明独立保存在本工作区，不依赖外部知识库。专业业务可按需要调用用户已有 Skill，但 Core 不随包安装它们，也不取得其数据或发布权限。软件打开必须单独确认，不意味着模型或任务已经执行。
 
@@ -38,7 +39,7 @@ gstudio serve --workspace ./workspace --port 8783
 安装发行页提供的 wheel 也可以：
 
 ```bash
-python -m pip install ./gstudio_core-0.3.0-py3-none-any.whl
+python -m pip install ./gstudio_core-0.4.0-py3-none-any.whl
 gstudio init ./workspace --example
 gstudio serve --workspace ./workspace
 ```
@@ -47,7 +48,7 @@ gstudio serve --workspace ./workspace
 
 ## 从示例开始
 
-示例里的客户、项目、文件、任务及历史全部虚构：两个项目、八项任务（含一条任务线）、输入与交付、四种 Inbox 资料标签和两份检视报告。
+低层 `gstudio init --example` 的演示客户、项目、文件、任务及历史全部虚构：两个项目、八项任务（含一条任务线）、输入与交付、四种 Inbox 资料标签和两份检视报告。通过初始化 Skill 安装示例模式时，另加一个真实 `GStudio` 系统项目和一项安装任务，合计三项目 / 九任务；原演示数据不改写。
 
 1. 在任务台搜索“秋季”，查看待确认的方案和相关资料。
 2. 进入“晨屿咖啡内容合作”，在任务、交付文件和输入资料之间切换。
@@ -55,7 +56,7 @@ gstudio serve --workspace ./workspace
 4. 确认草稿后执行正式交付，文件复制校验后进入正式目录，任务进入已完成。没有文件成果的任务可通过单独的确认操作完成。
 5. 在任务检视选择任务，生成上下文；把外部 AI 的建议粘贴回来保存为报告。保存报告不会合并任务或改变任务状态。
 
-希望使用空工作区时，改用 `gstudio init ./my-workspace`，然后从界面新建项目、系统工作区与任务。初始化拒绝覆盖非空目录。`gstudio check --workspace ./workspace` 会检查系统契约、任务卡、资料引用及已登记快照的存在、大小与 SHA-256。
+手动 `gstudio init ./my-workspace` 只建立零项目 / 零任务的底层结构。需要完整首任务引导时使用上面的初始化 Skill，默认生成一系统 / 一项真实安装任务；业务项目由 `gstudio-project` 另行确认。初始化拒绝覆盖非空目录。`gstudio check --workspace ./workspace` 检查系统契约、任务卡、引用与输入快照的存在、大小和 SHA-256；检查通过不等于用户验收或自动完成任务。
 
 ## 配置本机执行环境
 
@@ -93,6 +94,7 @@ gstudio serve --workspace ./workspace
 - [v0.1.1 更新范围与已有工作区注意事项](docs/update-0.1.1.md)
 - [v0.2.0 通用设置与执行环境](docs/update-0.2.0.md)
 - [v0.3.0 归档中心发布范围调整](docs/update-0.3.0.md)
+- [v0.4.0 分步初始化与安装首任务](docs/update-0.4.0.md)
 - [提炼范围](docs/extraction.md)
 - [工作区与使用说明](docs/workspace.md)
 - [HTTP 与存储接口](docs/api.md)

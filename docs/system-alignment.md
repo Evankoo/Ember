@@ -60,12 +60,12 @@ Core 将系统规则与用户数据的位置一并明确。初始化拒绝覆盖
 | 完整系统入口 | Core 对应位置 |
 | --- | --- |
 | `AGENTS.md`、`SOUL.md`、`MEMORY.md`、`RESOLVER.md` | `src/gstudio_core/templates/` 中的公共模板，由 `src/gstudio_core/bootstrap.py` 安装到新工作区 |
-| `skills/RESOLVER.md` 与 `skills/gstudio/SKILL.md` 的启动路由职责 | 工作区 `skills/RESOLVER.md`、带版本的 `skills/manifest.json`；`gstudio-init` 负责新安装，`gstudio-core` 精简适配总入口、任务必要性、项目上下文、续接、校验与人工确认职责 |
+| `skills/RESOLVER.md` 与 `skills/gstudio/SKILL.md` 的启动路由职责 | 工作区 `skills/RESOLVER.md`、带版本的 `skills/manifest.json`；`gstudio-init` 分步安装及建立真实首任务，`gstudio-core` 精简适配总入口、续接和确认，`gstudio-project` 组织查重与确认建项 |
 | `skills/gstudio/references/task-card-template.md` | 工作区 `templates/task-card.md` |
 | `scripts/workspace_paths.py` 与机器环境解析 | `src/gstudio_core/cli.py` 显式指定工作区；工作区 `RESOLVER.md` 使用相对位置 |
 | `scripts/task_gate.py` 的执行前后数据验证职责 | `src/gstudio_core/store.py` 的读取及写入检查、`src/gstudio_core/bootstrap.py` 的契约检查、`gstudio check` |
 
-初始化 Skill 负责建立新安装和新工作区，不取得重置已有数据或运行私人集成的权限。它不替代日常任务卡，也不复制完整系统的所有下游 Skills。
+初始化 Skill 负责建立新安装和新工作区，不取得重置已有数据或运行私人集成的权限。v0.4.0 引导先建立新用户的 `GStudio` 系统和真实安装任务，把隔离测试结果写回同一任务，人工验收前保持 active / draft；底层 init 的空结构语义不变。可选业务建项要另行确认，不复制完整系统的登记脚本、能力体系或私人事实。
 
 `gstudio-core` 与完整版 `gstudio` 对应的是通用职责，不是同一份文件。普通只读检索不强制建卡；同一目标调用其他 Skill 或换执行器仍继续原任务。独立维护目标使用新卡，不把原发布任务当作永久容器。Core 使用本地 `gstudio check` 与受控 Workspace / HTTP 接口落实流程，不照搬完整系统的 NAS、跨机租约、外部 MCP 或业务发布能力。
 

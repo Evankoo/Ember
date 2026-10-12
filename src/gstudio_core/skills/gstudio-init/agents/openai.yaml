@@ -1,4 +1,4 @@
 interface:
   display_name: "GStudio 系统初始化"
-  short_description: "引导安装本地工作台，建立规范工作区并验证任务、资料和交付流程"
-  default_prompt: "使用 $gstudio-init 初始化我的 GStudio Core，逐项确认缺少的安装选择并验证结果。"
+  short_description: "逐步安装，建立 GStudio 系统与首任务，隔离测试后引导建项和人工验收"
+  default_prompt: "使用 $gstudio-init 一步一步安装我的 GStudio Core，把本次安装作为系统项目的第一个真实任务，测试后引导我确认是否建立业务项目。"

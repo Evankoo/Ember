@@ -16,6 +16,7 @@
 | 呈现与 Inbox 标签台账 | .gstudio/ |
 | 首次安装 Skill | .agents/skills/gstudio-init/SKILL.md |
 | 日常工作入口 Skill | .agents/skills/gstudio-core/SKILL.md |
+| 项目/系统建项 Skill | .agents/skills/gstudio-project/SKILL.md |
 | Skill 注册与路由 | skills/manifest.json、skills/RESOLVER.md |
 | 任务创建模板 | templates/task-card.md |
 

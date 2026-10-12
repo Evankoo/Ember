@@ -1,45 +1,66 @@
-# 初始化系统 Skill
+# 分步初始化与安装首任务
 
-`gstudio-init` 随 Core 安装，也作为独立的 Skill ZIP 发布。它建立可以继续使用的系统工作区，不只是载入展示网页。
+`gstudio-init` 1.2.0 建立新安装；`gstudio-project` 1.0.0 组织建项；`gstudio-core` 1.4.0 接管日常工作。三项 Skill 同时放在初始 ZIP 和 wheel 中，并登记到新工作区。
 
-## 安装包包含什么
+## 初始包与使用方式
 
-- `SKILL.md`：当前选择复用、逐项补齐缺项、检查与交接流程。
-- `agents/openai.yaml`：可识别的名称、说明与默认提示词。
-- `scripts/bootstrap.py`：标准库编排脚本，支持独立环境、新工作区、真实保存流程验证和安装收据。
-- 独立发行 ZIP 的 `assets/`：相同版本 Core wheel，包含代码、虚构示例、规则与模板；依赖 PyYAML 仍需要网络或缓存。
-- `LICENSE`：MIT；Core 内字体保留独立 OFL 许可证。
+下载官方 v0.4.0 的 `gstudio-init-1.2.0.zip`，解压后有三个同级目录：`gstudio-init/`、`gstudio-core/`、`gstudio-project/`。将它们放到所用 Agent 的 Skills 目录，先调用 `gstudio-init`。客户端的 Skill 发现规则由客户端自己管理；安装不自动适配四种 AI 客户端的全局配置，也不认证模型。
 
-可以把解压后的 `gstudio-init` 放进 Agent 使用的 Skills 目录，再说“使用 gstudio-init 安装 GStudio Core”。不同 Agent 的 Skill 目录由其自身约定决定，不替用户修改全局配置。
+`gstudio-init` 中的标准库脚本编排安装，`assets/` 附带 `gstudio_core-0.4.0-py3-none-any.whl`。wheel 包含 Core、三项 Skill、系统规则、模板、页面及虚构示例。PyYAML 仍需要网络或缓存；源码及 Skill 为 MIT，字体保留 OFL 许可证。
 
-## 引导与执行
+## 九步引导
 
-Skill 先确定真实 Python 版本和系统，沿用用户已给出的选择，只询问缺少的关键项目：应用目录、数据目录、示例或空白模式。名字默认 GStudio，端口默认 8783。两个目录必须为空或不存在且互不包含。
+1. **确认环境与选择。** 检查实际 Python ≥3.10、macOS / Linux；复用已经给出的选择，只问缺少的程序目录、工作区目录及空白 / 示例模式。默认名称 GStudio、端口 8783。两个目录必须为空或不存在且互不包含；说明会保留真实安装任务，再取得安装确认。
+2. **说明并建立目录。** 程序环境放在应用目录，任务与资料放在工作区。先展示用途，确认后创建，不把工作区放进程序目录。
+3. **安装程序与契约。** 建立独立 `.venv`，安装 wheel，建立规则、项目注册位置、任务目录、输入与交付目录、三项 Skill 及 manifest / Resolver。
+4. **建立系统项目和首任务。** 查重后登记 `id:gstudio / name:GStudio / kind:system`，专门管理新用户这台电脑上的 Core 安装与维护。创建真实 `GStudio初始化验收` 任务，记录实际 executor 与调用的 Skill；已确认目录等选择保存为输入快照。此时不预建空交付目录。
+5. **回读登记。** 核对项目说明、首任务、输入来源 / 摘要、三项 Skill 版本及路由。系统项目不是私人生产系统的复制，不导入账号或历史。
+6. **隔离测试并写回。** 先检查真实工作区，再在拥有的临时工作区验证新建项目和任务、输入、草稿、正式交付、无文件完成、引用与本机 HTTP 健康。模拟测试任务不留在用户工作区。成功清理临时测试目录，失败保留；进度、实际错误及验收草稿写回同一首任务。
+7. **启动并检查工作台。** 按收据实际参数在前台启动，检查健康接口、五个页面、系统项目、首任务和 Skill 登记。分清“安装就绪”和“当前服务正在运行”；停止为服务进程 `Ctrl+C`，再次用同一命令回读数据。
+8. **可选建立第一个业务项目。** 问用户实际用途、名称与边界；不需要时跳过，不虚构项目。调用 `gstudio-project` 只读查重并展示完整方案，用户确认相同方案后登记 `config/projects.json` 和 `projects/<id>.md`，回读。此步骤仍用安装跟踪任务；后续独立业务目标另建业务任务。
+9. **人工验收与交接。** 展示实际证据与下一步。技术测试通过仍是 `active` 任务及草稿；只有用户确认验收和正式交付后才走受控推广完成。接着交给 `gstudio-core`，不把首任务变成全部维护工作的永久容器。
 
-脚本可独立运行：
+## 目录与首次结果
 
 ```text
-python3 /path/to/gstudio-init/scripts/bootstrap.py --app-dir /path/to/app --workspace /path/to/data --mode empty --name GStudio --port 8783
+app/                         程序目录
+  .venv/                     独立 Python 环境
+  installation.json          真实安装阶段、收据及 check / serve 参数
+data/                        工作区目录
+  AGENTS.md SOUL.md MEMORY.md RESOLVER.md WORKBENCH_DESIGN.md
+  .agents/skills/             三项 Skill 正文与脚本
+  skills/manifest.json        版本登记与路由
+  config/projects.json        项目与系统注册
+  projects/gstudio.md         新用户的系统项目说明
+  tasks/active/<task_id>.md   本次真实安装任务
+  inputs/<task_id>/           安装选择快照
+  delivery/draft/<task_id>/   出现真实验收或失败说明后才创建
 ```
 
-使用本地代码或 wheel 时，加 `--source /path/to/source-or-wheel`。没有附带 wheel 时，下载固定的官方 GitHub v0.2.0 发行包。脚本以参数数组调用命令，不执行用户文本拼接的 shell 命令。
+引导的空白模式没有虚构业务数据，完成技术验证后保留 **一系统 / 一真实安装任务**。示例模式保留原有两项目 / 八项虚构任务，再添加真实系统及首任务，合计 **三项目 / 九任务**。底层 `gstudio init` 仍是零项目 / 零任务结构（示例为二 / 八），不会自动启动完整引导。
 
-工作区内会建立 `AGENTS.md`、`SOUL.md`、空白 `MEMORY.md`、`RESOLVER.md`、`WORKBENCH_DESIGN.md`、任务模板和 Skill 登记。只安装 `gstudio-init` 1.0.2 与日常入口 `gstudio-core` 1.2.0，manifest 记录对应版本，Resolver 路由首次安装和日常工作。`gstudio-core` 先判断是否需要任务卡，读取项目说明并继续原任务，按实际需要调用用户已有的业务 Skill；Core 不安装私人依赖。`AGENTS.md` 定义规则，Skill 引用规则，模板及 Resolver 各负责创建和位置，不引入第二套政策。
+## 命令与收据
 
-空白模式没有项目、任务和业务文件。示例模式包含两个虚构项目、八项任务、十八个输入与交付等文件、Inbox 四种状态和两份检视报告。系统工作区可在安装后新建，不虚构一个已经运行的私人系统。
+使用检查通过的实际 Python 路径运行：
 
-## 安装验证与收据
+```text
+python3 /path/to/gstudio-init/scripts/bootstrap.py --app-dir /path/to/app --workspace /path/to/data --mode empty --name GStudio --port 8783 --executor opencode
+```
 
-复用已有 Core 时，为新工作区构造独立的 check / serve 命令，不复用旧安装收据里的目录。
+`--executor` 填真实调用工具，未知用 `manual`，不猜模型。`--source` 可指定本地源码或 wheel；没有附带 wheel 时只下载固定官方 v0.4.0 包。命令使用参数数组，不执行拼接的用户 shell 文本。
 
-安装先运行 `gstudio check`，再在成功后清理、失败保留的临时工作区创建项目、任务、输入、草稿与正式交付，验证无文件完成、引用不复制及本机 HTTP 健康状态。临时验证不往用户空白工作区写入测试任务。
+`installation.json` 记录版本、状态、阶段、目录、首任务、验收草稿、检查结果和真实 check / startup 参数。`ready` 要求契约、保存流程与 HTTP 三项技术检查及成功清理隔离测试；不意味着前台服务已经启动或用户已经验收。写回失败会明确失败并保留现场，不把“生成了文件”当作验收成功。
 
-应用目录的 `installation.json` 记录阶段、成功或失败、工作区、实际启动及检查参数。脚本结束时服务没有常驻运行；Skill 随后按收据在前台启动并检查页面。停止时对原服务进程按 Ctrl+C；重启同一命令会读回原数据。
+中途失败不覆盖或重新初始化现场。建立首任务之后的失败写回原卡；若程序尚未安装或任务尚未建立，则只有应用收据，不能假报任务已经存在。重复创建首系统 / 首任务、修改过的示例、额外文件、篡改输入或外工作区收据都被拒绝；人工改过的交付不会被脚本覆盖。
 
-非空目录、路径重叠或端口占用在安装前拒绝。中途失败保留现场与收据，不自动删除或重试覆盖。没有后台守护、模型认证、NAS、业务数据导入或已有工作区迁移。
+建项脚本先只读输出方案和 SHA-256；登记必须提供未完成跟踪任务、`--confirm` 和原方案摘要。重复 ID / 名称、方案变化或当前服务占用会停止；服务运行时可通过既有 HTTP 建项接口并在原任务登记实际 Skill 和日志，不启动第二个写入者。
 
-升级应用不会自动替换已有工作区内的规则和 Skill。不要把 `init` 当升级命令；如需采用新版契约，先备份并逐项核对本地修改，按明确确认的范围同步。见 [v0.2.0 更新说明](update-0.2.0.md)。本机软件仍由用户在设置页自行确认；安装不会自动查找、登记、保存或打开 AI 软件。
+## 已有安装与安全边界
 
-## 开发验收
+复用已安装的相同版本 Core 只能对确认的新工作区建立引导；重新构造这个工作区的 check / serve 参数及收据，不复用旧收据目录。已有数据、旧规则和 Skill 不自动升级；先备份并确认单独变更范围，不把 `init` 当作升级命令。
 
-`tests/test_bootstrap.py` 检查系统入口、空白与示例数据，以及禁止覆盖、目录重叠、端口占用和缺失契约。真实发行前另用独立新环境执行脚本，从打包的 wheel 初始化并回读，防止源码可运行而安装包漏资源。
+安装不配置后台守护、NAS、模型认证、Mem0 或业务数据，不查找、登记或打开 AI 软件，也不恢复归档中心。前台服务只监听回环地址。详见 [v0.4.0 变化](update-0.4.0.md)。
+
+## 验证
+
+`test_bootstrap.py` 验证完整编排成功和失败写回；`test_onboarding.py` 验证首任务、收据、隔离边界、查重、确认方案及写锁；真实 Chromium 验证首任务和三项 Skill 的桌面 / 手机显示。发布还必须使用打包的三 Skill ZIP 和 wheel 做空白、示例新安装与公开下载后的回读，不仅依赖源码测试。

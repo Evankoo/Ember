@@ -1,6 +1,6 @@
 ---
 name: gstudio-core
-version: 1.3.0
+version: 1.4.0
 description: 已初始化 GStudio Core 的日常工作入口。先判断是否需要跟踪，继续原任务，读取项目说明，登记实际执行与资料交付，并验证结果。普通解释和只读检索不强制建卡；首次安装使用 gstudio-init，不包含私人集成或业务技能。
 triggers: [继续 GStudio 任务, 建立任务, 查看已有任务或资料, 登记资料, 正式交付]
 tools: [read_file, terminal, browser]
@@ -20,6 +20,7 @@ writes_pages: false
 - Core 只承担通用工作入口。业务操作按实际需要调用用户已有的 Skill，不把其正文、凭据或外部正本复制进 Core。
 - 操作前后校验并回读证据；生成、验证、用户接受与任务完成是不同事实，不能替用户确认。
 - 本机软件由用户在设置中确认；路径可用不是登录或模型可用。上下文可单独复制，只有用户明确确认才复制并打开已保存默认软件，不自动提交提示词，不把打开软件登记为任务已执行。
+- 新建项目或系统工作区路由 `gstudio-project`，先查重与确认方案；不把创建目录当作已建项。同一安装的首个业务项目留在原安装任务审计，独立维护仍另建任务。
 
 ## When to Use
 
@@ -32,6 +33,7 @@ writes_pages: false
 - `templates/task-card.md` 只落实创建格式；`skills/manifest.json` 登记实际可用 Skill。
 - 安装版本的 `Workspace` / HTTP 接口约定见 Core 仓库 `docs/api.md`；使用受控方法，不绕过检查直接改台账。
 - 本机软件的查找、保存与人工执行边界见工作区 `AGENTS.md`；用户配置不属于工作区文件，也不复制客户端认证配置。
+- 新建项目查重、方案与确认登记见工作区 `.agents/skills/gstudio-project/SKILL.md`。
 
 ## Phases
 
