@@ -26,6 +26,10 @@ jobs:
               assert not any('__pycache__' in name or name.endswith(('.pyc', '.pyo')) for name in names)
               assert {'gstudio_core/web/index.html', 'gstudio_core/web/app.js', 'gstudio_core/web/fonts/OFL.txt', 'gstudio_core/skills/gstudio-init/scripts/bootstrap.py', 'gstudio_core/executors.py'} <= names
               assert any(name.startswith('gstudio_core/examples/workspace/tasks/') for name in names)
+              assert not any(name.startswith('gstudio_core/examples/workspace/archive/') or name.endswith('/archive-records.json') for name in names)
+              assert b'def archive_item(' not in wheel.read('gstudio_core/store.py')
+              assert b'"/api/archive"' not in wheel.read('gstudio_core/server.py')
+              assert b'renderArchive' not in wheel.read('gstudio_core/web/app.js')
           PY
   browser:
     runs-on: ubuntu-latest

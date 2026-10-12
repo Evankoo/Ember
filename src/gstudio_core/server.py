@@ -152,7 +152,6 @@ class Handler(BaseHTTPRequestHandler):
                 "/api/projects": w.create_project,
                 "/api/tasks": w.create_task,
                 "/api/inbox/label": w.set_inbox_label,
-                "/api/archive": w.archive_item,
                 "/api/context": w.build_context,
                 "/api/review/context": w.build_review_context,
                 "/api/reports": w.save_report,

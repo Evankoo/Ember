@@ -12,9 +12,8 @@
 | 用户草稿 | delivery/draft/<task_id>/ |
 | 正式交付 | delivery/formal/<task_id>/ |
 | 待分类资料 | inbox/ |
-| 项目归档 | archive/<project>/ |
 | 检视报告 | reports/ |
-| 呈现与归档台账 | .gstudio/ |
+| 呈现与 Inbox 标签台账 | .gstudio/ |
 | 首次安装 Skill | .agents/skills/gstudio-init/SKILL.md |
 | 日常工作入口 Skill | .agents/skills/gstudio-core/SKILL.md |
 | Skill 注册与路由 | skills/manifest.json、skills/RESOLVER.md |

@@ -240,60 +240,9 @@ class StoreTests(unittest.TestCase):
         self.assertTrue((self.root / "inbox/renamed/说明.md").is_file())
         self.assertTrue((self.root / "inbox/duplicate/说明.md").is_file())
 
-    def test_archive_copies_verifies_receipts_and_keeps_source(self):
-        identifier = self.write_inbox()
-        with self.assertRaises(WorkspaceError):
-            self.store.archive_item({"id": identifier, "project": "sample", "revision": 0, "confirmation": True})
-        self.store.set_inbox_label({"id": identifier, "label": "待归档", "revision": 0})
-        payload = {"id": identifier, "project": "sample", "revision": 1, "confirmation": True}
-        receipt = self.store.archive_item(payload)
-        self.assertEqual(receipt["status"], "verified")
-        self.assertTrue((self.root / identifier).is_dir())
-        self.assertEqual(fingerprint(self.root / identifier), fingerprint(self.root / receipt["target"]))
-        self.assertEqual(self.store.snapshot()["inbox"][0]["label"], "可删除")
-        retried = self.store.archive_item({**payload, "revision": receipt["revision"]})
-        self.assertEqual(retried["id"], receipt["id"])
-        self.assertEqual(len(self.store.snapshot()["archive_records"]), 1)
-        (self.root / receipt["target"] / "说明.md").write_text("损坏归档")
-        with self.assertRaises(WorkspaceError):
-            self.store.archive_item({**payload, "revision": receipt["revision"]})
-
-    def test_archive_same_name_different_bytes_is_a_conflict(self):
-        identifier = self.write_inbox()
-        self.store.set_inbox_label({"id": identifier, "label": "待归档", "revision": 0})
-        self.store.archive_item({"id": identifier, "project": "sample", "revision": 1, "confirmation": True})
-        (self.root / identifier / "说明.md").write_text("新版本资料")
-        self.store.set_inbox_label({"id": identifier, "label": "待归档", "revision": 2})
-        with self.assertRaises(WorkspaceError):
-            self.store.archive_item({"id": identifier, "project": "sample", "revision": 3, "confirmation": True})
-        self.assertEqual((self.root / "archive/sample/package/说明.md").read_text(), "原始资料")
-        self.assertEqual((self.root / identifier / "说明.md").read_text(), "新版本资料")
-
-    def test_archive_receipt_failure_rolls_back_target_and_ledger(self):
-        identifier = self.write_inbox()
-        self.store.set_inbox_label({"id": identifier, "label": "待归档", "revision": 0})
-        previous = (self.root / ".gstudio/inbox.json").read_bytes()
-        write_json = self.store._write_json
-        failed_once = False
-
-        def fail_receipt(relative, data, **kwargs):
-            nonlocal failed_once
-            if relative == ".gstudio/archive-records.json" and not failed_once:
-                failed_once = True
-                raise WorkspaceError("模拟回执磁盘写入失败")
-            return write_json(relative, data, **kwargs)
-
-        with patch.object(self.store, "_write_json", side_effect=fail_receipt):
-            with self.assertRaises(WorkspaceError):
-                self.store.archive_item({"id": identifier, "project": "sample", "revision": 1, "confirmation": True})
-        self.assertEqual((self.root / ".gstudio/inbox.json").read_bytes(), previous)
-        self.assertEqual(self.store.snapshot()["archive_records"], [])
-        self.assertFalse((self.root / "archive/sample/package").exists())
-        self.assertEqual((self.root / identifier / "说明.md").read_text(), "原始资料")
-
     def test_copy_corruption_is_not_registered_as_success(self):
-        identifier = self.write_inbox()
-        self.store.set_inbox_label({"id": identifier, "label": "待归档", "revision": 0})
+        identifier = self.task()
+        self.store.add_material(identifier, {"kind": "draft", "name": "说明.md", "content": "原始资料"})
         import shutil
         copytree = shutil.copytree
 
@@ -304,20 +253,19 @@ class StoreTests(unittest.TestCase):
 
         with patch("gstudio_core.store.shutil.copytree", side_effect=corrupt_copy):
             with self.assertRaises(WorkspaceError):
-                self.store.archive_item({"id": identifier, "project": "sample", "revision": 1, "confirmation": True})
-        self.assertEqual(self.store.snapshot()["archive_records"], [])
-        self.assertFalse((self.root / "archive/sample/package").exists())
-        self.assertEqual((self.root / identifier / "说明.md").read_text(), "原始资料")
+                self.store.promote_task(identifier, {"confirmation": True})
+        self.assertEqual(self.card(identifier)[0]["status"], "active")
+        self.assertFalse((self.root / f"delivery/formal/{identifier}").exists())
+        self.assertEqual((self.root / f"delivery/draft/{identifier}/说明.md").read_text(), "原始资料")
 
-    def test_formal_delivery_is_not_archived_until_explicit_copy(self):
+    def test_formal_delivery_does_not_create_an_archive(self):
         identifier = self.task()
         self.store.add_material(identifier, {"kind": "draft", "name": "交付.md", "content": "成果"})
         self.store.promote_task(identifier, {"confirmation": True})
         state = self.store.snapshot()
-        self.assertEqual(state["archives"], [])
+        self.assertNotIn("archives", state)
+        self.assertFalse((self.root / "archive").exists())
         self.assertIn("formal", {item["kind"] for item in state["files"]})
-        receipt = self.store.archive_item({"id": f"delivery/formal/{identifier}", "project": "sample", "revision": 0, "confirmation": True})
-        self.assertEqual(receipt["status"], "verified")
         self.assertTrue((self.root / f"delivery/formal/{identifier}/交付.md").is_file())
 
     def test_task_line_has_one_way_relation_and_real_draft_files(self):

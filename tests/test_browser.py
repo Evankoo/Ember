@@ -94,6 +94,60 @@ class SettingsBrowserTests(unittest.TestCase):
             self.assertEqual(path.read_text(), "invalid private model configuration: must stay untouched\n")
         self.assertEqual(self.errors, [])
 
+    def test_five_public_pages_and_retired_archive_route_on_desktop_and_mobile(self):
+        routes = {'home': '任务台', 'projects': '项目视图', 'review': '任务检视', 'library': '资料浏览', 'settings': '设置'}
+        for width in (1440, 1024, 390):
+            self.page.set_viewport_size({'width': width, 'height': 1000})
+            for route, title in routes.items():
+                self.page.goto(self.base + '/#' + route)
+                self.page.locator('#main-content h1', has_text=title).wait_for()
+                self.assertEqual(self.page.locator('[data-nav]').count(), 5)
+                self.assertEqual(self.page.locator('a[href="#archive"]').count(), 0)
+                self.assertEqual(self.page.locator('.archive-workspace').count(), 0)
+                self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'))
+            self.page.goto(self.base + '/#archive')
+            self.page.locator('#main-content h1', has_text='页面不存在').wait_for()
+            self.page.locator('#main-content a[href="#home"]').focus()
+            self.page.keyboard.press('Enter')
+            self.page.locator('#home-task-list').wait_for()
+        self.assert_untouched()
+
+    def test_empty_workspace_pages_have_no_archive_or_automatic_writes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Workspace(Path(temporary) / 'empty')
+            workspace.initialize()
+            before = {str(p.relative_to(workspace.path)): p.read_bytes() for p in workspace.path.rglob('*') if p.is_file()}
+            server = LocalServer(workspace, 0, executor_registry=ExecutorRegistry(Path(temporary) / 'home'))
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                for width in (1440, 390):
+                    self.page.set_viewport_size({'width': width, 'height': 1000})
+                    self.page.goto(f'http://127.0.0.1:{server.server_port}/#home')
+                    self.page.locator('#home-task-list .empty').wait_for()
+                    self.assertEqual(self.page.locator('#home-count').inner_text(), '0')
+                    self.assertEqual(self.page.locator('a[href="#archive"]').count(), 0)
+                    self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'))
+                self.assertEqual(before, {str(p.relative_to(workspace.path)): p.read_bytes() for p in workspace.path.rglob('*') if p.is_file()})
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join()
+        self.assert_untouched()
+
+    def test_unavailable_workspace_is_an_explicit_error_not_a_blank_success(self):
+        self.page.route('**/api/state', lambda route: route.fulfill(status=503, content_type='application/json',
+                                                                  body=json.dumps({'ok': False, 'error': 'fixture workspace unavailable'})))
+        for width in (1440, 390):
+            self.page.set_viewport_size({'width': width, 'height': 1000})
+            self.page.goto(self.base + '/#home')
+            self.page.locator('#main-content h1', has_text='工作区读取失败').wait_for()
+            self.assertIn('fixture workspace unavailable', self.page.locator('#main-content').inner_text())
+            self.assertIn('不会被覆盖', self.page.locator('#main-content').inner_text())
+            self.assertEqual(self.page.locator('a[href="#archive"]').count(), 0)
+            self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'))
+        self.assert_untouched()
+
     def test_empty_manual_check_save_and_saved_summary_share_light_buttons(self):
         self.settings()
         self.assertEqual(self.page.locator("#default-software option").count(), 1)

@@ -213,16 +213,6 @@ class HTTPTests(unittest.TestCase):
         self.data("/api/reports", "POST", {"title": "手动检视", "content": "建议等待确认", "mode": "selected", "task_ids": ["autumn-plan"]})
         self.assertEqual(before, {x["id"]: x["status"] for x in self.workspace.snapshot()["tasks"]})
 
-    def test_archive_requires_confirmation_and_preserves_source(self):
-        item = next(x for x in self.workspace.snapshot()["inbox"] if x["label"] == "待归档")
-        payload = {"id": item["id"], "project": "chenyu", "revision": 0}
-        self.assertEqual(self.request("/api/archive", "POST", payload)[0], 400)
-        record = self.data("/api/archive", "POST", {**payload, "confirmation": True})
-        self.assertTrue((self.root / item["id"]).is_dir())
-        self.assertTrue((self.root / record["target"]).is_dir())
-        reloaded = Workspace(self.root).snapshot()
-        self.assertEqual(next(x["label"] for x in reloaded["inbox"] if x["id"] == item["id"]), "可删除")
-
     def test_second_service_is_rejected_and_lock_is_released(self):
         with workspace_lock(self.workspace):
             with self.assertRaises(WorkspaceError):
