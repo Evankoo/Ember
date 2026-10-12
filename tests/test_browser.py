@@ -82,6 +82,21 @@ class SettingsBrowserTests(unittest.TestCase):
         expect(self.page.locator("main")).not_to_contain_text("本机工作目录")
         self.assertEqual(self.errors, [])
 
+    def test_project_task_list_filters_without_losing_search_focus(self):
+        self.page.goto(self.base + "/#project/chenyu")
+        expect(self.page.locator(".project-task-row")).to_have_count(5)
+        search = self.page.locator("#project-search")
+        search.press_sequentially("秋季")
+        expect(self.page.locator(".project-task-row")).to_have_count(3)
+        self.assertEqual(self.page.evaluate("document.activeElement.id"), "project-search")
+        search.fill("")
+        self.page.locator('[data-action="project-task-filter"][data-id="completed"]').click()
+        expect(self.page.locator(".project-task-row")).to_have_count(1)
+        expect(self.page.locator(".project-task-row a")).to_have_text("五月内容方案")
+        self.page.locator('.project-task-row a').click()
+        expect(self.page.locator("main h1")).to_have_text("五月内容方案")
+        self.assert_untouched()
+
     def workspace_bytes(self):
         return {str(path.relative_to(self.workspace.path)): hashlib.sha256(path.read_bytes()).hexdigest()
                 for path in self.workspace.path.rglob("*") if path.is_file()}

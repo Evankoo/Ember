@@ -67,3 +67,5 @@ fieldset{margin:0;padding:0;border:0;min-width:0}
 .workbench-dialog .home-confirm-task-field select{width:100%}
 .workbench-dialog .home-confirm-action-buttons .button{white-space:nowrap}
 .task-table td.empty{display:table-cell}
+.project-task-filters .chip{flex:none;white-space:nowrap}
+.library-material-row:not(:has(>input)){grid-template-columns:20px minmax(0,1fr) auto}

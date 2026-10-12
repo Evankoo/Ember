@@ -12,7 +12,7 @@ const app = (() => {
     home: { query: "", project: "", type: "", status: "" },
     review: { query: "", project: "", type: "", status: "", sort: "updated" },
     library: { query: "", project: "", kind: "delivery", subtype: "" },
-    project: { query: "", kind: "tasks" }
+    project: { query: "", kind: "tasks", task: "all", subtype: "" }
   };
   const ui = { review: new Set(), library: new Set(), reviewTask: "", reviewReport: "", reportFilter: "", file: "", projectId: "", projectCategory: "", reviewFilters: false, taskFiles: "delivery" };
   const composer = { task: "", files: [], attachments: [] };
@@ -392,7 +392,7 @@ const app = (() => {
     const p = project(state.id);
     main.className = "shell app-main project-workspace-page paper-management-page";
     if (!p) { main.innerHTML = `<section class="panel project-intro-card"><h1>找不到项目</h1><p>该项目不在当前工作区。</p><a href="#projects">返回项目视图</a></section>`; return; }
-    if (ui.projectId !== p.id) { ui.projectId = p.id; filters.project = { query: "", kind: "tasks" }; ui.file = ""; }
+    if (ui.projectId !== p.id) { ui.projectId = p.id; filters.project = { query: "", kind: "tasks", task: "all", subtype: "" }; ui.file = ""; }
     const entity = p.kind === "system" ? "系统" : "项目";
     const tasks = data().tasks.filter(t => t.project === p.id);
     const deliveries = data().files.filter(f => f.project === p.id && ["draft", "formal"].includes(f.kind));
@@ -404,16 +404,31 @@ const app = (() => {
     renderProjectScene();
   }
 
+  const projectTaskFilters = [["all", "全部"], ["important", "当前重点"], ["groups", "任务主线"], ["active", "进行中"], ["completed", "已完成"]];
+
   function renderProjectScene() {
     const f = filters.project, scene = document.getElementById("project-scene");
     if (f.kind === "tasks") {
-      const q = f.query.trim().toLowerCase();
-      const rows = data().tasks.filter(t => t.project === state.id && (!q || [t.title, t.goal, t.current, t.next].join(" ").toLowerCase().includes(q))).sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
-      scene.innerHTML = `<div class="task-overview-filters project-scene-filters"><div class="search-wrap"><span class="search-icon" aria-hidden="true">⌕</span><input id="project-search" type="search" data-filter="project" data-field="query" aria-label="搜索项目任务" placeholder="搜索当前项目任务" value="${esc(f.query)}"></div></div>${taskTable("project-task-list", rows, "没有匹配的项目任务。")}`;
+      const entity = project(state.id)?.kind === "system" ? "系统" : "项目";
+      const count = data().tasks.filter(t => t.project === state.id).length;
+      const chip = ([id, label]) => `<button type="button" class="chip${f.task === id ? " active" : ""}" data-action="project-task-filter" data-id="${id}" aria-pressed="${f.task === id}">${label}</button>`;
+      scene.innerHTML = `<section class="panel project-workspace"><div class="project-workspace-layout"><div class="project-task-pane" data-project-panel="tasks"><div class="project-pane-head"><div class="project-pane-title"><h2>${entity}任务</h2><span>${count}</span></div><div class="project-pane-tools"><input id="project-search" class="project-pane-search" type="search" data-filter="project" data-field="query" placeholder="搜索${entity}任务" aria-label="搜索${entity}任务" value="${esc(f.query)}"></div></div><div class="project-task-filters" aria-label="任务筛选">${projectTaskFilters.map(chip).join("")}<span class="filter-separator" aria-hidden="true"></span>${chip(["delivery", "有交付文件"])}</div><div class="project-task-list" id="project-task-list"></div></div></div></section>`;
+      renderProjectTasks();
     } else {
-      scene.innerHTML = `${libraryLayout("project")}`;
+      scene.innerHTML = `<section class="panel project-workspace"><div class="project-workspace-layout"><div class="project-material-pane library-material-page" data-project-panel="materials">${libraryLayout("project")}</div></div></section>`;
       renderFiles("project");
     }
+  }
+
+  function renderProjectTasks() {
+    const f = filters.project, q = f.query.trim().toLowerCase();
+    const keep = { all: () => true, important: t => t.important, groups: t => t.kind === "task_line", active: t => t.status !== "completed", completed: t => t.status === "completed", delivery: t => (t.outputs || []).length > 0 }[f.task] || (() => true);
+    const rows = data().tasks.filter(t => t.project === state.id && keep(t) && (!q || [t.title, t.goal, t.description, t.id].join(" ").toLowerCase().includes(q)))
+      .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
+    document.getElementById("project-task-list").innerHTML = rows.map(t => {
+      const delivered = (t.outputs || []).length > 0;
+      return `<article class="project-task-row" data-task-id="${esc(t.id)}" data-status="${esc(t.status)}"><div class="project-task-row-main"><a href="#task/${encodeURIComponent(t.id)}">${esc(t.title)}</a><div class="subtitle">${esc(t.goal)}</div></div><div class="project-task-row-meta"><span class="badge ${esc(t.status)}">${esc(statusNames[t.status] || t.status)}</span><span class="delivery-label${delivered ? " has-delivery" : ""}">${delivered ? "有交付文件" : "无独立交付文件"}</span></div></article>`;
+    }).join("") || `<p class="muted project-task-empty">没有匹配的任务。</p>`;
   }
 
   /* ---------- 任务详情 ---------- */
@@ -441,7 +456,7 @@ const app = (() => {
   function libraryLayout(key) {
     const f = filters[key], isLibrary = key === "library";
     const subtypes = f.kind === "input" ? [["", "全部输入类型"], ["snapshot", "快照"], ["reference", "引用"]] : [["", "全部交付状态"], ["draft", "草稿交付"], ["formal", "正式交付"]];
-    return `<section class="library-file-controls"><div class="search-wrap"><span class="search-icon" aria-hidden="true">⌕</span><input id="${key}-search" type="search" data-filter="${key}" data-field="query" aria-label="搜索资料" placeholder="搜索文件名、任务或用途" value="${esc(f.query)}"></div>${isLibrary ? `<select id="library-project" data-filter="library" data-field="project" aria-label="项目">${projectOptions(f.project)}</select><select id="library-subtype" data-filter="library" data-field="subtype" aria-label="资料类型">${subtypes.map(([value, name]) => option(value, name, f.subtype)).join("")}</select>` : ""}</section><div class="library-file-first-layout"><section class="panel library-material-index"><header class="library-column-head"><div><h2>${f.kind === "input" ? "输入资料" : "交付文件"}</h2><span id="${key}-file-count" class="meta"></span></div>${isLibrary ? `<button class="button ghost" type="button" data-action="clear-files" id="library-clear"${ui.library.size ? "" : " hidden"}>清空选择</button>` : ""}</header><div id="${key}-file-list" class="library-material-list"></div>${isLibrary ? `<footer id="library-selection" class="library-selection-bar"${ui.library.size ? "" : " hidden"}></footer>` : ""}</section><section id="${key}-file-preview" class="panel library-material-preview"><header class="library-column-head"><div class="library-preview-title-block"><h2>内容预览</h2><span class="meta">选择文件后查看内容</span></div></header><div class="library-source-strip"><span>尚未选择资料。</span></div><div class="library-preview-body library-full-preview"><div class="library-preview-placeholder">从左侧选择文件或输入资料。</div></div></section></div>`;
+    return `<section class="library-file-controls${isLibrary ? "" : " project-material-controls"}"><div class="search-wrap"><span class="search-icon" aria-hidden="true">⌕</span><input id="${key}-search" type="search" data-filter="${key}" data-field="query" aria-label="搜索资料" placeholder="搜索文件名、任务或用途" value="${esc(f.query)}"></div>${isLibrary ? `<select id="library-project" data-filter="library" data-field="project" aria-label="项目">${projectOptions(f.project)}</select>` : ""}<select id="${key}-subtype" data-filter="${key}" data-field="subtype" aria-label="资料类型">${subtypes.map(([value, name]) => option(value, name, f.subtype)).join("")}</select></section><div class="library-file-first-layout"><section class="panel library-material-index"><header class="library-column-head"><div><h2>${f.kind === "input" ? "输入资料" : "交付文件"}</h2><span id="${key}-file-count" class="meta"></span></div>${isLibrary ? `<button class="button ghost" type="button" data-action="clear-files" id="library-clear"${ui.library.size ? "" : " hidden"}>清空选择</button>` : ""}</header><div id="${key}-file-list" class="library-material-list"></div>${isLibrary ? `<footer id="library-selection" class="library-selection-bar"${ui.library.size ? "" : " hidden"}></footer>` : ""}</section><section id="${key}-file-preview" class="panel library-material-preview"><header class="library-column-head"><div class="library-preview-title-block"><h2>内容预览</h2><span class="meta">选择文件后查看内容</span></div></header><div class="library-source-strip"><span>尚未选择资料。</span></div><div class="library-preview-body library-full-preview"><div class="library-preview-placeholder">从左侧选择文件或输入资料。</div></div></section></div>`;
   }
 
   function renderLibrary() {
@@ -773,7 +788,8 @@ const app = (() => {
       case "complete": completeTask(id); return;
       case "status-filter": filters[button.dataset.filter].status = id; renderRoute(); return;
       case "project-category": ui.projectCategory = id; renderProjects(); return;
-      case "project-tab": filters.project.kind = id; filters.project.query = ""; ui.file = ""; renderProject(); return;
+      case "project-tab": filters.project.kind = id; filters.project.query = ""; filters.project.subtype = ""; ui.file = ""; renderProject(); return;
+      case "project-task-filter": filters.project.task = id; renderProjectScene(); return;
       case "task-files": ui.taskFiles = id; renderTask(); return;
       case "library-tab": filters.library.kind = id; filters.library.subtype = ""; ui.file = ""; renderLibrary(); return;
       case "reset-filter": filters[id] = { ...filters[id], query: "", project: "", type: "", status: "" }; renderRoute(); return;
@@ -879,7 +895,7 @@ const app = (() => {
     if (control.dataset.filter) {
       const key = control.dataset.filter; filters[key][control.dataset.field] = control.value;
       if (key === "home" || key === "review") renderTaskResults(key);
-      else if (key === "project") filters.project.kind === "tasks" ? renderProjectScene() : renderFiles("project");
+      else if (key === "project") filters.project.kind === "tasks" ? renderProjectTasks() : renderFiles("project");
       else if (key === "library") renderFiles("library");
     }
   });
