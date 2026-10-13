@@ -15,7 +15,7 @@ import sys
 import tempfile
 import urllib.request
 
-VERSION = "0.7.1"
+VERSION = "0.8.0"
 WHEEL = f"gstudio_core-{VERSION}-py3-none-any.whl"
 RELEASE = f"https://github.com/Evankoo/GStudio-Core/releases/download/v{VERSION}/{WHEEL}"
 
@@ -144,9 +144,9 @@ def run(args):
         if args.mode == "example":
             init.append("--example")
         command(init)
-        receipt["stage"] = "system-project-and-task"
+        receipt["stage"] = "system-project"
         save()
-        print("4/5 登记 GStudio 系统项目和本次真实安装任务", flush=True)
+        print("4/5 登记 GStudio 系统项目；安装记录保存在应用目录", flush=True)
         receipt.update(capture([python, "-m", "gstudio_core.onboarding", "begin", "--workspace", workspace,
                                "--app-dir", app, "--executor", receipt["executor"], "--mode", args.mode]))
         save()
@@ -155,7 +155,7 @@ def run(args):
         receipt.update(stage="verification", check_argv=check, startup_argv=start)
         save()
         write_back()
-        print("5/5 检查真实工作区；在隔离工作区验证任务、交付和 HTTP，再写回首任务", flush=True)
+        print("5/5 检查真实工作区；在隔离工作区验证任务、交付和 HTTP，保存安装报告", flush=True)
         command(check)
         receipt["checks"].append("workspace-contract")
         verification = Path(tempfile.mkdtemp(prefix="gstudio-init-check-"))
@@ -179,7 +179,7 @@ def run(args):
             receipt["default_workspace_note"] = registered.stderr.strip()[:1000]
         save()
         print(json.dumps(receipt, ensure_ascii=False, indent=2))
-        print(f"安装收据：{receipt_path}\n首任务：{workspace / receipt['task_path']}\n验收草稿：{workspace / receipt['report_path']}\n启动：{shlex.join(start)}\n停止：在服务进程按 Ctrl+C\n下一步：打开工作台，回读首任务和三项 Skill；首个业务项目另行确认，人工验收后才正式交付。")
+        print(f"安装收据：{receipt_path}\n安装报告：{receipt['report_path']}\n启动：{shlex.join(start)}\n停止：在服务进程按 Ctrl+C\n下一步：打开工作台并配置当前 AI 工具；由 gstudio-core 将当前对话建成第一张任务卡，用户检查 OK 后再通过 gstudio-project 建立练习项目。")
         if receipt["default_workspace"] == "registered":
             print(f"本机默认工作区：{workspace}（记录在 ~/.config/gstudio-core/workspace.json）")
         else:
@@ -190,7 +190,7 @@ def run(args):
             receipt["stage"] = "result-writeback"
         receipt.update(status="failed", error=str(error))
         save()
-        if receipt.get("task_id"):
+        if receipt.get("system_project_id"):
             try:
                 write_back()
             except Exception as writeback_error:

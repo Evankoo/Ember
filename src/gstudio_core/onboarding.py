@@ -1,10 +1,12 @@
-"""Keep one real installation task; technical probes stay in a separate workspace."""
+"""Register the installed system and keep technical evidence in the application directory."""
 from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
+import tempfile
 
 from . import __version__
 from .bootstrap import CONTRACT_FILES, PACKAGE, verify_workspace_contract
@@ -25,7 +27,7 @@ def _factory_workspace(workspace: Workspace, mode: str) -> None:
                        if p.is_file() and "__pycache__" not in p.parts and p.suffix != ".pyc")
     if mode == "empty":
         if state["projects"] or state["tasks"] or state["files"] or state["reports"]:
-            raise WorkspaceError("首任务引导只适用于新工作区；已有业务不得重新初始化。", 409)
+            raise WorkspaceError("安装登记只适用于新工作区；已有业务不得重新初始化。", 409)
     else:
         source = PACKAGE / "examples/workspace"
         for path in _tree(source):
@@ -35,17 +37,22 @@ def _factory_workspace(workspace: Workspace, mode: str) -> None:
                 if relative != "config/workspace.json" and workspace._safe(relative, exists=True).read_bytes() != path.read_bytes():
                     raise WorkspaceError("示例已修改，拒绝将其视为新安装。", 409)
     if any(p.relative_to(workspace.path).as_posix() not in allowed for p in _tree(workspace.path) if p.is_file()):
-        raise WorkspaceError("工作区已有额外文件，停止首任务引导并保留现场。", 409)
+        raise WorkspaceError("工作区已有额外文件，停止安装登记并保留现场。", 409)
 
 
-def begin_installation(workspace: Workspace, *, app_dir: Path, executor: str = "manual", mode: str = "empty") -> dict:
-    executor = Workspace._executor(executor)
+def _app_directory(workspace: Workspace, app_dir: Path) -> Path:
     original = Path(app_dir).expanduser().absolute()
     if original.is_symlink() or not original.is_dir():
         raise WorkspaceError("应用目录必须是实际存在的独立目录。")
     app = original.resolve()
     if app == workspace.path or app in workspace.path.parents or workspace.path in app.parents:
         raise WorkspaceError("应用目录和工作区不能互相包含。")
+    return app
+
+
+def begin_installation(workspace: Workspace, *, app_dir: Path, executor: str = "manual", mode: str = "empty") -> dict:
+    Workspace._executor(executor)
+    _app_directory(workspace, app_dir)
     with workspace._lock:
         _factory_workspace(workspace, mode)
         proposal = plan_project(workspace, {"id": "gstudio", "name": "GStudio", "kind": "system",
@@ -53,29 +60,15 @@ def begin_installation(workspace: Workspace, *, app_dir: Path, executor: str = "
                                "focus": "完成本次首次安装与人工验收",
                                "overview": "# GStudio\n\n## 系统用途\n\n本机 GStudio 的安装、验收与维护入口。业务目标使用独立业务项目。\n\n## 边界\n\n只管理本地工作区；不配置模型凭据、不自动运行 AI，也不提供归档或删除接口。\n"})
         if not proposal["can_create"]:
-            raise WorkspaceError("GStudio 系统项目已存在；继续原任务，不重复创建。", 409)
+            raise WorkspaceError("GStudio 系统项目已存在；保留现有安装，不重复创建。", 409)
         workspace.create_project(proposal["project"])
-        task = workspace.create_task({"title": "GStudio初始化验收", "project": "gstudio", "work_type": "system",
-                                     "task_kind": "task", "executor": executor,
-                                     "skills_used": ["gstudio-init", "gstudio-project"], "artifact_mode": "delivery",
-                                     "goal": "安装独立程序环境、工作区和三项基础 Skill；验证真实任务、输入、交付及本机 HTTP 流程，留下安装证据；启动工作台并完成人工验收后，再确认正式交付。",
-                                     "description": "这是本次真实安装任务，不是示例。已确认新应用目录、工作区和初始化模式。技术测试在隔离工作区执行，只把结果写回本任务；业务建项另由用户确认，不自动迁移资料、调用模型或完成任务。"})
-        choices = {"app_dir": str(app), "workspace": str(workspace.path), "mode": mode, "executor": executor}
-        workspace.add_material(task["id"], {"kind": "input", "name": "安装计划.json",
-                               "content": json.dumps(choices, ensure_ascii=False, indent=2) + "\n",
-                               "purpose": "本次由初始化脚本录入的用户已确认安装选择；不是密码或客户端配置。",
-                               "source_locator": "gstudio-init:confirmed-choices"})
-        workspace.update_task(task["id"], {"current": "已建立 GStudio 系统项目及本次真实安装任务，安装选择已登记为输入；技术验证尚未执行。",
-                              "next": "执行工作区检查与隔离测试，将真实结果写回原安装任务。",
-                              "log_entry": "按已确认首次安装范围建立系统项目和首任务；保留 active 状态，未创建空交付目录。"})
-        return {"system_project_id": "gstudio", "task_id": task["id"],
-                "task_path": f"tasks/active/{task['id']}.md", "system_project_path": "projects/gstudio.md"}
+        return {"system_project_id": "gstudio", "system_project_path": "projects/gstudio.md"}
 
 
 def record_installation(workspace: Workspace, receipt: dict) -> dict:
     workspace._payload(receipt)
     if receipt.get("workspace") != str(workspace.path) or receipt.get("version") != __version__:
-        raise WorkspaceError("安装收据不属于本工作区或本版本，拒绝写回。")
+        raise WorkspaceError("安装收据不属于本工作区或本版本，拒绝保存报告。")
     status = receipt.get("status")
     if status not in ("installing", "failed", "ready"):
         raise WorkspaceError("安装收据状态不合法。")
@@ -86,48 +79,47 @@ def record_installation(workspace: Workspace, receipt: dict) -> dict:
     if status == "ready" and (set(checks) != {"workspace-contract", "persisted-workflow", "loopback-health"}
                               or receipt.get("verification_workspace_cleaned") is not True or receipt.get("service_running") is not False):
         raise WorkspaceError("技术验证证据不完整，不能报告安装就绪。")
-    task_id = workspace._identifier(receipt.get("task_id"), "task id")
-    with workspace._lock:
-        _, metadata, _ = workspace._task(task_id)
-        plan = next((x for x in metadata.get("inputs", {}).get("items", [])
-                     if x.get("source_locator") == "gstudio-init:confirmed-choices"), None)
-        if metadata["project"] != "gstudio" or metadata["work_type"] != "system" or not plan:
-            raise WorkspaceError("目标不是本次安装任务。")
-        if metadata["status"] == "completed":
-            raise WorkspaceError("已验收完成的安装任务不接受自动写回。", 409)
-        original = json.loads(workspace._safe(plan["path"], exists=True).read_text(encoding="utf-8"))
-        if original["app_dir"] != receipt.get("app_dir") or original["mode"] != receipt.get("mode"):
-            raise WorkspaceError("安装收据与登记的安装选择不同。")
-        result = {"task_id": task_id}
-        current = f"正在执行安装阶段：{stage}；已完成检查：{'、'.join(checks) or '尚无'}。"
-        next_step = "继续本任务的安装与隔离验证；失败时保留现场，不重建工作区。"
-        if status in ("ready", "failed"):
-            error = workspace._string(receipt, "error", limit=5000)
-            current = ("技术检查全部通过，结果已写入安装验收草稿；工作台常驻服务尚未启动，人工验收尚未完成。" if status == "ready"
-                       else f"安装在 {stage} 阶段失败：{error}。已保留现场和原任务，不声称验证通过。")
-            next_step = ("按启动命令打开工作台，回读 GStudio 系统项目、首任务和三项 Skill；按需要确认第一个业务项目，再由用户人工验收和确认正式交付。" if status == "ready"
-                         else "检查保留的收据、失败日志及隔离测试目录；修复后继续原任务，禁止覆盖安装目录或假定成功。")
-            name = "安装验收.md" if status == "ready" else "安装失败说明.md"
-            content = (f"# GStudio 安装记录\n\n- 版本：{__version__}\n- 安装状态：{status}\n- 阶段：{stage}\n"
-                       f"- 应用目录：{original['app_dir']}\n- 工作区：{workspace.path}\n- 模式：{original['mode']}\n"
-                       f"- 检查：{'、'.join(checks) or '尚无'}\n\n{current}\n\n"
-                       "技术测试使用隔离工作区；不向真实工作区添加模拟测试任务。此记录不是用户验收，不自动完成或正式交付。\n\n"
-                       f"## 下一步\n\n{next_step}\n")
-            relative = f"delivery/draft/{task_id}/{name}"
-            path = workspace._safe(relative)
-            if path.exists():
-                if path.read_text(encoding="utf-8") != content:
-                    raise WorkspaceError("安装记录已存在且内容不同，保留原证据并停止覆盖。", 409)
-            else:
-                workspace.add_material(task_id, {"kind": "draft", "name": name, "content": content})
-            result["report_path"] = relative
-        workspace.update_task(task_id, {"current": current, "next": next_step,
-                              "log_entry": f"安装阶段 {stage}：{status}；已完成检查：{'、'.join(checks) or '尚无'}。未自动完成任务。"})
-        return result
+    if receipt.get("mode") not in ("empty", "example") or receipt.get("system_project_id") != "gstudio":
+        raise WorkspaceError("安装模式或系统项目登记不合法。")
+    app = _app_directory(workspace, Path(workspace._string(receipt, "app_dir", required=True, limit=4096)))
+    stored = app / "installation.json"
+    if stored.is_symlink() or not stored.is_file():
+        raise WorkspaceError("应用目录缺少真实安装收据，拒绝保存报告。")
+    if json.loads(stored.read_text(encoding="utf-8")) != receipt:
+        raise WorkspaceError("安装收据与应用目录中的记录不同。")
+    if status == "installing":
+        return {}
+    error = workspace._string(receipt, "error", limit=5000)
+    current = ("技术检查全部通过；工作台常驻服务尚未启动，首次使用引导尚未完成。" if status == "ready"
+               else f"安装在 {stage} 阶段失败：{error}。已保留现场，不声称验证通过。")
+    next_step = ("按启动命令打开工作台并配置当前 AI 工具；由 gstudio-core 使用普通建任务接口，将当前对话建成第一张真实任务卡。用户在工作台检查 OK 后，再通过 gstudio-project 确认并建立练习项目。" if status == "ready"
+                 else "检查应用目录中的安装收据、失败说明及保留的隔离测试目录；修复前保留现有证据，不重置工作区。")
+    content = (f"# GStudio 安装记录\n\n- 版本：{__version__}\n- 安装状态：{status}\n- 阶段：{stage}\n"
+               f"- 应用目录：{app}\n- 工作区：{workspace.path}\n- 模式：{receipt['mode']}\n"
+               f"- 检查：{'、'.join(checks) or '尚无'}\n\n{current}\n\n"
+               "技术测试使用隔离工作区。安装记录保存在应用目录，不是任务输入或交付；安装脚本不创建首任务，不调用模型。\n\n"
+               f"## 下一步\n\n{next_step}\n")
+    path = app / ("installation-report.md" if status == "ready" else "installation-failure.md")
+    if path.is_symlink() or (path.exists() and not path.is_file()):
+        raise WorkspaceError("安装报告必须是应用目录中的普通文件，保留现有路径。", 409)
+    if path.exists():
+        if path.read_text(encoding="utf-8") != content:
+            raise WorkspaceError("安装记录已存在且内容不同，保留原证据并停止覆盖。", 409)
+    else:
+        descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=app)
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as output:
+                output.write(content)
+                output.flush()
+                os.fsync(output.fileno())
+            os.link(temporary, path)
+        finally:
+            Path(temporary).unlink(missing_ok=True)
+    return {"report_path": str(path)}
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="首次安装首任务与真实结果写回；不重置已有工作区")
+    parser = argparse.ArgumentParser(description="首次安装系统登记与应用目录报告；不创建任务或重置已有工作区")
     sub = parser.add_subparsers(dest="action", required=True)
     begin = sub.add_parser("begin")
     begin.add_argument("--workspace", required=True)
@@ -142,8 +134,18 @@ def main(argv=None):
         workspace = Workspace(args.workspace)
         from .server import workspace_lock
         with workspace_lock(workspace):
-            result = (begin_installation(workspace, app_dir=Path(args.app_dir), executor=args.executor, mode=args.mode)
-                      if args.action == "begin" else record_installation(workspace, json.loads(Path(args.receipt).read_text(encoding="utf-8"))))
+            if args.action == "begin":
+                result = begin_installation(workspace, app_dir=Path(args.app_dir), executor=args.executor, mode=args.mode)
+            else:
+                source = Path(args.receipt).expanduser().absolute()
+                if source.is_symlink() or not source.is_file():
+                    raise WorkspaceError("安装收据必须是应用目录中的普通文件。")
+                receipt = json.loads(source.read_text(encoding="utf-8"))
+                workspace._payload(receipt)
+                app = _app_directory(workspace, Path(workspace._string(receipt, "app_dir", required=True, limit=4096)))
+                if source.resolve() != app / "installation.json":
+                    raise WorkspaceError("只能读取应用目录中的 installation.json。")
+                result = record_installation(workspace, receipt)
         print(json.dumps(result, ensure_ascii=False))
         return 0
     except (WorkspaceError, OSError, ValueError) as error:

@@ -8,7 +8,7 @@ SOUL.md             工作原则
 MEMORY.md           空白的长期上下文记录
 RESOLVER.md         当前工作区相对路径
 WORKBENCH_DESIGN.md  统一设计约定
-.agents/skills/     初始化、日常入口、建项三项 Skill
+.agents/skills/     初始三项 Skill；确认移除向导后保留日常与建项
 skills/             Skill 登记与路由
 templates/          任务卡创建模板
 config/             项目/系统注册与工作区名称
@@ -27,7 +27,7 @@ reports/            已保存的检视报告
 
 同一目标的续接继续原任务；有独立目标、验收结果或后续生命周期的维护工作另建任务卡，不能把原发布卡当作所有维护工作的永久容器。两者都归属于实际项目，不因更换执行工具重复建卡。
 
-通过 `gstudio-init` 引导建立新工作区时，先登记 `GStudio` 系统及真实安装首任务；安装选择放在 inputs，隔离测试结果形成草稿，人工验收前保持 active。底层 `gstudio init` 仅建立空结构。业务项目由 `gstudio-project` 查重、完整方案确认后登记；不因调用另一项 Skill 重复创建安装任务，也不自动改变旧任务归属。详见 [初始化流程](initialization.md)。
+通过 `gstudio-init` 首次安装时，只登记 GStudio 系统项目并在程序目录保存安装记录，不自动创建任务。配置当前 AI 工具后，由日常 Skill 把安装对话创建为第一张“GStudio首次使用”任务卡，安装收据作为输入快照；用户检查 OK 后，再用 `gstudio-project` 建立确认的练习项目。最终确认完成并移除向导后，原任务完成、项目资料保留，文档库仅移除初始化 Skill 并同步登记；日常 / 建项目 Skill 继续使用。底层 `gstudio init` 仅建立骨架，不能拿它升级旧库。详见 [初始化流程](initialization.md)。
 
 ## 项目与工作目录
 

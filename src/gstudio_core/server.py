@@ -166,6 +166,9 @@ class Handler(BaseHTTPRequestHandler):
                 result = self.server.executor_registry.discover()
             elif path == "/api/executors/open":
                 result = self.server.executor_registry.open_software(payload, w.path)
+            elif path == "/api/onboarding/remove-init-skill":
+                from .onboarding_completion import remove_init_skill
+                result = remove_init_skill(w, payload)
             elif path.startswith("/api/tasks/"):
                 parts = path.split("/")[3:]
                 task_id = parts[0]

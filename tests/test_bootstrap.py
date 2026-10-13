@@ -106,7 +106,7 @@ class BootstrapTests(unittest.TestCase):
                 helper.validate(self.args(port=listener.getsockname()[1]))
         self.assertFalse((self.root / "app").exists())
 
-    def run_installer_fixture(self, *, fail_workflow=False):
+    def run_installer_fixture(self, *, fail_workflow=False, fail_package=False, mode="empty"):
         """Mock only package installation; run real Core subprocesses and writes."""
         real_run = subprocess.run
 
@@ -117,6 +117,8 @@ class BootstrapTests(unittest.TestCase):
                 python.symlink_to(sys.executable)
                 return subprocess.CompletedProcess(argv, 0)
             if argv[1:4] == ["-m", "pip", "install"]:
+                if fail_package:
+                    raise RuntimeError("fixture package installation failed")
                 return subprocess.CompletedProcess(argv, 0)
             if fail_workflow and argv[1:3] == ["-c", helper.SMOKE]:
                 raise RuntimeError("fixture isolated workflow failed")
@@ -132,10 +134,10 @@ class BootstrapTests(unittest.TestCase):
         self.home.mkdir(exist_ok=True)
         # Installer subprocesses write machine config under HOME; never touch the real one.
         with patch.object(helper.subprocess, "run", side_effect=run), patch.dict(os.environ, {"HOME": str(self.home)}):
-            result = helper.run(self.args(source=str(Path(__file__).resolve().parents[1]), port=port))
+            result = helper.run(self.args(source=str(Path(__file__).resolve().parents[1]), port=port, mode=mode))
         return result, json.loads((self.root / "app/installation.json").read_text())
 
-    def test_real_installer_stages_write_back_one_installation_task(self):
+    def test_real_installer_preserves_app_record_without_creating_first_task(self):
         result, receipt = self.run_installer_fixture()
         self.assertEqual(result, 0)
         self.assertEqual((receipt["status"], receipt["writeback_status"]), ("ready", "verified"))
@@ -143,10 +145,12 @@ class BootstrapTests(unittest.TestCase):
         self.assertFalse(Path(receipt["verification_workspace"]).exists())
         workspace = Workspace(self.root / "data")
         state = workspace.snapshot()
-        self.assertEqual((len(state["projects"]), len(state["tasks"])), (1, 1))
-        self.assertEqual(state["tasks"][0]["id"], receipt["task_id"])
-        self.assertEqual(state["tasks"][0]["status"], "active")
-        self.assertTrue((workspace.path / receipt["report_path"]).is_file())
+        self.assertEqual((len(state["projects"]), len(state["tasks"])), (1, 0))
+        self.assertNotIn("task_id", receipt)
+        self.assertNotIn("task_path", receipt)
+        self.assertEqual(Path(receipt["report_path"]), self.root.resolve() / "app/installation-report.md")
+        self.assertTrue(Path(receipt["report_path"]).is_file())
+        self.assertEqual(state["files"], [])
         self.assertEqual(receipt["default_workspace"], "registered")
         registered = json.loads((self.home / ".config/gstudio-core/workspace.json").read_text())
         self.assertEqual(registered["workspace"], str(workspace.path))
@@ -163,7 +167,14 @@ class BootstrapTests(unittest.TestCase):
         self.assertIn("--replace", receipt["default_workspace_note"])
         self.assertEqual(json.loads(config.read_text()), existing)
 
-    def test_real_installer_failure_is_written_to_same_task_and_retains_test_directory(self):
+    def test_example_installer_keeps_original_eight_tasks_without_a_ninth(self):
+        result, receipt = self.run_installer_fixture(mode="example")
+        self.assertEqual(result, 0)
+        state = Workspace(self.root / "data").snapshot()
+        self.assertEqual((len(state["projects"]), len(state["tasks"])), (3, 8))
+        self.assertNotIn("task_id", receipt)
+
+    def test_real_installer_failure_is_kept_in_app_and_retains_test_directory(self):
         result, receipt = self.run_installer_fixture(fail_workflow=True)
         self.assertEqual(result, 1)
         self.assertEqual((receipt["status"], receipt["stage"], receipt["writeback_status"]), ("failed", "workflow-verification", "verified"))
@@ -171,9 +182,20 @@ class BootstrapTests(unittest.TestCase):
         self.assertTrue(Path(receipt["verification_workspace"]).is_dir())
         self.addCleanup(lambda: __import__("shutil").rmtree(receipt["verification_workspace"]))
         state = Workspace(self.root / "data").snapshot()
-        self.assertEqual(len(state["tasks"]), 1)
-        self.assertEqual(state["tasks"][0]["id"], receipt["task_id"])
-        self.assertIn("fixture isolated workflow failed", state["tasks"][0]["current"])
+        self.assertEqual(state["tasks"], [])
+        self.assertNotIn("task_id", receipt)
+        self.assertEqual(Path(receipt["report_path"]).parent, self.root.resolve() / "app")
+        self.assertIn("fixture isolated workflow failed", Path(receipt["report_path"]).read_text())
+
+    def test_package_failure_keeps_diagnostic_receipt_before_workspace_exists(self):
+        result, receipt = self.run_installer_fixture(fail_package=True)
+        self.assertEqual(result, 1)
+        self.assertEqual((receipt["status"], receipt["stage"]), ("failed", "package"))
+        self.assertIn("fixture package installation failed", receipt["error"])
+        self.assertEqual(receipt["checks"], [])
+        self.assertNotIn("task_id", receipt)
+        self.assertNotIn("system_project_id", receipt)
+        self.assertFalse((self.root / "data").exists())
 
 
 if __name__ == "__main__":

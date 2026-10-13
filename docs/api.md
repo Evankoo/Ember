@@ -48,7 +48,9 @@ save_report(payload)                 # title,content,mode:selected|weekly,task_i
 
 `executor` 是真实执行工具或界面，不是模型名；`skills_used` 是实际调用的非空、无重复 Skill 名称列表。创建时未传则沿用 `manual` 与 `['gstudio-core']` 的既有默认值。续接更新只替换最新执行器，并把新 Skill 去重追加到原有历史，不改变项目、生命周期或交付。空值、非文本、多行名称及重复列表在写入前拒绝。这些字段不会启动执行器或安装 Skill；Agent 应按实际执行填写，而不是依赖默认值猜测历史。
 
-`onboarding.begin_installation(workspace, app_dir, executor, mode)` 只接受新建的空白 / 原样示例工作区，登记一个 system:gstudio 和普通安装任务及真实输入；`record_installation(workspace, receipt)` 校验原输入、版本、目录、状态及技术检查，写回进度或真实草稿，不自动完成。模块 CLI 使用工作区跨进程锁，拒绝与运行服务并行写入。
+`onboarding.begin_installation(workspace, app_dir, executor, mode)` 只接受新空白 / 原样示例工作区，登记一个 system:gstudio，不创建任务。`record_installation(workspace, receipt)` 校验版本、目录、状态、技术检查和 app/installation.json 的实际记录，将成功 / 失败报告保存在应用目录，不写任务、输入或交付。日常 Skill 后续使用普通 create_task 创建首卡，将安装收据作为 input 快照登记。
+
+`onboarding_completion.remove_init_skill(workspace, {task_id, confirmation:true})` 仅在最终用户确认后调用；要求同一安装收据关联的已完成 gstudio 系统任务及实际日常/建项 Skill 历史。固定移除本库 `.agents/skills/gstudio-init`，同步 manifest 的完成记录和 Resolver，保护用户修改；程序内原版、其他 Skill 与业务数据保留。使用 POST `/api/onboarding/remove-init-skill`，离线则 `python -m gstudio_core.onboarding_completion --workspace <path> --task-id <id> --confirm`（跨进程锁）。仅此有效完成记录允许初始化 Skill 缺席，直接手动删除仍报错。
 
 `project_registration.plan_project(workspace, payload)` 只读返回规范方案、同 ID / 同名匹配及路径；`register_project(..., task_id, confirmation=True)` 重检查重和未完成原任务，复用 `create_project` 写登记及 Markdown，并追加实际 Skill 与日志。Skill 脚本还要求用户确认的原方案 SHA-256；不另建业务任务或迁移资料。服务运行时使用既有 HTTP 接口，不绕过写锁。
 
@@ -76,6 +78,7 @@ GET  /api/health
 GET  /api/settings
 GET  /api/file?id=...
 GET  /api/raw?id=...
+POST /api/onboarding/remove-init-skill
 POST /api/projects
 POST /api/tasks
 POST /api/tasks/<id>
@@ -106,4 +109,4 @@ POST /api/executors/open
 - `discover()`：HTTP 请求必须是空对象；只查常见应用目录（最多三处、两层）和命令安装目录，最多 1200 条目、32 目录、软限制两秒，返回候选、`warnings`、`limited` 和范围。候选不是已登记清单，不自动选默认或保存；允许手工添加其他可信软件。
 - `open_software(payload, workspace)`：只接受 `executor_id`、当前 `expected_revision`、`confirmation:true` 三个字段；必须是当前已保存默认软件。默认项、版本或路径变化即停止；工作区由服务决定，不接受请求路径、业务提示词、模型或 shell 参数。打开后返回 `opened:true`、`submitted:false`、`model_called:false`，后两项指 Core 没有提交或调用模型，不保证第三方客户端自身启动行为。
 
-GET `/api/settings` 只读取已安装的三项基础 Skill（初始化、日常入口、建项）登记和本机配置；不做安装扫描或认证探测。浏览器先复制上下文，只有复制成功且用户明确确认时才调用打开接口。单独复制始终可用；剪贴板、终端或软件打开失败时文本保留，用户手工处理，不自动换软件。
+GET `/api/settings` 只读取当前保留的基础 Skill 登记和本机配置；首次引导移除后只保留日常入口与建项；不做安装扫描或认证探测。浏览器先复制上下文，只有复制成功且用户明确确认时才调用打开接口。单独复制始终可用；剪贴板、终端或软件打开失败时文本保留，用户手工处理，不自动换软件。

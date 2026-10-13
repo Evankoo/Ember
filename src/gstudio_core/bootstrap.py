@@ -7,6 +7,8 @@ from . import __version__
 
 PACKAGE = Path(__file__).resolve().parent
 CONTRACT_FILES = ("AGENTS.md", "SOUL.md", "MEMORY.md", "RESOLVER.md", "WORKBENCH_DESIGN.md", "templates/task-card.md")
+INIT_ROUTE = "- 首次安装或建立新工作区：读取 [gstudio-init](../.agents/skills/gstudio-init/SKILL.md)。"
+INIT_ROOT_ROUTE = "| 首次安装 Skill | .agents/skills/gstudio-init/SKILL.md |"
 
 
 def install_workspace_contract(workspace):
@@ -15,7 +17,7 @@ def install_workspace_contract(workspace):
     for name in CONTRACT_FILES:
         workspace._atomic_text(name, (PACKAGE / "templates" / name).read_text(encoding="utf-8"), new=True)
     skills = []
-    for name, purpose in (("gstudio-init", "首次安装引导、系统首任务与隔离验收"), ("gstudio-core", "按系统规则处理日常任务、资料与交付"), ("gstudio-project", "确认建项方案，登记业务项目或系统工作区")):
+    for name, purpose in (("gstudio-init", "首次安装、新手实操与确认完成后的引导清理"), ("gstudio-core", "按系统规则处理日常任务、资料与交付"), ("gstudio-project", "确认建项方案，登记业务项目或系统工作区")):
         skill_root = PACKAGE / "skills" / name
         for source in sorted(skill_root.rglob("*")):
             if source.is_file() and "__pycache__" not in source.parts and source.suffix != ".pyc":
@@ -32,14 +34,28 @@ def install_workspace_contract(workspace):
 
 def verify_workspace_contract(workspace):
     from .store import WorkspaceError
-    required = (*CONTRACT_FILES, ".agents/skills/gstudio-init/SKILL.md", ".agents/skills/gstudio-init/scripts/bootstrap.py", ".agents/skills/gstudio-core/SKILL.md", ".agents/skills/gstudio-project/SKILL.md", ".agents/skills/gstudio-project/scripts/project.py", "skills/manifest.json", "skills/RESOLVER.md")
-    for name in required:
-        path = workspace._safe(name, exists=True)
-        if not path.is_file() or not path.stat().st_size:
-            raise WorkspaceError(f"初始化契约缺失或为空：{name}")
-    manifest = workspace._json("skills/manifest.json")
-    names = ["gstudio-init", "gstudio-core", "gstudio-project"]
-    for name in names:
-        if not any(item.get("name") == name and item.get("path") == f".agents/skills/{name}/SKILL.md" for item in manifest.get("skills", []) if isinstance(item, dict)):
-            raise WorkspaceError(f"Skill 注册信息不完整：{name}")
-    return {"version": __version__, "contract_files": len(required), "skills": names}
+    with workspace._lock:
+        required = [*CONTRACT_FILES, ".agents/skills/gstudio-core/SKILL.md", ".agents/skills/gstudio-project/SKILL.md", ".agents/skills/gstudio-project/scripts/project.py", "skills/manifest.json", "skills/RESOLVER.md"]
+        manifest = workspace._json("skills/manifest.json")
+        from .onboarding_completion import PENDING, validate_completion
+        if workspace._safe(PENDING).exists():
+            raise WorkspaceError("初始化 Skill 清理尚未完成，请按原任务重试清理。", 409)
+        names = ["gstudio-core", "gstudio-project"]
+        if "onboarding_completion" in manifest:
+            validate_completion(workspace, manifest["onboarding_completion"])
+            if workspace._safe(".agents/skills/gstudio-init").exists() or any(
+                    isinstance(item, dict) and item.get("name") == "gstudio-init" for item in manifest.get("skills", [])):
+                raise WorkspaceError("初始化完成记录与现有 Skill 不一致。")
+            if INIT_ROUTE in workspace._text("skills/RESOLVER.md") or INIT_ROOT_ROUTE in workspace._text("RESOLVER.md"):
+                raise WorkspaceError("初始化 Skill 已清理，但路由尚未更新。")
+        else:
+            names.insert(0, "gstudio-init")
+            required += [".agents/skills/gstudio-init/SKILL.md", ".agents/skills/gstudio-init/scripts/bootstrap.py"]
+        for name in required:
+            path = workspace._safe(name, exists=True)
+            if not path.is_file() or not path.stat().st_size:
+                raise WorkspaceError(f"初始化契约缺失或为空：{name}")
+        for name in names:
+            if not any(item.get("name") == name and item.get("path") == f".agents/skills/{name}/SKILL.md" for item in manifest.get("skills", []) if isinstance(item, dict)):
+                raise WorkspaceError(f"Skill 注册信息不完整：{name}")
+        return {"version": __version__, "contract_files": len(required), "skills": names}

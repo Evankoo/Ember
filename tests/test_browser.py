@@ -175,7 +175,8 @@ class SettingsBrowserTests(unittest.TestCase):
             self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'))
         self.assert_untouched()
 
-    def test_guided_installation_first_task_and_three_skills_are_visible_without_completion(self):
+    def test_guided_installation_empty_then_daily_first_task_and_confirmed_removal(self):
+        from urllib.request import Request, urlopen
         from gstudio_core import __version__
         from gstudio_core.onboarding import begin_installation, record_installation
         with tempfile.TemporaryDirectory() as temporary:
@@ -183,37 +184,74 @@ class SettingsBrowserTests(unittest.TestCase):
             app.mkdir()
             workspace = Workspace(Path(temporary) / 'new-data')
             workspace.initialize()
-            first = begin_installation(workspace, app_dir=app, executor='opencode')
-            record_installation(workspace, {**first, 'version': __version__, 'workspace': str(workspace.path),
-                                'app_dir': str(app.resolve()), 'mode': 'empty', 'status': 'ready', 'stage': 'complete',
-                                'checks': ['workspace-contract', 'persisted-workflow', 'loopback-health'],
-                                'verification_workspace_cleaned': True, 'service_running': False})
-            before = {str(p.relative_to(workspace.path)): p.read_bytes() for p in workspace.path.rglob('*') if p.is_file()}
+            system = begin_installation(workspace, app_dir=app, executor='opencode')
+            receipt = {**system, 'version': __version__, 'workspace': str(workspace.path),
+                       'app_dir': str(app.resolve()), 'mode': 'empty', 'status': 'ready', 'stage': 'complete',
+                       'checks': ['workspace-contract', 'persisted-workflow', 'loopback-health'],
+                       'verification_workspace_cleaned': True, 'service_running': False}
+            (app / 'installation.json').write_text(json.dumps(receipt))
+            record_installation(workspace, receipt)
+            self.assertEqual(workspace.snapshot()['tasks'], [])
             server = LocalServer(workspace, 0, executor_registry=ExecutorRegistry(Path(temporary) / 'home'))
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
             base = f'http://127.0.0.1:{server.server_port}'
+
+            def post(path, payload):
+                request = Request(base + path, data=json.dumps(payload).encode(), method='POST',
+                                  headers={'Content-Type': 'application/json', 'X-GStudio-Token': server.csrf_token})
+                with urlopen(request) as response:
+                    return json.load(response)['data']
+
             try:
+                self.page.goto(base + '/#home')
+                expect(self.page.locator('#home-count')).to_have_text('0')
+                first = post('/api/tasks', {'title': 'GStudio首次使用', 'project': 'gstudio',
+                    'work_type': 'system', 'artifact_mode': 'none', 'executor': 'opencode',
+                    'skills_used': ['gstudio-init', 'gstudio-core'], 'goal': '安装并完成新手实操'})
+                post('/api/tasks/' + first['id'] + '/materials', {'kind': 'input', 'name': '安装记录.json',
+                    'source_locator': 'gstudio-init:installation-receipt', 'content': json.dumps(receipt)})
+                post('/api/tasks/' + first['id'], {'current': '真实对话已整理，等待用户检查任务卡。',
+                     'next': '用户检查 OK 后再创建练习项目。', 'log_entry': '日常 Skill 创建第一张任务卡。'})
                 for width in (1440, 390):
                     self.page.set_viewport_size({'width': width, 'height': 1000})
                     self.page.goto(base + '/#home')
-                    self.page.locator('#home-task-list', has_text='GStudio初始化验收').wait_for()
+                    self.page.reload()
+                    self.page.locator('#home-task-list', has_text='GStudio首次使用').wait_for()
                     self.assertEqual(self.page.locator('#home-count').inner_text(), '1')
-                    self.page.goto(base + '/#project/gstudio')
-                    self.page.locator('#main-content h1', has_text='GStudio').wait_for()
-                    self.assertIn('GStudio初始化验收', self.page.locator('#main-content').inner_text())
-                    self.page.goto(base + '/#task/' + first['task_id'])
-                    self.page.locator('#main-content h1', has_text='GStudio初始化验收').wait_for()
-                    self.assertIn('人工验收尚未完成', self.page.locator('#main-content').inner_text())
+                    self.page.goto(base + '/#task/' + first['id'])
+                    self.page.locator('#main-content h1', has_text='GStudio首次使用').wait_for()
+                    self.assertIn('等待用户检查任务卡', self.page.locator('#main-content').inner_text())
                     self.page.goto(base + '/#settings')
                     self.page.locator('#settings-skills .core-skill').first.wait_for()
                     self.assertEqual(self.page.locator('#settings-skills .core-skill strong').all_text_contents(),
                                      ['gstudio-init', 'gstudio-core', 'gstudio-project'])
-                    self.assertIn('三项基础 Skill', self.page.locator('#main-content').inner_text())
-                    self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'))
-                self.assertEqual(before, {str(p.relative_to(workspace.path)): p.read_bytes() for p in workspace.path.rglob('*') if p.is_file()})
                 self.assertEqual(workspace.snapshot()['tasks'][0]['status'], 'active')
-                self.assertFalse((workspace.path / 'delivery/formal' / first['task_id']).exists())
+                post('/api/projects', {'id': 'practice', 'name': 'GStudio练习项目', 'kind': 'project',
+                    'description': '隔离测试中模拟用户确认的练习', 'overview': '# GStudio练习项目'})
+                post('/api/tasks/' + first['id'], {'skills_used': ['gstudio-project'],
+                    'current': '隔离测试模拟完成引导与最终确认。', 'log_entry': '测试夹具确认建项，模拟最终完成与移除确认。'})
+                post('/api/tasks/' + first['id'] + '/complete', {'confirmation': True})
+                post('/api/onboarding/remove-init-skill', {'task_id': first['id'], 'confirmation': True})
+                for width in (1440, 390):
+                    self.page.set_viewport_size({'width': width, 'height': 1000})
+                    self.page.goto(base + '/#settings')
+                    self.page.reload()
+                    expect(self.page.locator('#settings-skills .core-skill')).to_have_count(2)
+                    self.assertEqual(self.page.locator('#settings-skills .core-skill strong').all_text_contents(),
+                                     ['gstudio-core', 'gstudio-project'])
+                    self.assertNotIn('三项基础 Skill', self.page.locator('#main-content').inner_text())
+                    self.page.goto(base + '/#project/practice')
+                    self.page.locator('#main-content h1', has_text='GStudio练习项目').wait_for()
+                    self.page.goto(base + '/#task/' + first['id'])
+                    self.page.locator('#main-content h1', has_text='GStudio首次使用').wait_for()
+                    self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'))
+                state = workspace.snapshot()
+                self.assertEqual((len(state['projects']), len(state['tasks'])), (2, 1))
+                self.assertEqual(state['tasks'][0]['status'], 'completed')
+                self.assertFalse((workspace.path / '.agents/skills/gstudio-init').exists())
+                self.assertFalse((workspace.path / 'delivery/formal' / first['id']).exists())
+                self.assertTrue((app / 'installation-report.md').is_file())
             finally:
                 server.shutdown()
                 server.server_close()
