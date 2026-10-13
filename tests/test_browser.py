@@ -82,6 +82,16 @@ class SettingsBrowserTests(unittest.TestCase):
         expect(self.page.locator("main")).not_to_contain_text("本机工作目录")
         self.assertEqual(self.errors, [])
 
+    def test_task_page_fits_just_above_the_drawer_breakpoint(self):
+        self.page.goto(self.base + "/#task/autumn-plan")
+        expect(self.page.locator("main h1")).to_have_text("秋季内容方案")
+        for width in (1181, 1200, 1215, 1240):
+            self.page.set_viewport_size({"width": width, "height": 900})
+            right = self.page.locator(".task-delivery-workspace").evaluate("e => e.getBoundingClientRect().right")
+            self.assertLessEqual(right, width, width)
+            self.assertTrue(self.page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1"), width)
+        self.assert_untouched()
+
     def test_project_task_list_filters_without_losing_search_focus(self):
         self.page.goto(self.base + "/#project/chenyu")
         expect(self.page.locator(".project-task-row")).to_have_count(5)

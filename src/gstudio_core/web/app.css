@@ -69,3 +69,4 @@ fieldset{margin:0;padding:0;border:0;min-width:0}
 .task-table td.empty{display:table-cell}
 .project-task-filters .chip{flex:none;white-space:nowrap}
 .library-material-row:not(:has(>input)){grid-template-columns:20px minmax(0,1fr) auto}
+.task-detail-workspace{grid-template-columns:minmax(0,.46fr) minmax(0,.54fr)}
