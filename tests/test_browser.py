@@ -277,8 +277,8 @@ class SettingsBrowserTests(unittest.TestCase):
         self.page.locator("#software-path").fill(self.entries[1]["path"])
         self.page.locator("#add-software").click()
         identifier = self.page.locator("[data-software-id]").get_attribute("data-software-id")
-        self.assertEqual(self.page.locator("#default-software").input_value(), "")
-        self.page.locator("#default-software").select_option(identifier)
+        # The only program in the list becomes the default automatically.
+        self.assertEqual(self.page.locator("#default-software").input_value(), identifier)
         self.page.locator("#check-software").click()
         self.page.locator('#software-editor-state[data-state="checked"]').wait_for()
         self.assertFalse(self.registry.path.exists())
@@ -320,20 +320,57 @@ class SettingsBrowserTests(unittest.TestCase):
         self.assertEqual(self.page.locator("#current-software-name").inner_text(), name)
         self.assert_untouched()
 
-    def test_discovery_is_explicit_text_safe_and_does_not_save_or_choose_default(self):
+    def test_discovery_is_explicit_text_safe_and_choosing_sets_the_default_without_saving(self):
         result = {"candidates": [{**self.entries[1], "label": '<img src=x onerror="window.bad=1">', "source": "本机目录"}],
                   "warnings": [], "limited": False, "scope": "只读查找"}
         with patch.object(self.registry, "discover", return_value=result) as discover:
             self.settings()
             discover.assert_not_called()
             self.page.locator("#find-software").click()
-            self.page.locator('[data-action="add-found-software"]').wait_for()
+            choose = self.page.locator('[data-action="choose-found-software"]')
+            choose.wait_for()
             self.assertEqual(self.page.locator("#software-candidates img").count(), 0)
-            self.page.locator('[data-action="add-found-software"]').press("Enter")
+            # Results open directly under the find button, in a height-limited list.
+            panel = self.page.locator("#software-candidates").bounding_box()
+            found = self.page.locator("#find-software").bounding_box()
+            self.assertLess(panel["y"] - (found["y"] + found["height"]), 40)
+            self.assertEqual(self.page.locator(".software-candidate-list").evaluate("node => getComputedStyle(node).overflowY"), "auto")
+            self.assertEqual(choose.inner_text(), "选用")
+            choose.press("Enter")
             self.assertEqual(self.page.locator("[data-software-id]").count(), 1)
-            self.assertEqual(self.page.locator("#default-software").input_value(), "")
+            identifier = self.page.locator("[data-software-id]").get_attribute("data-software-id")
+            self.assertEqual(self.page.locator("#default-software").input_value(), identifier)
+            self.assertTrue(self.page.locator("#software-candidates").is_hidden())
+            self.assertEqual(self.page.evaluate("document.activeElement.id"), "default-software")
+            self.assertIn("尚未保存", self.page.locator("#software-editor-state").inner_text())
+            # Searching again marks it as already listed instead of offering it twice.
+            self.page.locator("#find-software").click()
+            again = self.page.locator('[data-action="choose-found-software"]')
+            again.wait_for()
+            self.assertEqual(again.inner_text(), "设为默认")
+            self.page.locator('[data-action="close-found-software"]').click()
+            self.assertTrue(self.page.locator("#software-candidates").is_hidden())
             self.assertFalse(self.registry.path.exists())
-            discover.assert_called_once_with()
+            self.assertEqual(discover.call_count, 2)
+        self.assert_untouched()
+
+    def test_saving_without_a_default_points_to_the_default_field(self):
+        self.settings()
+        for name, entry in (("第一个助手", self.entries[0]), ("第二个助手", self.entries[1])):
+            self.page.locator("#software-name").fill(name)
+            self.page.locator("#software-kind").select_option(entry["kind"])
+            self.page.locator("#software-path").fill(entry["path"])
+            self.page.locator("#add-software").click()
+        self.assertEqual(self.page.locator("[data-software-id]").count(), 2)
+        self.page.locator("#default-software").select_option("")
+        self.page.locator("#save-software").click()
+        self.assertIn("选择默认软件", self.page.locator("#software-editor-state").inner_text())
+        self.assertEqual(self.page.locator("#software-editor-state").get_attribute("data-state"), "error")
+        self.assertEqual(self.page.evaluate("document.activeElement.id"), "default-software")
+        self.assertIn("needs-choice", self.page.locator("#software-default-field").get_attribute("class"))
+        self.assertFalse(self.registry.path.exists())
+        self.page.locator("#default-software").select_option(index=1)
+        self.assertNotIn("needs-choice", self.page.locator("#software-default-field").get_attribute("class"))
         self.assert_untouched()
 
     def test_context_copy_and_confirmed_open_do_not_send_context_or_change_tasks(self):

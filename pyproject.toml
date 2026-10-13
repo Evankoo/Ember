@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gstudio-core"
-version = "0.8.1"
+version = "0.8.2"
 description = "Continue every AI collaboration: local Markdown task cards that any AI tool can pick up again."
 readme = "README.md"
 requires-python = ">=3.10"

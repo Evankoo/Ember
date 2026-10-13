@@ -597,7 +597,7 @@ const app = (() => {
     const status = saved.ready ? "saved" : !saved.registry_readable || saved.default_executor ? "unavailable" : "empty";
     const heading = saved.ready ? "已配置 · 软件路径可用" : !saved.registry_readable ? "配置暂不可读" : current ? "软件路径需要修复" : "尚未配置本机环境";
     const rows = software.entries.map(entry => `<div class="executor-local-row software-registered-row" data-software-id="${esc(entry.id)}"><input data-software-field="label" value="${esc(entry.label)}" maxlength="80" aria-label="软件名称"><select data-software-field="kind" aria-label="软件类型">${option("app", "桌面应用", entry.kind)}${option("command", "命令行程序", entry.kind)}</select><input data-software-field="path" value="${esc(entry.path)}" maxlength="4096" spellcheck="false" aria-label="软件路径"><button class="button ghost" type="button" data-action="remove-software" data-id="${esc(entry.id)}">移除</button></div>`).join("");
-    document.getElementById("software-content").innerHTML = `<div id="software-summary" class="executor-current-environment" data-environment-state="${status}"><div class="executor-current-main"><div class="executor-current-heading"><small>当前生效 · 本机配置</small><span class="skill-status ${saved.ready ? "registered" : "unavailable"}">${esc(heading)}</span></div><h3 id="current-software-name">${esc(current?.label || "未选择默认软件")}</h3>${current ? `<div class="executor-current-path"><span>${current.kind === "app" ? "桌面应用" : "命令行程序"}</span><code>${esc(current.path)}</code></div>` : ""}<p>${esc(saved.error || (saved.ready ? "确认执行时可复制提示词并打开这个软件；请在软件中手工粘贴、发送。" : "添加本机软件、选择默认项，检查后明确保存。"))}</p></div><div class="executor-current-actions"><button id="edit-software" class="button" type="button" data-action="edit-software" aria-controls="software-editor" aria-expanded="${software.editing}">${saved.ready ? "修改配置" : "配置 / 修复"}</button><small>${saved.registry_readable ? `已登记 ${saved.executors.length} 个软件` : "本机清单未知"}<br>模型和登录由软件管理</small></div></div><div id="software-editor" class="executor-settings-editor"${software.editing ? "" : " hidden"}><div class="action-form executor-settings-form"><div class="executor-editor-heading"><h3>修改本机执行环境</h3><p>1 添加本机软件 · 2 选择默认软件 · 3 检查并保存</p></div><div class="executor-editor-section-head"><strong>1 · 本机软件清单</strong><button id="find-software" class="button ghost" type="button" data-action="discover-software">自动查找软件</button></div><div id="software-registered-list" class="executor-local-list">${rows || '<div class="executor-local-empty">清单为空。先查找，或手工添加有效的本机应用 / 命令行程序。</div>'}</div><small class="executor-editor-hint">可以编辑或移除已有软件，也可以查找或手工添加。这里只更改草稿，不会启动软件。</small><div class="executor-add-fields software-manual"><label>软件名称<input id="software-name" maxlength="80" placeholder="例如：我的 AI 助手" value="${esc(software.manual.label)}"></label><label>软件类型<select id="software-kind">${option("app", "桌面应用（.app）", software.manual.kind)}${option("command", "命令行程序", software.manual.kind)}</select></label><label>软件路径<input id="software-path" maxlength="4096" spellcheck="false" value="${esc(software.manual.path)}" placeholder="/Applications/软件.app 或可执行文件路径"></label><button id="add-software" class="button ghost" type="button" data-action="add-software">手工添加</button></div><label class="executor-default-field">2 · 选择默认软件<select id="default-software">${softwareOptions()}</select><small>确认执行时“复制并打开”会使用这里保存的软件。</small></label><div id="software-candidates" class="executor-discovery" hidden></div><small id="software-editor-state" class="executor-settings-state" data-state="unchanged" role="status" aria-live="polite">与已保存配置一致；修改后请检查并保存。</small><div class="executor-settings-actions"><button id="check-software" class="button ghost" type="button" data-action="check-software">检查软件路径</button><button id="save-software" class="button primary" type="button" data-action="save-software">保存配置</button><button id="cancel-software" class="button ghost" type="button" data-action="cancel-software">取消修改</button></div><p class="executor-editor-hint">保存才会更新本机 GStudio 配置；不读取或修改软件的模型、登录和权限。</p></div></div><span class="settings-source-line executor-config-source">配置位置 <code>${esc(saved.config_path)}</code></span>`;
+    document.getElementById("software-content").innerHTML = `<div id="software-summary" class="executor-current-environment" data-environment-state="${status}"><div class="executor-current-main"><div class="executor-current-heading"><small>当前生效 · 本机配置</small><span class="skill-status ${saved.ready ? "registered" : "unavailable"}">${esc(heading)}</span></div><h3 id="current-software-name">${esc(current?.label || "未选择默认软件")}</h3>${current ? `<div class="executor-current-path"><span>${current.kind === "app" ? "桌面应用" : "命令行程序"}</span><code>${esc(current.path)}</code></div>` : ""}<p>${esc(saved.error || (saved.ready ? "确认执行时可复制提示词并打开这个软件；请在软件中手工粘贴、发送。" : "添加本机软件、选择默认项，检查后明确保存。"))}</p></div><div class="executor-current-actions"><button id="edit-software" class="button" type="button" data-action="edit-software" aria-controls="software-editor" aria-expanded="${software.editing}">${saved.ready ? "修改配置" : "配置 / 修复"}</button><small>${saved.registry_readable ? `已登记 ${saved.executors.length} 个软件` : "本机清单未知"}<br>模型和登录由软件管理</small></div></div><div id="software-editor" class="executor-settings-editor"${software.editing ? "" : " hidden"}><div class="action-form executor-settings-form"><div class="executor-editor-heading"><h3>修改本机执行环境</h3><p>1 添加本机软件 · 2 选择默认软件 · 3 检查并保存</p></div><div class="executor-editor-section-head"><strong>1 · 本机软件清单</strong><button id="find-software" class="button ghost" type="button" data-action="discover-software" aria-controls="software-candidates" aria-expanded="false">自动查找软件</button></div><div id="software-candidates" class="executor-discovery" hidden></div><div id="software-registered-list" class="executor-local-list">${rows || '<div class="executor-local-empty">清单为空。先查找，或手工添加有效的本机应用 / 命令行程序。</div>'}</div><small class="executor-editor-hint">可以编辑或移除已有软件，也可以查找或手工添加。这里只更改草稿，不会启动软件。</small><div class="executor-add-fields software-manual"><label>软件名称<input id="software-name" maxlength="80" placeholder="例如：我的 AI 助手" value="${esc(software.manual.label)}"></label><label>软件类型<select id="software-kind">${option("app", "桌面应用（.app）", software.manual.kind)}${option("command", "命令行程序", software.manual.kind)}</select></label><label>软件路径<input id="software-path" maxlength="4096" spellcheck="false" value="${esc(software.manual.path)}" placeholder="/Applications/软件.app 或可执行文件路径"></label><button id="add-software" class="button ghost" type="button" data-action="add-software">手工添加</button></div><label id="software-default-field" class="executor-default-field">2 · 选择默认软件<select id="default-software">${softwareOptions()}</select><small>确认执行时“复制并打开”会使用这里保存的软件。</small></label><small id="software-editor-state" class="executor-settings-state" data-state="unchanged" role="status" aria-live="polite">与已保存配置一致；修改后请检查并保存。</small><div class="executor-settings-actions"><button id="check-software" class="button ghost" type="button" data-action="check-software">检查软件路径</button><button id="save-software" class="button primary" type="button" data-action="save-software">保存配置</button><button id="cancel-software" class="button ghost" type="button" data-action="cancel-software">取消修改</button></div><p class="executor-editor-hint">保存才会更新本机 GStudio 配置；不读取或修改软件的模型、登录和权限。</p></div></div><span class="settings-source-line executor-config-source">配置位置 <code>${esc(saved.config_path)}</code></span>`;
   }
 
   function softwareOptions() {
@@ -623,14 +623,57 @@ const app = (() => {
     software.entries.push({ id: entry.id, label: entry.label, kind: entry.kind, path: entry.path });
     if (manual) software.manual = { label: "", kind: "app", path: "" };
     software.epoch++;
+    if (!software.default && software.entries.length === 1) {
+      software.default = entry.id;
+      renderSoftware();
+      softwareStatus("dirty", "已添加并设为默认软件，尚未保存；请检查后保存。");
+      highlightDefault();
+      return;
+    }
     renderSoftware();
-    softwareStatus("dirty", "已添加到编辑清单，尚未保存；请自行选择默认软件，检查后保存。");
+    softwareStatus("dirty", "已添加到编辑清单，尚未保存；请选择默认软件，检查后保存。");
     document.querySelector(`[data-software-id="${entry.id}"] [data-software-field="path"]`).focus();
+  }
+
+  // Choosing a found program adds it when needed and makes it the default in one step.
+  function chooseFoundSoftware(entry) {
+    const existing = software.entries.find(item => item.kind === entry.kind && item.path === entry.path);
+    if (!existing) {
+      if (software.entries.length >= 32) throw new Error("本机清单最多登记 32 项软件。");
+      software.entries.push({ id: entry.id, label: entry.label, kind: entry.kind, path: entry.path });
+    }
+    software.default = (existing || entry).id;
+    software.epoch++;
+    renderSoftware();
+    softwareStatus("dirty", `已选用 ${entry.label} 作为默认软件；尚未保存，请检查后保存。`);
+    highlightDefault();
+  }
+
+  function highlightDefault() {
+    const field = document.getElementById("software-default-field");
+    field?.classList.remove("needs-choice");
+    field?.classList.add("is-chosen");
+    setTimeout(() => field?.classList.remove("is-chosen"), 1600);
+    document.getElementById("default-software")?.focus();
+  }
+
+  function closeFoundSoftware() {
+    software.epoch++;
+    const node = document.getElementById("software-candidates");
+    if (node) { node.hidden = true; node.innerHTML = ""; }
+    document.getElementById("find-software")?.setAttribute("aria-expanded", "false");
   }
 
   async function softwareRequest(kind) {
     if (software.saving) return;
     if (kind !== "discover" && (software.manual.label.trim() || software.manual.path.trim())) throw new Error("手工填写的软件还未添加，请先点“手工添加”，或清空未添加的草稿。");
+    if (kind !== "discover" && software.entries.length && !software.default) {
+      const message = "请先在「2 · 选择默认软件」里选一个软件，再检查或保存。";
+      softwareStatus("error", message);
+      document.getElementById("software-default-field")?.classList.add("needs-choice");
+      document.getElementById("default-software")?.focus();
+      throw new Error(message);
+    }
     const epoch = software.epoch, signature = softwareSignature();
     if (kind === "save") {
       software.saving = true;
@@ -642,9 +685,11 @@ const app = (() => {
         if (epoch !== software.epoch || state.route !== "settings") return;
         const node = document.getElementById("software-candidates");
         node.hidden = false;
+        document.getElementById("find-software")?.setAttribute("aria-expanded", "true");
         const candidates = result.candidates.filter(entry => /^[a-z0-9][a-z0-9_-]{0,63}$/.test(entry.id) && ["app", "command"].includes(entry.kind) && typeof entry.path === "string" && typeof entry.label === "string");
         ui.foundSoftware = candidates;
-        node.innerHTML = `<small>${esc(result.scope)}${result.limited ? " · 查找范围受限，结果可能不完整。" : ""}${result.warnings.map(item => " · " + esc(item)).join("")}</small><div>${candidates.map((entry, index) => `<div class="software-candidate"><div><strong>${esc(entry.label)}</strong><code>${esc(entry.path)}</code></div><button class="button" type="button" data-action="add-found-software" data-id="${index}">添加此软件</button></div>`).join("") || `<p>${result.warnings.length || result.limited ? "未得到完整结果；可重试或手工添加。" : "在常见安装目录未找到支持的软件；可手工添加，不会自动安装。"}</p>`}</div>`;
+        const known = entry => software.entries.some(item => item.kind === entry.kind && item.path === entry.path);
+        node.innerHTML = `<div class="executor-discovery-head"><small>${candidates.length ? `找到 ${candidates.length} 个候选。点「选用」即加入清单并设为默认；尚未保存。` : esc(result.scope)}${result.limited ? " · 查找范围受限，结果可能不完整。" : ""}${result.warnings.map(item => " · " + esc(item)).join("")}</small><button class="button ghost" type="button" data-action="close-found-software">收起</button></div><div class="software-candidate-list">${candidates.map((entry, index) => `<div class="software-candidate${known(entry) ? " is-added" : ""}"><div><strong>${esc(entry.label)}</strong><code>${esc(entry.path)}</code></div><button class="button ghost" type="button" data-action="choose-found-software" data-id="${index}" aria-label="${known(entry) ? "设为默认" : "选用"} ${esc(entry.label)}">${known(entry) ? "设为默认" : "选用"}</button></div>`).join("") || `<p>${result.warnings.length || result.limited ? "未得到完整结果；可重试或手工添加。" : "在常见安装目录未找到支持的软件；可手工添加，不会自动安装。"}</p>`}</div>`;
         return;
       }
       softwareStatus(kind === "save" ? "saving" : "checking", kind === "save" ? "正在保存本机清单…" : "正在检查路径；不会启动软件或保存…");
@@ -775,7 +820,8 @@ const app = (() => {
         resetSoftware(); renderSoftware();
         (state.settings.execution_environment.ready ? document.getElementById("edit-software") : document.getElementById("default-software")).focus(); return;
       case "add-software": addSoftware({ ...software.manual, id: "local-" + crypto.randomUUID().replaceAll("-", "") }, true); return;
-      case "add-found-software": addSoftware(ui.foundSoftware[Number(id)]); return;
+      case "choose-found-software": chooseFoundSoftware(ui.foundSoftware[Number(id)]); return;
+      case "close-found-software": closeFoundSoftware(); document.getElementById("find-software")?.focus(); return;
       case "remove-software":
         software.entries = software.entries.filter(entry => entry.id !== id);
         if (software.default === id) software.default = "";
@@ -901,7 +947,7 @@ const app = (() => {
   });
   document.addEventListener("change", event => {
     const control = event.target;
-    if (control.id === "default-software") { software.default = control.value; softwareChanged(); return; }
+    if (control.id === "default-software") { document.getElementById("software-default-field")?.classList.remove("needs-choice"); software.default = control.value; softwareChanged(); return; }
     if (control.id === "software-kind") { software.manual.kind = control.value; softwareChanged(); return; }
     if (control.dataset.softwareField === "kind") {
       software.entries.find(entry => entry.id === control.closest("[data-software-id]").dataset.softwareId).kind = control.value;
@@ -940,6 +986,7 @@ const app = (() => {
   document.getElementById("dialog-close").addEventListener("click", closeDialog);
   document.getElementById("menu-toggle").addEventListener("click", () => setMenu(!sidebar.classList.contains("mobile-open")));
   window.addEventListener("hashchange", route);
+  document.addEventListener("keydown", event => { if (event.key === "Escape" && event.target.closest?.("#software-candidates")) { event.preventDefault(); closeFoundSoftware(); document.getElementById("find-software")?.focus(); } });
   window.addEventListener("keydown", event => { if (event.key === "Escape" && !dialog.open && sidebar.classList.contains("mobile-open")) { setMenu(false); document.getElementById("menu-toggle").focus(); } });
 
   route();
