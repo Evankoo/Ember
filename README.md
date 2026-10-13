@@ -12,6 +12,8 @@ GStudio 是一套 AI 任务系统。每项工作都整理成一份任务档案�
 
 在线演示就是本仓库的工作台界面，配内置的虚构示例数据；在演示里的改动只留在当前页面，刷新即恢复。
 
+[![GStudio 宣传短片](docs/images/promo-film.jpg)](https://ai.evan-manual.com/gstudio/#film)
+
 ![GStudio 工作台的任务页：侧栏按分类列出项目，中间是任务卡的目标、描述、当前结果、下一步和执行日志，右侧是交付文件与输入资料](docs/images/workbench.png)
 
 ## 为什么需要
