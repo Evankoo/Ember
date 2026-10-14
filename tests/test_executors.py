@@ -7,8 +7,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from gstudio_core.executors import ExecutorRegistry
-from gstudio_core.store import WorkspaceError
+from gaiora.executors import ExecutorRegistry
+from gaiora.store import WorkspaceError
 
 
 def software_fixture(home):
@@ -57,7 +57,7 @@ class ExecutorTests(unittest.TestCase):
         return {"executor_id": view["default_executor"], "expected_revision": view["revision"], "confirmation": True}
 
     def test_empty_machine_has_no_hardcoded_choices_or_automatic_files(self):
-        with patch("gstudio_core.executors.subprocess.run") as run:
+        with patch("gaiora.executors.subprocess.run") as run:
             view = self.registry.snapshot()
         self.assertEqual(view["executors"], [])
         self.assertEqual(view["default_executor"], "")
@@ -67,7 +67,7 @@ class ExecutorTests(unittest.TestCase):
         run.assert_not_called()
 
     def test_check_is_read_only_and_save_is_private_and_outside_workspace(self):
-        with patch("gstudio_core.executors.subprocess.run") as run:
+        with patch("gaiora.executors.subprocess.run") as run:
             checked = self.registry.validate(self.payload())
             self.assertFalse(self.registry.path.exists())
             self.assertFalse(checked["authentication_verified"])
@@ -103,7 +103,7 @@ class ExecutorTests(unittest.TestCase):
         view = self.registry.snapshot()
         self.assertFalse(view["ready"])
         self.assertEqual(view["default_executor"], "other-cli")
-        with patch("gstudio_core.executors.subprocess.run") as run:
+        with patch("gaiora.executors.subprocess.run") as run:
             with self.assertRaises(WorkspaceError):
                 self.registry.open_software(self.open_payload(view), self.workspace)
         run.assert_not_called()
@@ -139,7 +139,7 @@ class ExecutorTests(unittest.TestCase):
         current = self.registry.path.read_bytes()
         with self.assertRaises(WorkspaceError):
             self.registry.save({**self.payload(), "expected_revision": old["revision"]})
-        with patch("gstudio_core.executors.subprocess.run") as run:
+        with patch("gaiora.executors.subprocess.run") as run:
             with self.assertRaises(WorkspaceError):
                 self.registry.open_software(self.open_payload(old), self.workspace)
         run.assert_not_called()
@@ -154,12 +154,12 @@ class ExecutorTests(unittest.TestCase):
         self.assertEqual((backup / "executors.json").read_bytes(), before)
         self.assertEqual((backup / "executors.json").stat().st_mode & 0o777, 0o600)
         before = self.registry.path.read_bytes()
-        from gstudio_core.executors import _atomic_write
+        from gaiora.executors import _atomic_write
         def fail_target(path, contents):
             if path == self.registry.path:
                 raise OSError("private-error-not-for-output")
             return _atomic_write(path, contents)
-        with patch("gstudio_core.executors._atomic_write", side_effect=fail_target):
+        with patch("gaiora.executors._atomic_write", side_effect=fail_target):
             with self.assertRaises(WorkspaceError) as failure:
                 self.registry.save(self.payload())
         self.assertNotIn("private-error", str(failure.exception))
@@ -174,7 +174,7 @@ class ExecutorTests(unittest.TestCase):
     def test_app_launch_uses_only_current_saved_id_after_explicit_confirmation(self):
         view = self.saved(default="other-app")
         before = self.registry.path.read_bytes()
-        with patch("gstudio_core.executors.sys.platform", "darwin"), patch("gstudio_core.executors.subprocess.run") as run:
+        with patch("gaiora.executors.sys.platform", "darwin"), patch("gaiora.executors.subprocess.run") as run:
             with self.assertRaises(WorkspaceError):
                 self.registry.open_software({**self.open_payload(view), "confirmation": False}, self.workspace)
             run.assert_not_called()
@@ -186,7 +186,7 @@ class ExecutorTests(unittest.TestCase):
 
     def test_mac_command_opens_new_terminal_with_unicode_and_spaces_safely(self):
         view = self.saved()
-        with patch("gstudio_core.executors.sys.platform", "darwin"), patch("gstudio_core.executors.subprocess.run") as run:
+        with patch("gaiora.executors.sys.platform", "darwin"), patch("gaiora.executors.subprocess.run") as run:
             self.registry.open_software(self.open_payload(view), self.workspace)
         self.assertEqual(run.call_args.args[0], ["/usr/bin/osascript", "-"])
         script = run.call_args.kwargs["input"]
@@ -197,7 +197,7 @@ class ExecutorTests(unittest.TestCase):
 
     def test_linux_command_uses_a_terminal_not_a_background_model_job(self):
         view = self.saved()
-        with patch("gstudio_core.executors.sys.platform", "linux"), patch("gstudio_core.executors.shutil.which", return_value="/usr/bin/xterm"), patch.dict(os.environ, {"DISPLAY": ":test"}), patch("gstudio_core.executors.subprocess.Popen") as launch:
+        with patch("gaiora.executors.sys.platform", "linux"), patch("gaiora.executors.shutil.which", return_value="/usr/bin/xterm"), patch.dict(os.environ, {"DISPLAY": ":test"}), patch("gaiora.executors.subprocess.Popen") as launch:
             self.registry.open_software(self.open_payload(view), self.workspace)
         argv = launch.call_args.args[0]
         self.assertEqual(argv[:4], ["/usr/bin/xterm", "-e", "/bin/sh", "-c"])
@@ -206,7 +206,7 @@ class ExecutorTests(unittest.TestCase):
 
     def test_client_cannot_submit_a_path_prompt_or_model_to_the_open_endpoint(self):
         view = self.saved()
-        with patch("gstudio_core.executors.subprocess.run") as run:
+        with patch("gaiora.executors.subprocess.run") as run:
             for extra in ({"path": "/bin/sh"}, {"prompt": "business text"}, {"model": "invented"}):
                 with self.assertRaises(WorkspaceError):
                     self.registry.open_software({**self.open_payload(view), **extra}, self.workspace)
@@ -219,7 +219,7 @@ class ExecutorTests(unittest.TestCase):
         app.rename(app.with_name("Claude.app"))
         command = Path(self.entries[1]["path"])
         command.rename(command.with_name("gemini"))
-        with patch("gstudio_core.executors.subprocess.run") as run:
+        with patch("gaiora.executors.subprocess.run") as run:
             found = self.registry.discover(application_roots=[app.parent], command_dirs=[command.parent])
         self.assertEqual({entry["kind"] for entry in found["candidates"]}, {"app", "command"})
         self.assertTrue(all(entry["id"].startswith("local-") for entry in found["candidates"]))
@@ -231,11 +231,11 @@ class ExecutorTests(unittest.TestCase):
         empty = self.registry.discover(application_roots=[self.home / "missing"], command_dirs=[])
         self.assertEqual(empty["candidates"], [])
         self.assertEqual(empty["warnings"], [])
-        with patch("gstudio_core.executors.os.scandir", side_effect=PermissionError("private-details")):
+        with patch("gaiora.executors.os.scandir", side_effect=PermissionError("private-details")):
             partial = self.registry.discover(application_roots=[self.home], command_dirs=[])
         self.assertTrue(partial["warnings"])
         self.assertNotIn("private-details", json.dumps(partial))
-        with patch("gstudio_core.executors.DISCOVERY_ENTRY_LIMIT", 0):
+        with patch("gaiora.executors.DISCOVERY_ENTRY_LIMIT", 0):
             limited = self.registry.discover(application_roots=[self.home], command_dirs=[])
         self.assertTrue(limited["limited"])
 

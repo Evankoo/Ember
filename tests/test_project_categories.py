@@ -7,9 +7,9 @@ import tempfile
 import unittest
 from unittest import mock
 
-from gstudio_core.cli import main
-from gstudio_core.project_registration import plan_project
-from gstudio_core.store import Workspace, WorkspaceError
+from gaiora.cli import main
+from gaiora.project_registration import plan_project
+from gaiora.store import Workspace, WorkspaceError
 
 
 class ProjectCategoryTests(unittest.TestCase):

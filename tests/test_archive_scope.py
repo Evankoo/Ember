@@ -9,9 +9,9 @@ import unittest
 
 import yaml
 
-from gstudio_core.executors import ExecutorRegistry
-from gstudio_core.server import LocalServer
-from gstudio_core.store import Workspace, WorkspaceError
+from gaiora.executors import ExecutorRegistry
+from gaiora.server import LocalServer
+from gaiora.store import Workspace, WorkspaceError
 
 
 class ArchiveScopeTests(unittest.TestCase):
@@ -27,7 +27,7 @@ class ArchiveScopeTests(unittest.TestCase):
     def test_empty_initialization_has_no_archive_module_or_ledger(self):
         state = self.workspace.initialize()
         self.assertFalse((self.root / 'archive').exists())
-        self.assertFalse((self.root / '.gstudio/archive-records.json').exists())
+        self.assertFalse((self.root / '.gaiora/archive-records.json').exists())
         self.assertNotIn('archives', state)
         self.assertNotIn('archive_records', state)
         self.assertFalse(hasattr(self.workspace, 'archive_item'))
@@ -36,7 +36,7 @@ class ArchiveScopeTests(unittest.TestCase):
         state = self.workspace.initialize(example=True)
         self.assertEqual(len(state['tasks']), 8)
         self.assertFalse((self.root / 'archive').exists())
-        self.assertFalse((self.root / '.gstudio/archive-records.json').exists())
+        self.assertFalse((self.root / '.gaiora/archive-records.json').exists())
         self.assertNotIn('archive', {f['kind'] for f in state['files']})
 
     def test_existing_archives_and_bad_legacy_receipt_are_left_untouched(self):
@@ -44,7 +44,7 @@ class ArchiveScopeTests(unittest.TestCase):
         legacy = self.root / 'archive/sample/previous/notes.md'
         legacy.parent.mkdir(parents=True)
         legacy.write_text('Historical user-owned file: preserve it.\n')
-        (self.root / '.gstudio/archive-records.json').write_text('old malformed receipt: do not migrate\n')
+        (self.root / '.gaiora/archive-records.json').write_text('old malformed receipt: do not migrate\n')
         before = self.bytes()
         state = Workspace(self.root).snapshot()
         self.assertNotIn('archives', state)
@@ -93,7 +93,7 @@ class ArchiveScopeTests(unittest.TestCase):
                 self.assertEqual(outside.read_text(), 'Outside content must not be read.\n')
 
     def test_public_frontend_contains_no_archive_page_action_or_styles(self):
-        package = Path(__file__).resolve().parents[1] / 'src/gstudio_core'
+        package = Path(__file__).resolve().parents[1] / 'src/gaiora'
         for filename, forbidden in (
             ('web/index.html', 'href="#archive"'),
             ('web/app.js', 'renderArchive'),
@@ -125,7 +125,7 @@ class ArchiveScopeTests(unittest.TestCase):
             item = next(x for x in self.workspace.snapshot()['inbox'] if x['label'] == '待归档')
             conn = HTTPConnection('127.0.0.1', server.server_port, timeout=5)
             conn.request('POST', '/api/archive', json.dumps({'id': item['id'], 'project': 'chenyu', 'revision': 0, 'confirmation': True}),
-                         {'Content-Type': 'application/json', 'X-GStudio-Token': server.csrf_token})
+                         {'Content-Type': 'application/json', 'X-Gaiora-Token': server.csrf_token})
             response = conn.getresponse()
             response.read()
             conn.close()

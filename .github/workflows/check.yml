@@ -13,24 +13,24 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: python -m pip install .
       - run: python -m unittest discover -s tests -v
-      - run: gstudio init /tmp/gstudio-example --example
-      - run: gstudio check --workspace /tmp/gstudio-example
+      - run: gaiora init /tmp/gaiora-example --example
+      - run: gaiora check --workspace /tmp/gaiora-example
       - run: python -m pip wheel . --no-deps -w dist
       - name: Verify wheel resources and exclude bytecode
         run: |
           python - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
-          with ZipFile(next(Path('dist').glob('gstudio_core-*.whl'))) as wheel:
+          with ZipFile(next(Path('dist').glob('gaiora-*.whl'))) as wheel:
               names = set(wheel.namelist())
               assert not any('__pycache__' in name or name.endswith(('.pyc', '.pyo')) for name in names)
-              assert {'gstudio_core/web/index.html', 'gstudio_core/web/app.js', 'gstudio_core/web/fonts/OFL.txt', 'gstudio_core/skills/gstudio-init/scripts/bootstrap.py', 'gstudio_core/executors.py'} <= names
-              assert {'gstudio_core/onboarding.py', 'gstudio_core/onboarding_completion.py', 'gstudio_core/project_registration.py', 'gstudio_core/skills/gstudio-project/SKILL.md', 'gstudio_core/skills/gstudio-project/scripts/project.py'} <= names
-              assert any(name.startswith('gstudio_core/examples/workspace/tasks/') for name in names)
-              assert not any(name.startswith('gstudio_core/examples/workspace/archive/') or name.endswith('/archive-records.json') for name in names)
-              assert b'def archive_item(' not in wheel.read('gstudio_core/store.py')
-              assert b'"/api/archive"' not in wheel.read('gstudio_core/server.py')
-              assert b'renderArchive' not in wheel.read('gstudio_core/web/app.js')
+              assert {'gaiora/web/index.html', 'gaiora/web/app.js', 'gaiora/web/fonts/OFL.txt', 'gaiora/skills/gaiora-init/scripts/bootstrap.py', 'gaiora/executors.py'} <= names
+              assert {'gaiora/onboarding.py', 'gaiora/onboarding_completion.py', 'gaiora/project_registration.py', 'gaiora/skills/gaiora-project/SKILL.md', 'gaiora/skills/gaiora-project/scripts/project.py'} <= names
+              assert any(name.startswith('gaiora/examples/workspace/tasks/') for name in names)
+              assert not any(name.startswith('gaiora/examples/workspace/archive/') or name.endswith('/archive-records.json') for name in names)
+              assert b'def archive_item(' not in wheel.read('gaiora/store.py')
+              assert b'"/api/archive"' not in wheel.read('gaiora/server.py')
+              assert b'renderArchive' not in wheel.read('gaiora/web/app.js')
           PY
   browser:
     runs-on: ubuntu-latest

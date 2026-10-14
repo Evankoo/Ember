@@ -6,13 +6,13 @@
 
 **第一轮：文档库放在哪里。**
 
-> 欢迎你安装 GStudio！我会带你一步一步完成系统指引。先确定文档库放在哪里：它会保存项目说明、任务记录、资料和成果。我建议放在 `<本机实际建议路径>`。你想用这个位置，还是另一个文件夹？
+> 欢迎你安装 Gaiora！我会带你一步一步完成系统指引。先确定文档库放在哪里：它会保存项目说明、任务记录、资料和成果。我建议放在 `<本机实际建议路径>`。你想用这个位置，还是另一个文件夹？
 
-用户回答后，AI 检查路径，说明独立的程序安装位置，只补问尚未确认的安装计划。文档库就是命令里的 workspace，安装不依赖 VS Code；编辑器“打开文件夹”也不会替用户创建文档库。默认空白模式、名称 GStudio、端口 8783，技术参数由 AI 核对，不向新手抛出一整页问卷。
+用户回答后，AI 检查路径，说明独立的程序安装位置，只补问尚未确认的安装计划。文档库就是命令里的 workspace，安装不依赖 VS Code；编辑器“打开文件夹”也不会替用户创建文档库。默认空白模式、名称 Gaiora、端口 8783，技术参数由 AI 核对，不向新手抛出一整页问卷。
 
 **第二轮：装好后看一眼目录。**
 
-AI 安装程序、规则和三个自带 Skill，创建负责安装维护的 GStudio 系统项目。安装记录保存在程序目录，此时任务列表为空。回读实际目录，用中文解释项目、任务、输入、草稿和正式成果的位置，再问：
+AI 安装程序、规则和三个自带 Skill，创建负责安装维护的 Gaiora 系统项目。安装记录保存在程序目录，此时任务列表为空。回读实际目录，用中文解释项目、任务、输入、草稿和正式成果的位置，再问：
 
 > 文档库和基础文件夹已经建好了，位置是 `<实际路径>`。这个位置和安排可以吗？
 
@@ -20,7 +20,7 @@ AI 安装程序、规则和三个自带 Skill，创建负责安装维护的 GStu
 
 **第三轮：配置正在使用的 AI 工具。**
 
-> 接下来，把你现在用的 `<工具名称>` 设为 GStudio 的默认 AI 工具，并装好它使用的日常任务 Skill。以后想换工具，可以到工作台“设置 → 执行环境 → 修改配置”。按这个安排配置可以吗？
+> 接下来，把你现在用的 `<工具名称>` 设为 Gaiora 的默认 AI 工具，并装好它使用的日常任务 Skill。以后想换工具，可以到工作台“设置 → 执行环境 → 修改配置”。按这个安排配置可以吗？
 
 AI 先核实实际宿主工具、软件路径和用户级 Skill 目录。用户确认后由 AI 登记和安装；已使用的软件不重复安装。默认软件登记和日常 Skill 安装是两个真实动作，不能仅写任务的 executor 字段就称为配置完成，也不能把路径可用说成登录或模型可用。
 
@@ -28,7 +28,7 @@ AI 先核实实际宿主工具、软件路径和用户级 Skill 目录。用户�
 
 > 软件配置好了。现在我们实际试一次：我会把刚才这段安装和配置的对话，做成你的第一张任务卡。以后换一个对话，也能从这里继续。
 
-AI 实际读取并执行 `gstudio-core`，用普通创建接口建立“GStudio首次使用”，记录目标、已确认选择、安装结果、实际工具和下一步，将安装收据保存为输入快照。它是第一次真实建卡，不是更新安装脚本预先生成的卡。中断恢复时续接已建立的同一卡。
+AI 实际读取并执行 `gaiora`，用普通创建接口建立“Gaiora首次使用”，记录目标、已确认选择、安装结果、实际工具和下一步，将安装收据保存为输入快照。它是第一次真实建卡，不是更新安装脚本预先生成的卡。中断恢复时续接已建立的同一卡。
 
 刷新工作台，打开该卡，再问：
 
@@ -38,9 +38,9 @@ AI 实际读取并执行 `gstudio-core`，用普通创建接口建立“GStudio�
 
 **第五轮：建立简单练习项目。**
 
-> 最后，我们练习建一个项目。建议叫“GStudio练习项目”，用来熟悉项目说明和任务管理，暂不关联外部资料文件夹。用这个名字和用途可以吗？
+> 最后，我们练习建一个项目。建议叫“Gaiora练习项目”，用来熟悉项目说明和任务管理，暂不关联外部资料文件夹。用这个名字和用途可以吗？
 
-AI 读取 `gstudio-project`，先查重并展示名称、用途、范围和独立说明，用户确认后才创建。用户可以改用自己的真实简单项目，不编造客户或业务。写入后刷新工作台、打开项目说明，项目会保留。首任务仍属于 GStudio 系统项目，建项过程记录在原卡，不为演示再建一张假任务。
+AI 读取 `gaiora-project`，先查重并展示名称、用途、范围和独立说明，用户确认后才创建。用户可以改用自己的真实简单项目，不编造客户或业务。写入后刷新工作台、打开项目说明，项目会保留。首任务仍属于 Gaiora 系统项目，建项过程记录在原卡，不为演示再建一张假任务。
 
 **第六轮：完成，并移除一次性向导。**
 
@@ -52,9 +52,9 @@ AI 读取 `gstudio-project`，先查重并展示名称、用途、范围和独�
 
 ## 安装包、记录和任务分别在哪里
 
-网站提示要求 AI 直接读取并执行发行包内的 `gstudio-init`。用户不用安装完再输入“激活”；Skill 文件本身不会发起聊天，提问由当前 AI 执行。
+网站提示要求 AI 直接读取并执行发行包内的 `gaiora-init`。用户不用安装完再输入“激活”；Skill 文件本身不会发起聊天，提问由当前 AI 执行。
 
-初始 ZIP 有 `gstudio-init/`、`gstudio-core/`、`gstudio-project/` 三个同级目录，init 内附同版本 wheel。wheel 包含程序、三个 Skill、系统规则、页面、虚构示例及字体许可证。程序依赖 Python ≥3.10、macOS / Linux；PyYAML 仍需网络或缓存，不声称完全离线。
+初始 ZIP 有 `gaiora-init/`、`gaiora/`、`gaiora-project/` 三个同级目录，init 内附同版本 wheel。wheel 包含程序、三个 Skill、系统规则、页面、虚构示例及字体许可证。程序依赖 Python ≥3.10、macOS / Linux；PyYAML 仍需网络或缓存，不声称完全离线。
 
 ```text
 程序目录/
@@ -63,7 +63,7 @@ AI 读取 `gstudio-project`，先查重并展示名称、用途、范围和独�
   installation-report.md         成功时的技术安装记录
   installation-failure.md         失败时的说明（仅失败时生成）
 文档库/
-  projects/gstudio.md             自动建立的系统项目
+  projects/gaiora.md             自动建立的系统项目
   tasks/active/                   安装刚结束时为空
   tasks/completed/                最终确认完成的任务
   inputs/                         首卡建立后保存安装记录快照
@@ -74,14 +74,14 @@ AI 读取 `gstudio-project`，先查重并展示名称、用途、范围和独�
   skills/manifest.json            当前 Skill 登记与引导完成记录
 ```
 
-空白安装刚结束为 **1 项目 / 0 任务**；日常 Skill 建卡后为 **1 / 1**；练习建项后为 **2 / 1**。最终确认把首任务移到 completed，不删除它。示例模式原有 2 项目 / 8 示例任务，安装仅增加系统项目；后续建真实首卡和练习项目后为 4 / 9。普通 `gstudio init` 只建骨架，空白为 0 / 0，示例为 2 / 8，不执行完整引导。
+空白安装刚结束为 **1 项目 / 0 任务**；日常 Skill 建卡后为 **1 / 1**；练习建项后为 **2 / 1**。最终确认把首任务移到 completed，不删除它。示例模式原有 2 项目 / 8 示例任务，安装仅增加系统项目；后续建真实首卡和练习项目后为 4 / 9。普通 `gaiora init` 只建骨架，空白为 0 / 0，示例为 2 / 8，不执行完整引导。
 
-安装记录不是任务成果。日常 Skill 采用 `artifact_mode:none`，通过 `add_material(kind=input)` 保存 `installation.json` 的只读快照，`source_locator:gstudio-init:installation-receipt`；不创建虚假交付。用户最终确认后使用既有 `complete_task` 完成。
+安装记录不是任务成果。日常 Skill 采用 `artifact_mode:none`，通过 `add_material(kind=input)` 保存 `installation.json` 的只读快照，`source_locator:gaiora-init:installation-receipt`；不创建虚假交付。用户最终确认后使用既有 `complete_task` 完成。
 
 ## 可执行边界
 
 ```text
-<实际Python> <gstudio-init目录>/scripts/bootstrap.py --app-dir <新程序目录> --workspace <新文档库> --mode empty --name GStudio --port 8783 --executor <实际工具>
+<实际Python> <gaiora-init目录>/scripts/bootstrap.py --app-dir <新程序目录> --workspace <新文档库> --mode empty --name Gaiora --port 8783 --executor <实际工具>
 ```
 
 两个目录必须为空或不存在、互不包含，执行器未知时用 manual，不填模型。脚本默认用附带 wheel，没有时才取同版本发行包；开发验证使用 `--source`。新版本发行前只使用配套本地候选包，不混用旧版安装脚本。
@@ -92,9 +92,9 @@ AI 读取 `gstudio-project`，先查重并展示名称、用途、范围和独�
 
 写入后用 GET `/api/state` 回读，并刷新工作台；只切换 hash 不会重取数据。运行服务时使用带 token 的 HTTP；离线写入由 `workspace_lock` 保护，不同时启动第二个服务。
 
-最终移除接口是 POST `/api/onboarding/remove-init-skill`，payload `{task_id, confirmation:true}`。离线使用 `<程序Python> -m gstudio_core.onboarding_completion --workspace <文档库> --task-id <已完成首卡> --confirm`。只允许本次安装记录关联的已完成系统任务，且有实际日常和建项 Skill 历史。它只移除固定 `.agents/skills/gstudio-init`，保留程序内原版、下载包、其他全局副本和用户数据；直接手动删目录不是有效完成状态。
+最终移除接口是 POST `/api/onboarding/remove-init-skill`，payload `{task_id, confirmation:true}`。离线使用 `<程序Python> -m gaiora.onboarding_completion --workspace <文档库> --task-id <已完成首卡> --confirm`。只允许本次安装记录关联的已完成系统任务，且有实际日常和建项 Skill 历史。它只移除固定 `.agents/skills/gaiora-init`，保留程序内原版、下载包、其他全局副本和用户数据；直接手动删目录不是有效完成状态。
 
-程序内原版可通过 `gstudio skill-path` 找到，用于以后创建新文档库。升级程序和 `install-skill` 不会自动恢复本库已移除的向导。已有工作区不自动升级或迁移，重复安装不能覆盖原库或旧收据。
+程序内原版可通过 `gaiora skill-path` 找到，用于以后创建新文档库。升级程序和 `install-skill` 不会自动恢复本库已移除的向导。已有工作区不自动升级或迁移，重复安装不能覆盖原库或旧收据。
 
 ## 验证
 

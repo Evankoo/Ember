@@ -1,6 +1,15 @@
 # 更新记录
 
-每个版本都不会自动改写已有工作区里的任务、项目说明、规则或 Skill。升级程序前请备份工作区；要采用新版规则或 Skill，先与本地修改逐项比较，再单独合并。`gstudio init` 只接受空目录，不能用来升级。
+每个版本都不会自动改写已有工作区里的任务、项目说明、规则或 Skill。升级程序前请备份工作区；要采用新版规则或 Skill，先与本地修改逐项比较，再单独合并。`gaiora init` 只接受空目录，不能用来升级。
+
+## 0.9.0：改名 Gaiora
+
+GStudio 开源版改名为 **Gaiora**（中文读作“盖奥拉”）。名字取自 Gaia（大地之母），中间藏着 AI。功能与工作区格式不变，Logo 不变。
+
+- 仓库改为 `Evankoo/Gaiora`，旧地址自动跳转；介绍页与在线演示移到 `https://ai.evan-manual.com/gaiora/`。
+- 安装包与导入包 `gaiora`，命令 `gaiora`；三个 Skill 改为 `gaiora-init`（3.0.0）、`gaiora`（日常，2.0.0）、`gaiora-project`（2.0.0）。
+- 工作区元数据目录 `.gaiora/`，任务卡类型 `gaiora_task`，本机登记 `~/.config/gaiora/`，网页请求头 `X-Gaiora-Token`。
+- 不兼容旧名称：用 0.8.x 建立的工作区需要把 `.gstudio/` 改名为 `.gaiora/`、任务卡 `type: gstudio_task` 改为 `gaiora_task`，并重新安装 Skill、重新运行 `gaiora use`。
 
 ## 0.8.3：任务页执行日志更好读
 

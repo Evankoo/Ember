@@ -1,0 +1,6 @@
+interface:
+  display_name: Gaiora 日常任务
+  short_description: 在任意目录接着之前的工作：续接或建立任务卡，保存资料与交付
+  default_prompt: 使用 $gaiora 处理当前 Gaiora 工作区中的任务。
+policy:
+  allow_implicit_invocation: true

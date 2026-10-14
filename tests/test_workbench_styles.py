@@ -6,7 +6,7 @@ import runpy
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-WEB = ROOT / "src/gstudio_core/web"
+WEB = ROOT / "src/gaiora/web"
 SYNC = runpy.run_path(str(ROOT / "tools/sync_workbench_styles.py"))
 
 

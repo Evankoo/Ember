@@ -6,8 +6,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from gstudio_core import __version__
-from gstudio_core.store import Workspace, WorkspaceError
+from gaiora import __version__
+from gaiora.store import Workspace, WorkspaceError
 
 
 class Fixture(unittest.TestCase):
@@ -21,7 +21,7 @@ class Fixture(unittest.TestCase):
         self.workspace.initialize()
 
     def begin(self, **kwargs):
-        from gstudio_core.onboarding import begin_installation
+        from gaiora.onboarding import begin_installation
         receipt = {"version": __version__, "status": "installing", "stage": "system-project",
                    "mode": kwargs.get("mode", "empty"), "app_dir": str(self.app.resolve()),
                    "workspace": str(self.workspace.path), "executor": "opencode", "checks": []}
@@ -34,16 +34,16 @@ class Fixture(unittest.TestCase):
                    "mode": "empty", "app_dir": str(self.app.resolve()), "workspace": str(self.workspace.path),
                    "service_running": False, "verification_workspace_cleaned": True,
                    "checks": ["workspace-contract", "persisted-workflow", "loopback-health"],
-                   "startup_argv": ["python", "-m", "gstudio_core", "serve", "--workspace", str(self.workspace.path)]}
+                   "startup_argv": ["python", "-m", "gaiora", "serve", "--workspace", str(self.workspace.path)]}
         receipt.update(changes)
         (self.app / "installation.json").write_text(json.dumps(receipt))
         return receipt
 
     def tracking_task(self):
         self.begin()
-        return self.workspace.create_task({"title": "首次使用 GStudio", "project": "gstudio",
+        return self.workspace.create_task({"title": "首次使用 Gaiora", "project": "gaiora",
                                           "work_type": "system", "goal": "记录当前对话并练习建项目",
-                                          "executor": "opencode", "skills_used": ["gstudio-core"]})
+                                          "executor": "opencode", "skills_used": ["gaiora"]})
 
     def files(self):
         return {str(p.relative_to(self.workspace.path)): p.read_bytes()
@@ -55,7 +55,7 @@ class OnboardingTests(Fixture):
         start = self.begin()
         state = self.workspace.snapshot()
         self.assertEqual(len(state["projects"]), 1)
-        self.assertEqual((state["projects"][0]["id"], state["projects"][0]["kind"]), ("gstudio", "system"))
+        self.assertEqual((state["projects"][0]["id"], state["projects"][0]["kind"]), ("gaiora", "system"))
         self.assertEqual(state["tasks"], [])
         self.assertEqual(state["files"], [])
         self.assertNotIn("task_id", start)
@@ -65,7 +65,7 @@ class OnboardingTests(Fixture):
         self.assertFalse((self.workspace.path / "archive").exists())
 
     def test_ready_receipt_produces_app_report_without_workspace_mutation(self):
-        from gstudio_core.onboarding import record_installation
+        from gaiora.onboarding import record_installation
         receipt = self.receipt()
         before = self.files()
         result = record_installation(self.workspace, receipt)
@@ -75,7 +75,7 @@ class OnboardingTests(Fixture):
         self.assertEqual(self.workspace.snapshot()["tasks"], [])
         self.assertIn("隔离", report.read_text())
         self.assertIn("未启动", report.read_text())
-        self.assertIn("gstudio-core", report.read_text())
+        self.assertIn("gaiora", report.read_text())
         original = report.read_bytes()
         self.assertEqual(record_installation(self.workspace, receipt)["report_path"], result["report_path"])
         self.assertEqual(report.read_bytes(), original)
@@ -85,7 +85,7 @@ class OnboardingTests(Fixture):
         self.assertEqual(report.read_text(), "用户修改的证据，禁止覆盖")
 
     def test_failure_keeps_app_evidence_without_creating_task(self):
-        from gstudio_core.onboarding import record_installation
+        from gaiora.onboarding import record_installation
         receipt = self.receipt(status="failed", stage="workflow-verification", checks=["workspace-contract"],
                                error="fixture workflow error", verification_workspace_cleaned=False)
         before = self.files()
@@ -99,7 +99,7 @@ class OnboardingTests(Fixture):
         self.assertNotIn("技术检查全部通过", report.read_text())
 
     def test_partial_report_write_is_cleaned_and_can_be_retried(self):
-        from gstudio_core.onboarding import record_installation
+        from gaiora.onboarding import record_installation
         receipt = self.receipt()
         before = self.files()
         report = self.app / "installation-report.md"
@@ -117,7 +117,7 @@ class OnboardingTests(Fixture):
             stream.write = fail
             return stream
 
-        with patch("gstudio_core.onboarding.os.fdopen", side_effect=partial_write):
+        with patch("gaiora.onboarding.os.fdopen", side_effect=partial_write):
             with self.assertRaisesRegex(OSError, "disk full"):
                 record_installation(self.workspace, receipt)
         self.assertFalse(report.exists())
@@ -128,10 +128,10 @@ class OnboardingTests(Fixture):
         self.assertIn("技术检查全部通过", report.read_text())
 
     def test_report_fsync_failure_leaves_no_final_file_and_can_be_retried(self):
-        from gstudio_core.onboarding import record_installation
+        from gaiora.onboarding import record_installation
         receipt = self.receipt()
         report = self.app / "installation-report.md"
-        with patch("gstudio_core.onboarding.os.fsync", side_effect=OSError("fixture fsync failed")):
+        with patch("gaiora.onboarding.os.fsync", side_effect=OSError("fixture fsync failed")):
             with self.assertRaisesRegex(OSError, "fsync failed"):
                 record_installation(self.workspace, receipt)
         self.assertFalse(report.exists())
@@ -146,8 +146,8 @@ class OnboardingTests(Fixture):
                                                 "purpose": "首次使用对话的真实摘要"})
         state = self.workspace.snapshot()
         self.assertEqual(len(state["tasks"]), 1)
-        self.assertEqual((state["tasks"][0]["project"], state["tasks"][0]["status"]), ("gstudio", "active"))
-        self.assertEqual(self.workspace._task(task["id"])[1]["skills_used"], ["gstudio-core"])
+        self.assertEqual((state["tasks"][0]["project"], state["tasks"][0]["status"]), ("gaiora", "active"))
+        self.assertEqual(self.workspace._task(task["id"])[1]["skills_used"], ["gaiora"])
 
     def test_begin_refuses_existing_work_or_repeat_without_modifying_it(self):
         self.workspace.create_project({"id": "real", "name": "已有业务", "description": "不能视为安装空白"})
@@ -165,7 +165,7 @@ class OnboardingTests(Fixture):
         self.assertEqual(before, self.files())
 
     def test_invalid_executor_and_foreign_receipt_are_rejected_before_writes(self):
-        from gstudio_core.onboarding import begin_installation, record_installation
+        from gaiora.onboarding import begin_installation, record_installation
         before = self.files()
         with self.assertRaises(WorkspaceError):
             begin_installation(self.workspace, app_dir=self.app, executor="bad\nexecutor")
@@ -206,7 +206,7 @@ class OnboardingTests(Fixture):
         self.assertEqual(before, self.files())
 
     def test_incomplete_ready_or_changed_plan_never_produces_success_report(self):
-        from gstudio_core.onboarding import record_installation
+        from gaiora.onboarding import record_installation
         receipt = self.receipt()
         before = self.files()
         for changes in ({"checks": ["workspace-contract"]}, {"verification_workspace_cleaned": False},
@@ -221,7 +221,7 @@ class OnboardingTests(Fixture):
         self.assertEqual(before, self.files())
 
     def test_receipt_and_report_symlinks_are_rejected_without_touching_targets(self):
-        from gstudio_core.onboarding import record_installation
+        from gaiora.onboarding import record_installation
         receipt = self.receipt()
         outside = self.root / "outside.md"
         outside.write_text("用户已有证据")
@@ -246,7 +246,7 @@ class ProjectRegistrationTests(Fixture):
         return proposal
 
     def test_plan_is_read_only_and_create_requires_confirmation_and_active_task(self):
-        from gstudio_core.project_registration import plan_project, register_project
+        from gaiora.project_registration import plan_project, register_project
         start = self.tracking_task()
         before = self.files()
         plan = plan_project(self.workspace, self.proposal())
@@ -262,16 +262,16 @@ class ProjectRegistrationTests(Fixture):
         self.assertTrue((self.workspace.path / "projects/my-project.md").is_file())
         state = self.workspace.snapshot()
         self.assertEqual(len(state["tasks"]), 1)
-        self.assertEqual(state["tasks"][0]["project"], "gstudio")
+        self.assertEqual(state["tasks"][0]["project"], "gaiora")
         self.assertEqual(state["tasks"][0]["status"], "active")
 
     def test_project_script_checks_exact_confirmed_plan_and_live_service_lock(self):
         import contextlib
         import importlib.util
         import io
-        from gstudio_core.bootstrap import PACKAGE
-        from gstudio_core.server import workspace_lock
-        spec = importlib.util.spec_from_file_location("project_helper", PACKAGE / "skills/gstudio-project/scripts/project.py")
+        from gaiora.bootstrap import PACKAGE
+        from gaiora.server import workspace_lock
+        spec = importlib.util.spec_from_file_location("project_helper", PACKAGE / "skills/gaiora-project/scripts/project.py")
         helper = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(helper)
         start = self.tracking_task()
@@ -300,10 +300,10 @@ class ProjectRegistrationTests(Fixture):
         self.assertTrue((self.workspace.path / "projects/my-project.md").is_file())
 
     def test_same_id_or_name_is_never_overwritten_and_reserved_scope_is_rejected(self):
-        from gstudio_core.project_registration import plan_project, register_project
+        from gaiora.project_registration import plan_project, register_project
         start = self.tracking_task()
         before = self.files()
-        for proposal in (self.proposal(id="gstudio"), self.proposal(name="GStudio")):
+        for proposal in (self.proposal(id="gaiora"), self.proposal(name="Gaiora")):
             self.assertFalse(plan_project(self.workspace, proposal)["can_create"])
             with self.assertRaises(WorkspaceError):
                 register_project(self.workspace, proposal, task_id=start["id"], confirmation=True)

@@ -7,10 +7,10 @@ import tempfile
 import unittest
 from unittest import mock
 
-from gstudio_core.cli import main
-from gstudio_core.locator import register_default
-from gstudio_core.project_registration import plan_project
-from gstudio_core.store import Workspace, WorkspaceError
+from gaiora.cli import main
+from gaiora.locator import register_default
+from gaiora.project_registration import plan_project
+from gaiora.store import Workspace, WorkspaceError
 
 
 class ProjectLocationTests(unittest.TestCase):
@@ -49,7 +49,7 @@ class ProjectLocationTests(unittest.TestCase):
     def test_project_without_location_says_it_is_pending(self):
         self.create()
         overview = (self.workspace.path / "projects/autumn.md").read_text(encoding="utf-8")
-        self.assertIn("gstudio project-location", overview)
+        self.assertIn("gaiora project-location", overview)
         self.assertEqual(next(p for p in self.workspace.snapshot()["projects"] if p["id"] == "autumn")["locations"], [])
 
     def test_locations_must_be_absolute_single_line_paths(self):

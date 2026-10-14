@@ -3,8 +3,8 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gstudio-core"
-version = "0.8.3"
+name = "gaiora"
+version = "0.9.0"
 description = "Continue every AI collaboration: local Markdown task cards that any AI tool can pick up again."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -18,14 +18,14 @@ classifiers = [
 ]
 
 [project.scripts]
-gstudio = "gstudio_core.cli:main"
+gaiora = "gaiora.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 namespaces = false
 
 [tool.setuptools.package-data]
-gstudio_core = ["web/**/*", "web/*", "examples/**/*", "examples/workspace/.gstudio/*.json", "templates/**/*", "templates/*", "skills/**/*"]
+gaiora = ["web/**/*", "web/*", "examples/**/*", "examples/workspace/.gaiora/*.json", "templates/**/*", "templates/*", "skills/**/*"]
 
 [tool.setuptools.exclude-package-data]
-gstudio_core = ["**/__pycache__/*", "**/*.pyc"]
+gaiora = ["**/__pycache__/*", "**/*.pyc"]
