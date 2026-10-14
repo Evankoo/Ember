@@ -55,6 +55,19 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(state["projects"], [])
         self.assertEqual(state["tasks"], [])
 
+    def test_wrapped_log_lines_stay_with_their_entry(self):
+        identifier = self.task()
+        _, text = self.card(identifier)
+        body = text.split("---", 2)[2].replace(
+            "## 执行日志\n\n",
+            "## 执行日志\n\n- [2026-10-14 12:07:22+08:00] 第一条记录，\n  续写在下一行。\n\n- 2026-10-13 09:00:00+08:00：旧式记录。\n",
+        )
+        self.rewrite_card(identifier, body=body)
+        logs = next(item for item in self.store.snapshot()["tasks"] if item["id"] == identifier)["logs"]
+        self.assertEqual(logs[0], {"date": "2026-10-14 12:07:22+08:00", "text": "第一条记录， 续写在下一行。"})
+        self.assertEqual(logs[1], {"date": "", "text": "2026-10-13 09:00:00+08:00：旧式记录。"})
+        self.assertEqual(len(logs), 3)
+
     def test_project_and_task_survive_reopen(self):
         identifier = self.task()
         reopened = Workspace(self.root).snapshot()

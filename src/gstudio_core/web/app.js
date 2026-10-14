@@ -46,6 +46,29 @@ const app = (() => {
   const categories = () => [...new Set(data().projects.map(p => p.category).filter(Boolean))];
   const categoryClass = name => categoryClasses[Math.max(0, categories().indexOf(name)) % categoryClasses.length];
   const fileIcon = item => /\.md$/i.test(item.name) ? "M" : /\.(png|jpe?g|webp|gif)$/i.test(item.name) ? "◇" : /\.(mp4|mov|webm)$/i.test(item.name) ? "▶" : /\.pdf$/i.test(item.name) ? "P" : "·";
+  const fileKind = item => `<span class="task-file-kind">${esc((String(item.name).match(/\.([a-z0-9]{1,8})$/i) || [, "文件"])[1].toUpperCase().slice(0, 4))}</span>`;
+  const executorNames = { codex: "Codex", opencode: "OpenCode", "claude-code": "Claude Code", workbuddy: "WorkBuddy", "qianwen-office": "千问办公", "doubao-work": "豆包工作", external: "外部", manual: "人工" };
+  /* Entries the program writes itself; consecutive ones of the same kind fold into one row. */
+  const machineLogKinds = ["添加输入快照", "添加草稿交付", "登记输入引用"];
+  function logRows(logs) {
+    const entries = logs.map(log => {
+      const legacy = !log.date && String(log.text).match(/^(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2})(?::\d{2})?(?:[+-]\d{2}:?\d{2})?\s*[：｜|:]\s*(.*)$/);
+      const date = legacy ? legacy[1] : String(log.date || "");
+      const text = legacy ? legacy[2] : String(log.text || "");
+      return { time: date.replace("T", " ").slice(0, 16), text, kind: machineLogKinds.find(kind => text.startsWith(kind)) || "" };
+    });
+    const rows = [];
+    for (let i = 0; i < entries.length;) {
+      let end = i + 1;
+      while (entries[i].kind && end < entries.length && entries[end].kind === entries[i].kind) end++;
+      const time = `<time>${esc(entries[i].time)}</time>`;
+      rows.push(end - i > 1
+        ? `<li class="task-log-entry task-log-machine">${time}<details><summary>${esc(entries[i].kind)} · ${end - i} 条</summary><ul>${entries.slice(i, end).map(e => `<li>${inline(e.text)}</li>`).join("")}</ul></details></li>`
+        : `<li class="task-log-entry${entries[i].kind ? " task-log-machine" : ""}">${time}<div>${inline(entries[i].text)}</div></li>`);
+      i = end;
+    }
+    return rows.join("");
+  }
 
   function inline(text) {
     return esc(text)
@@ -446,10 +469,10 @@ const app = (() => {
     const tools = actionKey("task-context", open ? "继续该任务" : "基于已完成任务新建", `data-id="${esc(item.id)}"`);
     const section = (title, text, fallback) => `<h3>${title}</h3>${text ? markdown(text) : `<p class="muted">${fallback}</p>`}`;
     const related = (item.related || []).length ? `<h3>关联任务</h3><ul>${item.related.map(id => task(id) ? `<li><a href="${taskLink(task(id))}">${esc(task(id).title)}</a></li>` : `<li>${esc(id)}</li>`).join("")}</ul>` : "";
-    const technical = item.executor || (item.skills_used || []).length ? `<section class="task-technical-info"><h2>技术信息</h2><p class="task-technical-summary"><span>执行工具 ${esc(item.executor || "未记录")} · Skill ${esc((item.skills_used || []).join("、") || "未记录")}</span></p></section>` : "";
-    const logs = (item.logs || []).map(log => `<li>${log.date ? `<b>${esc(log.date)}</b> ` : ""}${inline(log.text)}</li>`).join("");
-    const pane = hasMaterials ? `<section class="panel task-delivery-workspace" aria-label="任务资料"><section class="task-delivery-shelf"><header class="task-delivery-head"><div class="task-file-tabs" role="tablist">${[["delivery", "交付文件", deliveries.length], ["input", "输入资料", inputs.length]].map(([id, label, count]) => `<button class="${ui.taskFiles === id ? "active" : ""}" type="button" role="tab" data-action="task-files" data-id="${id}" aria-selected="${ui.taskFiles === id}">${label}<span>${count}</span></button>`).join("")}</div></header><div class="task-input-panel task-file-pane"><div class="task-input-list">${(ui.taskFiles === "input" ? inputs : deliveries).map(f => `<div class="task-input-row" data-file-id="${esc(f.id)}"${inputIds.has(f.id) && (f.taskId !== item.id || f.kind !== "input") ? ' data-input-reference="true"' : ""}><span class="task-input-icon" aria-hidden="true">${fileIcon(f)}</span><div class="task-input-copy"><button type="button" class="task-input-name" data-action="file-read" data-id="${esc(f.id)}">${esc(f.name)}</button><span>${esc(kindName(f.kind))} · ${bytes(f.bytes)}${f.purpose ? ` · ${esc(f.purpose)}` : ""}</span></div></div>`).join("") || `<div class="task-preview-empty">暂无${ui.taskFiles === "input" ? "输入资料" : "交付文件"}。</div>`}</div></div></section></section>` : "";
-    main.innerHTML = `<div class="task-detail-workspace ${hasMaterials ? "has-materials" : "no-materials"}"><section class="panel task-current-pane"><header class="task-current-head"><div class="task-current-title-row">${badge(item)}<h1>${esc(item.title)}</h1><div class="task-current-heading-tools">${tools}</div></div><div class="task-current-meta">${item.project === "independent" ? `<span>独立任务</span>` : `<a href="#project/${encodeURIComponent(item.project)}">${esc(projectName(item.project))}</a>`}<span class="task-current-meta-separator">·</span><span>${item.kind === "task_line" ? "任务线" : esc(workType(item))}</span><span class="task-current-meta-separator">·</span><code class="task-current-id">ID ${esc(item.id)}</code><span class="task-current-updated">最近更新 ${esc(stamp(item))}</span></div></header><div class="task-current-actions">${actions}</div><article class="task-current-body article md">${section("任务目标", item.goal, "暂无目标。")}${section("任务描述", item.description, "暂无描述。")}${section("当前结果", item.current, "尚无结果记录。")}${item.next ? section("下一步", item.next, "") : ""}${related}${technical}<section class="task-execution-log"><h3>执行日志</h3>${logs ? `<ul>${logs}</ul>` : `<p class="muted">暂无执行日志。</p>`}</section>${open ? "" : `<p class="muted">已完成任务只读。</p>`}</article></section>${pane}</div>`;
+    const technical = item.executor || (item.skills_used || []).length ? `<section class="task-technical-info"><h3>技术信息</h3><p class="task-technical-summary"><span>执行工具 ${esc(executorNames[item.executor] || item.executor || "未记录")} · Skill ${esc((item.skills_used || []).join("、") || "未记录")}</span></p></section>` : "";
+    const logs = logRows(item.logs || []);
+    const pane = hasMaterials ? `<section class="panel task-delivery-workspace" aria-label="任务资料"><section class="task-delivery-shelf"><header class="task-delivery-head"><div class="task-file-tabs" role="tablist">${[["delivery", "交付文件", deliveries.length], ["input", "输入资料", inputs.length]].map(([id, label, count]) => `<button class="${ui.taskFiles === id ? "active" : ""}" type="button" role="tab" data-action="task-files" data-id="${id}" aria-selected="${ui.taskFiles === id}">${label}<span>${count}</span></button>`).join("")}</div></header><div class="task-input-panel task-file-pane"><div class="task-input-list">${(ui.taskFiles === "input" ? inputs : deliveries).map(f => `<div class="task-input-row" data-file-id="${esc(f.id)}"${inputIds.has(f.id) && (f.taskId !== item.id || f.kind !== "input") ? ' data-input-reference="true"' : ""}><span class="task-input-icon" aria-hidden="true">${fileKind(f)}</span><div class="task-input-copy"><button type="button" class="task-input-name" data-action="file-read" data-id="${esc(f.id)}">${esc(f.name)}</button><span>${esc(kindName(f.kind))} · ${bytes(f.bytes)}${f.purpose ? ` · ${esc(f.purpose)}` : ""}</span></div></div>`).join("") || `<div class="task-preview-empty">暂无${ui.taskFiles === "input" ? "输入资料" : "交付文件"}。</div>`}</div></div></section></section>` : "";
+    main.innerHTML = `<div class="task-detail-workspace ${hasMaterials ? "has-materials" : "no-materials"}"><section class="panel task-current-pane"><header class="task-current-head"><div class="task-current-title-row">${badge(item)}<h1>${esc(item.title)}</h1><div class="task-current-heading-tools">${tools}</div></div><div class="task-current-meta">${item.project === "independent" ? `<span>独立任务</span>` : `<a href="#project/${encodeURIComponent(item.project)}">${esc(projectName(item.project))}</a>`}<span class="task-current-meta-separator">·</span><span>${item.kind === "task_line" ? "任务线" : esc(workType(item))}</span><span class="task-current-meta-separator">·</span><code class="task-current-id">ID ${esc(item.id)}</code><span class="task-current-updated">最近更新 ${esc(stamp(item))}</span></div></header><div class="task-current-actions">${actions}</div><article class="task-current-body article md">${section("任务目标", item.goal, "暂无目标。")}${section("任务描述", item.description, "暂无描述。")}${section("当前结果", item.current, "尚无结果记录。")}${item.next ? section("下一步", item.next, "") : ""}${related}${technical}<section class="task-execution-log"><h3>执行日志</h3>${logs ? `<ol class="task-log-list">${logs}</ol>` : `<p class="muted">暂无执行日志。</p>`}</section>${open ? "" : `<p class="muted">已完成任务只读。</p>`}</article></section>${pane}</div>`;
   }
 
   /* ---------- 资料浏览 ---------- */

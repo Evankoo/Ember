@@ -634,9 +634,12 @@ class Workspace:
                 parts = _sections(body)
                 logs = []
                 for line in parts["执行日志"].splitlines():
-                    cleaned = line.strip().removeprefix("- ")
-                    if not cleaned:
+                    if not line.strip():
                         continue
+                    if logs and not re.match(r"[-*]\s", line.lstrip()) and line[:1].isspace():
+                        logs[-1]["text"] += " " + line.strip()  # wrapped continuation of the previous entry
+                        continue
+                    cleaned = re.sub(r"^[-*]\s+", "", line.strip())
                     match = re.match(r"\[([^]]+)\]\s*(.*)", cleaned)
                     logs.append({"date": match.group(1) if match else "", "text": match.group(2) if match else cleaned})
                 owned = [item for item in files if item["taskId"] == identifier]

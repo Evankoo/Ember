@@ -1,3 +1,3 @@
 """GStudio's small, local, task-card-driven workbench."""
 
-__version__ = "0.8.2"
+__version__ = "0.8.3"
