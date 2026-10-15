@@ -8,9 +8,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from gaiora.executors import ExecutorRegistry
-from gaiora.server import LocalServer
-from gaiora.store import Workspace
+from ember.executors import ExecutorRegistry
+from ember.server import LocalServer
+from ember.store import Workspace
 from test_executors import software_fixture
 
 try:
@@ -211,8 +211,8 @@ class SettingsBrowserTests(unittest.TestCase):
 
     def test_guided_installation_empty_then_daily_first_task_and_confirmed_removal(self):
         from urllib.request import Request, urlopen
-        from gaiora import __version__
-        from gaiora.onboarding import begin_installation, record_installation
+        from ember import __version__
+        from ember.onboarding import begin_installation, record_installation
         with tempfile.TemporaryDirectory() as temporary:
             app = Path(temporary) / 'app'
             app.mkdir()
@@ -233,37 +233,37 @@ class SettingsBrowserTests(unittest.TestCase):
 
             def post(path, payload):
                 request = Request(base + path, data=json.dumps(payload).encode(), method='POST',
-                                  headers={'Content-Type': 'application/json', 'X-Gaiora-Token': server.csrf_token})
+                                  headers={'Content-Type': 'application/json', 'X-Ember-Token': server.csrf_token})
                 with urlopen(request) as response:
                     return json.load(response)['data']
 
             try:
                 self.page.goto(base + '/#home')
                 expect(self.page.locator('#home-count')).to_have_text('0')
-                first = post('/api/tasks', {'title': 'Gaiora首次使用', 'project': 'gaiora',
+                first = post('/api/tasks', {'title': '余烬首次使用', 'project': 'ember',
                     'work_type': 'system', 'artifact_mode': 'none', 'executor': 'opencode',
-                    'skills_used': ['gaiora-init', 'gaiora'], 'goal': '安装并完成新手实操'})
+                    'skills_used': ['ember-init', 'ember'], 'goal': '安装并完成新手实操'})
                 post('/api/tasks/' + first['id'] + '/materials', {'kind': 'input', 'name': '安装记录.json',
-                    'source_locator': 'gaiora-init:installation-receipt', 'content': json.dumps(receipt)})
+                    'source_locator': 'ember-init:installation-receipt', 'content': json.dumps(receipt)})
                 post('/api/tasks/' + first['id'], {'current': '真实对话已整理，等待用户检查任务卡。',
                      'next': '用户检查 OK 后再创建练习项目。', 'log_entry': '日常 Skill 创建第一张任务卡。'})
                 for width in (1440, 390):
                     self.page.set_viewport_size({'width': width, 'height': 1000})
                     self.page.goto(base + '/#home')
                     self.page.reload()
-                    self.page.locator('#home-task-list', has_text='Gaiora首次使用').wait_for()
+                    self.page.locator('#home-task-list', has_text='余烬首次使用').wait_for()
                     self.assertEqual(self.page.locator('#home-count').inner_text(), '1')
                     self.page.goto(base + '/#task/' + first['id'])
-                    self.page.locator('#main-content h1', has_text='Gaiora首次使用').wait_for()
+                    self.page.locator('#main-content h1', has_text='余烬首次使用').wait_for()
                     self.assertIn('等待用户检查任务卡', self.page.locator('#main-content').inner_text())
                     self.page.goto(base + '/#settings')
                     self.page.locator('#settings-skills .core-skill').first.wait_for()
                     self.assertEqual(self.page.locator('#settings-skills .core-skill strong').all_text_contents(),
-                                     ['gaiora-init', 'gaiora', 'gaiora-project'])
+                                     ['ember-init', 'ember', 'ember-project'])
                 self.assertEqual(workspace.snapshot()['tasks'][0]['status'], 'active')
-                post('/api/projects', {'id': 'practice', 'name': 'Gaiora练习项目', 'kind': 'project',
-                    'description': '隔离测试中模拟用户确认的练习', 'overview': '# Gaiora练习项目'})
-                post('/api/tasks/' + first['id'], {'skills_used': ['gaiora-project'],
+                post('/api/projects', {'id': 'practice', 'name': '余烬练习项目', 'kind': 'project',
+                    'description': '隔离测试中模拟用户确认的练习', 'overview': '# 余烬练习项目'})
+                post('/api/tasks/' + first['id'], {'skills_used': ['ember-project'],
                     'current': '隔离测试模拟完成引导与最终确认。', 'log_entry': '测试夹具确认建项，模拟最终完成与移除确认。'})
                 post('/api/tasks/' + first['id'] + '/complete', {'confirmation': True})
                 post('/api/onboarding/remove-init-skill', {'task_id': first['id'], 'confirmation': True})
@@ -273,17 +273,17 @@ class SettingsBrowserTests(unittest.TestCase):
                     self.page.reload()
                     expect(self.page.locator('#settings-skills .core-skill')).to_have_count(2)
                     self.assertEqual(self.page.locator('#settings-skills .core-skill strong').all_text_contents(),
-                                     ['gaiora', 'gaiora-project'])
+                                     ['ember', 'ember-project'])
                     self.assertNotIn('三项基础 Skill', self.page.locator('#main-content').inner_text())
                     self.page.goto(base + '/#project/practice')
-                    self.page.locator('#main-content h1', has_text='Gaiora练习项目').wait_for()
+                    self.page.locator('#main-content h1', has_text='余烬练习项目').wait_for()
                     self.page.goto(base + '/#task/' + first['id'])
-                    self.page.locator('#main-content h1', has_text='Gaiora首次使用').wait_for()
+                    self.page.locator('#main-content h1', has_text='余烬首次使用').wait_for()
                     self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'))
                 state = workspace.snapshot()
                 self.assertEqual((len(state['projects']), len(state['tasks'])), (2, 1))
                 self.assertEqual(state['tasks'][0]['status'], 'completed')
-                self.assertFalse((workspace.path / '.agents/skills/gaiora-init').exists())
+                self.assertFalse((workspace.path / '.agents/skills/ember-init').exists())
                 self.assertFalse((workspace.path / 'delivery/formal' / first['id']).exists())
                 self.assertTrue((app / 'installation-report.md').is_file())
             finally:
@@ -428,7 +428,7 @@ class SettingsBrowserTests(unittest.TestCase):
         payload = {"executors": [{**entry, "label": entry["label"] + "已修改"} for entry in self.entries],
                    "default_executor": "other-cli", "expected_revision": self.registry.snapshot()["revision"]}
         self.registry.save(payload)
-        with patch("gaiora.executors.subprocess.run") as run:
+        with patch("ember.executors.subprocess.run") as run:
             self.page.locator("#copy-open-context-button").click()
             self.page.wait_for_function("()=>document.getElementById('notice').textContent.includes('已改变')")
             run.assert_not_called()

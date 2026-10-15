@@ -1,0 +1,4 @@
+interface:
+  display_name: "余烬首次使用引导"
+  short_description: "一问一答安装、配置AI、创建首卡和练习项目，最终确认后移除向导"
+  default_prompt: "使用 $ember-init 一问一答带我安装余烬：先确认文档库，安装只保存记录；配置当前 AI 工具后，用日常 Skill 把这次对话建成第一张任务卡，等我检查 OK 后再建练习项目。最后问我是否确认完成并移除本库的一次性初始化向导。"

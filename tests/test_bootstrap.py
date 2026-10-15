@@ -13,13 +13,13 @@ from unittest.mock import patch
 
 import yaml
 
-from gaiora import __version__
-from gaiora.bootstrap import CONTRACT_FILES, PACKAGE, verify_workspace_contract
-from gaiora.cli import main
-from gaiora.store import Workspace, WorkspaceError
+from ember import __version__
+from ember.bootstrap import CONTRACT_FILES, PACKAGE, verify_workspace_contract
+from ember.cli import main
+from ember.store import Workspace, WorkspaceError
 
 
-spec = importlib.util.spec_from_file_location("init_helper", PACKAGE / "skills/gaiora-init/scripts/bootstrap.py")
+spec = importlib.util.spec_from_file_location("init_helper", PACKAGE / "skills/ember-init/scripts/bootstrap.py")
 helper = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(helper)
 
@@ -38,10 +38,10 @@ class BootstrapTests(unittest.TestCase):
         self.assertEqual(state["tasks"], [])
         self.assertEqual(state["projects"], [])
         contract = verify_workspace_contract(workspace)
-        self.assertEqual(contract["skills"], ["gaiora-init", "gaiora", "gaiora-project"])
+        self.assertEqual(contract["skills"], ["ember-init", "ember", "ember-project"])
         for relative in CONTRACT_FILES:
             self.assertTrue((workspace.path / relative).stat().st_size)
-        self.assertTrue((workspace.path / ".agents/skills/gaiora-init/scripts/bootstrap.py").is_file())
+        self.assertTrue((workspace.path / ".agents/skills/ember-init/scripts/bootstrap.py").is_file())
         self.assertEqual(main(["check", "--workspace", str(workspace.path)]), 0)
 
     def test_example_task_inputs_delivery_and_completed_body_are_valid(self):
@@ -83,7 +83,7 @@ class BootstrapTests(unittest.TestCase):
 
     def args(self, **changes):
         values = dict(app_dir=str(self.root / "app"), workspace=str(self.root / "data"),
-                      name="Gaiora", port=8783, source=None, mode="empty", executor="opencode")
+                      name="Ember", port=8783, source=None, mode="empty", executor="opencode")
         values.update(changes)
         return argparse.Namespace(**values)
 
@@ -152,12 +152,12 @@ class BootstrapTests(unittest.TestCase):
         self.assertTrue(Path(receipt["report_path"]).is_file())
         self.assertEqual(state["files"], [])
         self.assertEqual(receipt["default_workspace"], "registered")
-        registered = json.loads((self.home / ".config/gaiora/workspace.json").read_text())
+        registered = json.loads((self.home / ".config/ember/workspace.json").read_text())
         self.assertEqual(registered["workspace"], str(workspace.path))
 
     def test_installer_keeps_a_different_existing_default_workspace(self):
         self.home = self.root / "home"
-        config = self.home / ".config/gaiora/workspace.json"
+        config = self.home / ".config/ember/workspace.json"
         config.parent.mkdir(parents=True)
         existing = {"version": 1, "workspace": str(self.root / "earlier"), "python": sys.executable}
         config.write_text(json.dumps(existing))

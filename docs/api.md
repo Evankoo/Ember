@@ -1,6 +1,6 @@
 # 最小版接口约定
 
-业务数据存放在用户明确指定的一个本地工作区；软件登记单独存放在当前用户的私有 Core 配置中。工作台只监听本机回环地址。GET `/api/state` 返回 `{ok: true, data: snapshot}`，snapshot 中包含本次服务的 `csrf_token`；POST 使用 JSON 与 `X-Gaiora-Token` 请求头。其余成功接口同样返回 `{ok: true, data: result}`，失败返回 `{ok: false, error: message}`。
+业务数据存放在用户明确指定的一个本地工作区；软件登记单独存放在当前用户的私有 Core 配置中。工作台只监听本机回环地址。GET `/api/state` 返回 `{ok: true, data: snapshot}`，snapshot 中包含本次服务的 `csrf_token`；POST 使用 JSON 与 `X-Ember-Token` 请求头。其余成功接口同样返回 `{ok: true, data: result}`，失败返回 `{ok: false, error: message}`。
 
 ## 工作区结构
 
@@ -14,8 +14,8 @@ delivery/draft/<task_id>/
 delivery/formal/<task_id>/
 inbox/
 reports/                     # Markdown 报告，可有 title/mode/date/related_task_ids frontmatter
-.gaiora/views.json          # {revision, important_task_ids: []}
-.gaiora/inbox.json          # 指纹标签台账
+.ember/views.json          # {revision, important_task_ids: []}
+.ember/inbox.json          # 指纹标签台账
 ```
 
 任务卡使用标准 YAML frontmatter 与四个必需正文：`任务目标 / 任务描述 / 当前结果 / 执行日志`。下一步可选，完成无后续时移除；执行日志保持最后。生命周期只使用 `active / waiting_user / blocked / completed`，草稿是阶段与文件状态。标题为 20 字符以内的完整短语。必需字段为 type、task_id、title、project、work_type、task_kind、status、executor、created_at、updated_at、skills_used、artifact_mode。任务线使用 `task_kind: task_group`、`related_task_ids`；输入和输出文件记录不得混在同一个存储目录。
@@ -46,11 +46,11 @@ build_review_context(payload)        # task_ids:[] -> {text}，仅建议不改�
 save_report(payload)                 # title,content,mode:selected|weekly,task_ids:[]；明确用户保存的记录
 ```
 
-`executor` 是真实执行工具或界面，不是模型名；`skills_used` 是实际调用的非空、无重复 Skill 名称列表。创建时未传则沿用 `manual` 与 `['gaiora']` 的既有默认值。续接更新只替换最新执行器，并把新 Skill 去重追加到原有历史，不改变项目、生命周期或交付。空值、非文本、多行名称及重复列表在写入前拒绝。这些字段不会启动执行器或安装 Skill；Agent 应按实际执行填写，而不是依赖默认值猜测历史。
+`executor` 是真实执行工具或界面，不是模型名；`skills_used` 是实际调用的非空、无重复 Skill 名称列表。创建时未传则沿用 `manual` 与 `['ember']` 的既有默认值。续接更新只替换最新执行器，并把新 Skill 去重追加到原有历史，不改变项目、生命周期或交付。空值、非文本、多行名称及重复列表在写入前拒绝。这些字段不会启动执行器或安装 Skill；Agent 应按实际执行填写，而不是依赖默认值猜测历史。
 
-`onboarding.begin_installation(workspace, app_dir, executor, mode)` 只接受新空白 / 原样示例工作区，登记一个 system:gaiora，不创建任务。`record_installation(workspace, receipt)` 校验版本、目录、状态、技术检查和 app/installation.json 的实际记录，将成功 / 失败报告保存在应用目录，不写任务、输入或交付。日常 Skill 后续使用普通 create_task 创建首卡，将安装收据作为 input 快照登记。
+`onboarding.begin_installation(workspace, app_dir, executor, mode)` 只接受新空白 / 原样示例工作区，登记一个 system:ember，不创建任务。`record_installation(workspace, receipt)` 校验版本、目录、状态、技术检查和 app/installation.json 的实际记录，将成功 / 失败报告保存在应用目录，不写任务、输入或交付。日常 Skill 后续使用普通 create_task 创建首卡，将安装收据作为 input 快照登记。
 
-`onboarding_completion.remove_init_skill(workspace, {task_id, confirmation:true})` 仅在最终用户确认后调用；要求同一安装收据关联的已完成 gaiora 系统任务及实际日常/建项 Skill 历史。固定移除本库 `.agents/skills/gaiora-init`，同步 manifest 的完成记录和 Resolver，保护用户修改；程序内原版、其他 Skill 与业务数据保留。使用 POST `/api/onboarding/remove-init-skill`，离线则 `python -m gaiora.onboarding_completion --workspace <path> --task-id <id> --confirm`（跨进程锁）。仅此有效完成记录允许初始化 Skill 缺席，直接手动删除仍报错。
+`onboarding_completion.remove_init_skill(workspace, {task_id, confirmation:true})` 仅在最终用户确认后调用；要求同一安装收据关联的已完成 ember 系统任务及实际日常/建项 Skill 历史。固定移除本库 `.agents/skills/ember-init`，同步 manifest 的完成记录和 Resolver，保护用户修改；程序内原版、其他 Skill 与业务数据保留。使用 POST `/api/onboarding/remove-init-skill`，离线则 `python -m ember.onboarding_completion --workspace <path> --task-id <id> --confirm`（跨进程锁）。仅此有效完成记录允许初始化 Skill 缺席，直接手动删除仍报错。
 
 `project_registration.plan_project(workspace, payload)` 只读返回规范方案、同 ID / 同名匹配及路径；`register_project(..., task_id, confirmation=True)` 重检查重和未完成原任务，复用 `create_project` 写登记及 Markdown，并追加实际 Skill 与日志。Skill 脚本还要求用户确认的原方案 SHA-256；不另建业务任务或迁移资料。服务运行时使用既有 HTTP 接口，不绕过写锁。
 
@@ -101,7 +101,7 @@ POST /api/executors/open
 
 ## 本机执行环境
 
-`ExecutorRegistry(home=None)` 只管理 `~/.config/gaiora/executors.json`。持久化结构为 `version:1`、`default_executor` 和最多 32 项 `executors`；每项只含 `id`、`label`、`kind:app|command`、`path`。新机器清单为空；不读取其他软件的账号、模型或权限配置，不往工作区写软件路径。
+`ExecutorRegistry(home=None)` 只管理 `~/.config/ember/executors.json`。持久化结构为 `version:1`、`default_executor` 和最多 32 项 `executors`；每项只含 `id`、`label`、`kind:app|command`、`path`。新机器清单为空；不读取其他软件的账号、模型或权限配置，不往工作区写软件路径。
 
 - `snapshot()`：返回上述清单、配置 `revision`、路径就绪 `ready`、`registry_readable`、`error` 和配置位置；不可读是未知，不是零项或已健康。
 - `validate(payload)`：接受 `executors`、`default_executor` 和可选 `expected_revision`，只校验元数据，返回 `authentication_verified:false`；不保存或启动。

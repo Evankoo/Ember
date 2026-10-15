@@ -7,9 +7,9 @@ import tempfile
 import unittest
 from unittest import mock
 
-from gaiora.cli import main
-from gaiora.project_registration import plan_project
-from gaiora.store import Workspace, WorkspaceError
+from ember.cli import main
+from ember.project_registration import plan_project
+from ember.store import Workspace, WorkspaceError
 
 
 class ProjectCategoryTests(unittest.TestCase):

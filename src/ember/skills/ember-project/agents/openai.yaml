@@ -1,0 +1,4 @@
+interface:
+  display_name: "余烬项目建项"
+  short_description: "查重、确认项目或系统方案，登记独立说明并回读"
+  default_prompt: "使用 $ember-project 为当前余烬工作区准备建项方案，先查重并等待我确认。"

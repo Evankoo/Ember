@@ -10,11 +10,11 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from gaiora.bootstrap import PACKAGE, install_workspace_contract, verify_workspace_contract
-from gaiora.executors import ExecutorRegistry
-from gaiora.onboarding_completion import INIT, PENDING, main, remove_init_skill
-from gaiora.server import LocalServer, workspace_lock
-from gaiora.store import Workspace, WorkspaceError
+from ember.bootstrap import PACKAGE, install_workspace_contract, verify_workspace_contract
+from ember.executors import ExecutorRegistry
+from ember.onboarding_completion import INIT, PENDING, main, remove_init_skill
+from ember.server import LocalServer, workspace_lock
+from ember.store import Workspace, WorkspaceError
 
 
 class OnboardingCompletionTests(unittest.TestCase):
@@ -24,14 +24,14 @@ class OnboardingCompletionTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.workspace = Workspace(self.root / "workspace")
         self.workspace.initialize()
-        self.workspace.create_project({"id": "gaiora", "name": "Gaiora", "kind": "system",
-                                       "description": "本机系统维护", "overview": "# Gaiora\n"})
-        self.task = self.workspace.create_task({"title": "Gaiora新手引导", "project": "gaiora",
-            "work_type": "system", "artifact_mode": "none", "skills_used": ["gaiora", "gaiora-project"],
+        self.workspace.create_project({"id": "ember", "name": "Ember", "kind": "system",
+                                       "description": "本机系统维护", "overview": "# 余烬\n"})
+        self.task = self.workspace.create_task({"title": "余烬新手引导", "project": "ember",
+            "work_type": "system", "artifact_mode": "none", "skills_used": ["ember", "ember-project"],
             "goal": "真实记录安装对话和已确认练习", "executor": "manual"})
-        self.receipt = {"workspace": str(self.workspace.path), "status": "ready", "system_project_id": "gaiora"}
+        self.receipt = {"workspace": str(self.workspace.path), "status": "ready", "system_project_id": "ember"}
         self.workspace.add_material(self.task["id"], {"kind": "input", "name": "安装记录.json",
-            "source_locator": "gaiora-init:installation-receipt", "content": json.dumps(self.receipt)})
+            "source_locator": "ember-init:installation-receipt", "content": json.dumps(self.receipt)})
         self.workspace.create_project({"id": "practice", "name": "练习项目", "kind": "project",
                                       "description": "用户确认的第一次建项", "overview": "# 练习项目\n"})
         self.workspace.complete_task(self.task["id"], {"confirmation": True})
@@ -49,7 +49,7 @@ class OnboardingCompletionTests(unittest.TestCase):
         self.assertEqual(before, self.bytes())
 
     def test_rejects_wrong_or_active_task_without_mutation(self):
-        active = self.workspace.create_task({"title": "普通任务", "project": "gaiora", "work_type": "system",
+        active = self.workspace.create_task({"title": "普通任务", "project": "ember", "work_type": "system",
                                             "artifact_mode": "none", "goal": "其他工作"})
         before = self.bytes()
         for identifier in ("does-not-exist", active["id"]):
@@ -58,8 +58,8 @@ class OnboardingCompletionTests(unittest.TestCase):
         self.assertEqual(before, self.bytes())
 
     def test_completed_unrelated_task_is_not_enough(self):
-        other = self.workspace.create_task({"title": "其他系统任务", "project": "gaiora", "work_type": "system",
-            "artifact_mode": "none", "goal": "其他工作", "skills_used": ["gaiora", "gaiora-project"]})
+        other = self.workspace.create_task({"title": "其他系统任务", "project": "ember", "work_type": "system",
+            "artifact_mode": "none", "goal": "其他工作", "skills_used": ["ember", "ember-project"]})
         self.workspace.complete_task(other["id"], {"confirmation": True})
         before = self.bytes()
         with self.assertRaisesRegex(WorkspaceError, "安装记录"):
@@ -67,14 +67,14 @@ class OnboardingCompletionTests(unittest.TestCase):
         self.assertEqual(before, self.bytes())
 
     def test_receipt_must_belong_to_ready_installation_and_both_skills_must_be_used(self):
-        cases = [(dict(self.receipt, workspace=str(self.root / "different")), ["gaiora", "gaiora-project"]),
-                 (dict(self.receipt, status="failed"), ["gaiora", "gaiora-project"]),
-                 (self.receipt, ["gaiora"])]
+        cases = [(dict(self.receipt, workspace=str(self.root / "different")), ["ember", "ember-project"]),
+                 (dict(self.receipt, status="failed"), ["ember", "ember-project"]),
+                 (self.receipt, ["ember"])]
         for receipt, skills in cases:
-            task = self.workspace.create_task({"title": "待核对安装记录", "project": "gaiora", "work_type": "system",
+            task = self.workspace.create_task({"title": "待核对安装记录", "project": "ember", "work_type": "system",
                 "artifact_mode": "none", "goal": "核对首次安装", "skills_used": skills})
             self.workspace.add_material(task["id"], {"kind": "input", "name": "安装记录.json",
-                "source_locator": "gaiora-init:installation-receipt", "content": json.dumps(receipt)})
+                "source_locator": "ember-init:installation-receipt", "content": json.dumps(receipt)})
             self.workspace.complete_task(task["id"], {"confirmation": True})
             before = self.bytes()
             with self.assertRaises(WorkspaceError):
@@ -100,14 +100,14 @@ class OnboardingCompletionTests(unittest.TestCase):
             with (self.workspace.path / relative).open("a") as stream:
                 stream.write("\n用户自己的补充指引。\n")
         before = self.bytes()
-        package_skill = (PACKAGE / "skills/gaiora-init/SKILL.md").read_bytes()
+        package_skill = (PACKAGE / "skills/ember-init/SKILL.md").read_bytes()
         result = remove_init_skill(self.workspace, self.payload)
         self.assertTrue(result["removed"])
         self.assertFalse(result["already_removed"])
         self.assertFalse((self.workspace.path / INIT).exists())
         self.assertFalse((self.workspace.path / PENDING).exists())
         contract = verify_workspace_contract(self.workspace)
-        self.assertEqual(contract["skills"], ["gaiora", "gaiora-project"])
+        self.assertEqual(contract["skills"], ["ember", "ember-project"])
         self.assertEqual(len(self.workspace.snapshot()["tasks"]), 1)
         self.assertEqual(len(self.workspace.snapshot()["projects"]), 2)
         for name, content in before.items():
@@ -115,7 +115,7 @@ class OnboardingCompletionTests(unittest.TestCase):
                 self.assertEqual((self.workspace.path / name).read_bytes(), content, name)
         for relative in ("RESOLVER.md", "skills/RESOLVER.md"):
             self.assertIn("用户自己的补充指引。", (self.workspace.path / relative).read_text())
-        self.assertEqual((PACKAGE / "skills/gaiora-init/SKILL.md").read_bytes(), package_skill)
+        self.assertEqual((PACKAGE / "skills/ember-init/SKILL.md").read_bytes(), package_skill)
 
     def test_idempotent_retry_does_not_change_completion_date_or_other_data(self):
         first = remove_init_skill(self.workspace, self.payload)
@@ -133,7 +133,7 @@ class OnboardingCompletionTests(unittest.TestCase):
     def test_forged_completion_without_accepted_receipt_does_not_pass(self):
         shutil.rmtree(self.workspace.path / INIT)
         manifest = self.workspace._json("skills/manifest.json")
-        manifest["skills"] = [item for item in manifest["skills"] if item["name"] != "gaiora-init"]
+        manifest["skills"] = [item for item in manifest["skills"] if item["name"] != "ember-init"]
         manifest["onboarding_completion"] = {"task_id": "unknown", "completed_at": "2026-10-13T10:00:00+08:00", "removed_skill": INIT}
         self.workspace._write_json("skills/manifest.json", manifest)
         with self.assertRaises(WorkspaceError):
@@ -179,21 +179,21 @@ class OnboardingCompletionTests(unittest.TestCase):
             verify_workspace_contract(self.workspace)
         result = remove_init_skill(self.workspace, self.payload)
         self.assertTrue(result["removed"])
-        self.assertEqual(verify_workspace_contract(self.workspace)["skills"], ["gaiora", "gaiora-project"])
+        self.assertEqual(verify_workspace_contract(self.workspace)["skills"], ["ember", "ember-project"])
 
     def test_partial_deletion_is_recoverable_and_does_not_recreate_removed_files(self):
         def fail_delete(path):
             (path / "SKILL.md").unlink()
             raise OSError("模拟删除失败")
-        with patch("gaiora.onboarding_completion.shutil.rmtree", side_effect=fail_delete):
+        with patch("ember.onboarding_completion.shutil.rmtree", side_effect=fail_delete):
             with self.assertRaises(WorkspaceError):
                 remove_init_skill(self.workspace, self.payload)
         self.assertFalse((self.workspace.path / PENDING / "skill/SKILL.md").exists())
         self.assertTrue(remove_init_skill(self.workspace, self.payload)["removed"])
-        self.assertEqual(verify_workspace_contract(self.workspace)["skills"], ["gaiora", "gaiora-project"])
+        self.assertEqual(verify_workspace_contract(self.workspace)["skills"], ["ember", "ember-project"])
 
     def test_cleanup_retry_refuses_intervening_user_edits(self):
-        with patch("gaiora.onboarding_completion.shutil.rmtree", side_effect=OSError("模拟失败")):
+        with patch("ember.onboarding_completion.shutil.rmtree", side_effect=OSError("模拟失败")):
             with self.assertRaises(WorkspaceError):
                 remove_init_skill(self.workspace, self.payload)
         custom = self.workspace.path / PENDING / "skill/my-work.md"
@@ -212,7 +212,7 @@ class OnboardingCompletionTests(unittest.TestCase):
 
     def test_daily_and_project_skills_still_required_after_completion(self):
         remove_init_skill(self.workspace, self.payload)
-        for name in ("gaiora", "gaiora-project"):
+        for name in ("ember", "ember-project"):
             skill = self.workspace.path / ".agents/skills" / name / "SKILL.md"
             original = skill.read_bytes()
             skill.unlink()
@@ -225,7 +225,7 @@ class OnboardingCompletionTests(unittest.TestCase):
             result = main(["--workspace", str(self.workspace.path), "--task-id", self.task["id"], "--confirm"])
         self.assertEqual(result, 0)
         self.assertTrue(json.loads(output.getvalue())["removed"])
-        self.assertEqual(verify_workspace_contract(self.workspace)["skills"], ["gaiora", "gaiora-project"])
+        self.assertEqual(verify_workspace_contract(self.workspace)["skills"], ["ember", "ember-project"])
 
     def test_cli_refuses_when_service_holds_workspace_lock(self):
         with workspace_lock(self.workspace), contextlib.redirect_stderr(io.StringIO()):
@@ -239,7 +239,7 @@ class OnboardingCompletionTests(unittest.TestCase):
         thread.start()
         def request(path, payload=None, token=None):
             connection = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
-            headers = {"Content-Type": "application/json", "X-Gaiora-Token": token or "invalid"}
+            headers = {"Content-Type": "application/json", "X-Ember-Token": token or "invalid"}
             connection.request("POST" if payload else "GET", path, json.dumps(payload) if payload else None, headers)
             response = connection.getresponse()
             result = response.status, json.loads(response.read())
@@ -253,7 +253,7 @@ class OnboardingCompletionTests(unittest.TestCase):
                 status, result = request(path)
                 self.assertEqual(status, 200, result)
                 if path == "/api/settings":
-                    self.assertEqual([item["name"] for item in result["data"]["skills"]], ["gaiora", "gaiora-project"])
+                    self.assertEqual([item["name"] for item in result["data"]["skills"]], ["ember", "ember-project"])
         finally:
             server.shutdown()
             server.server_close()

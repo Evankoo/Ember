@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import yaml
 
-from gaiora.store import Workspace, WorkspaceError, fingerprint
+from ember.store import Workspace, WorkspaceError, fingerprint
 
 
 class StoreTests(unittest.TestCase):
@@ -51,7 +51,7 @@ class StoreTests(unittest.TestCase):
         self.assertEqual((self.root / "config/projects.json").read_bytes(), original)
         empty = Workspace(Path(self.temporary.name) / "empty")
         state = empty.initialize()
-        self.assertEqual(state["workspace_name"], "Gaiora")
+        self.assertEqual(state["workspace_name"], "余烬")
         self.assertEqual(state["projects"], [])
         self.assertEqual(state["tasks"], [])
 
@@ -121,22 +121,22 @@ class StoreTests(unittest.TestCase):
 
     def test_execution_metadata_defaults_and_agent_values_survive_reopen(self):
         manual = self.task()
-        agent = self.task("执行信息", executor="opencode", skills_used=["gaiora", "example-skill"])
+        agent = self.task("执行信息", executor="opencode", skills_used=["ember", "example-skill"])
         Workspace(self.root).snapshot()
         self.assertEqual(self.card(manual)[0]["executor"], "manual")
-        self.assertEqual(self.card(manual)[0]["skills_used"], ["gaiora"])
+        self.assertEqual(self.card(manual)[0]["skills_used"], ["ember"])
         metadata, _ = self.card(agent)
         self.assertEqual(metadata["executor"], "opencode")
-        self.assertEqual(metadata["skills_used"], ["gaiora", "example-skill"])
+        self.assertEqual(metadata["skills_used"], ["ember", "example-skill"])
 
     def test_execution_update_preserves_skill_history_and_task_scope(self):
-        identifier = self.task(executor="codex", skills_used=["gaiora", "example-skill"])
+        identifier = self.task(executor="codex", skills_used=["ember", "example-skill"])
         self.store.update_task(identifier, {"status": "waiting_user"})
         before, body = self.card(identifier)
-        self.store.update_task(identifier, {"executor": "opencode", "skills_used": ["gaiora", "another-skill"]})
+        self.store.update_task(identifier, {"executor": "opencode", "skills_used": ["ember", "another-skill"]})
         after, updated = self.card(identifier)
         self.assertEqual(after["executor"], "opencode")
-        self.assertEqual(after["skills_used"], ["gaiora", "example-skill", "another-skill"])
+        self.assertEqual(after["skills_used"], ["ember", "example-skill", "another-skill"])
         for key in ("task_id", "title", "project", "status", "artifact_mode", "created_at"):
             self.assertEqual(after[key], before[key])
         self.assertIn(body.split("## 执行日志\n", 1)[1].strip(), updated)
@@ -146,7 +146,7 @@ class StoreTests(unittest.TestCase):
         identifier = self.task()
         original = self.card(identifier)[1]
         invalid = [{"executor": value} for value in (None, "", "  ", 7, "codex\nopencode")]
-        invalid += [{"skills_used": value} for value in (None, [], "gaiora", [""], [" "], [1], ["same", "same"], ["same", " same "])]
+        invalid += [{"skills_used": value} for value in (None, [], "ember", [""], [" "], [1], ["same", "same"], ["same", " same "])]
         for payload in invalid:
             with self.subTest(payload=payload):
                 with self.assertRaises(WorkspaceError):
@@ -264,7 +264,7 @@ class StoreTests(unittest.TestCase):
             (Path(destination) / "说明.md").write_text("错误的复制结果")
             return result
 
-        with patch("gaiora.store.shutil.copytree", side_effect=corrupt_copy):
+        with patch("ember.store.shutil.copytree", side_effect=corrupt_copy):
             with self.assertRaises(WorkspaceError):
                 self.store.promote_task(identifier, {"confirmation": True})
         self.assertEqual(self.card(identifier)[0]["status"], "active")

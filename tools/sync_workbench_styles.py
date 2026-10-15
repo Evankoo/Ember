@@ -26,7 +26,7 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-WEB = ROOT / "src/gaiora/web"
+WEB = ROOT / "src/ember/web"
 STYLESHEET = WEB / "assets/workbench.css"
 RECORD = ROOT / "docs/workbench-source.json"
 SOURCE_FILE = "scripts/gstudio_workbench_assets.py"
@@ -34,7 +34,7 @@ FONT = "url('../fonts/gstudio-display.woff2')"
 # Machine paths and addresses must never reach the public package. Names that are private to the
 # maintainer (people, machines, internal systems) live in a local file outside the repository.
 FORBIDDEN = ("/Users/", "/Volumes/", "/home/", "192.168.", "10.0.", "file://", "http://", "https://")
-PRIVATE_MARKERS = Path("~/.config/gaiora/style-sync-private-markers.txt").expanduser()
+PRIVATE_MARKERS = Path("~/.config/ember/style-sync-private-markers.txt").expanduser()
 
 
 def sha256(data: bytes) -> str:

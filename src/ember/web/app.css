@@ -1,0 +1,76 @@
+/* Ember open-source additions. Page styling comes from assets/workbench.css (copied from the
+   workbench); this file only covers pieces the workbench renders differently: dialogs, forms,
+   notices and the composer's local search results. */
+.app-main:focus{outline:none}
+[hidden]{display:none!important}
+.settings-page>.settings-hub{width:100%}
+.muted{color:var(--muted)}
+fieldset{margin:0;padding:0;border:0;min-width:0}
+
+.toast{opacity:0;transform:translateY(-6px);transition:opacity .18s ease,transform .18s ease;pointer-events:none}
+.toast.show{opacity:1;transform:none;pointer-events:auto}
+.toast.error{background:#991b1b}
+
+.loading-state,.load-error,.not-found{margin:40px auto;max-width:640px;padding:24px;color:var(--secondary)}
+.load-error h1,.not-found h1{margin:0 0 10px;font-family:var(--font-display);font-weight:300;font-size:28px}
+.load-error p,.not-found p{margin:0 0 10px}
+
+.sidebar-empty{padding:4px 12px 6px 30px;color:#94a3b8;font-size:11px}
+
+.project-view-page-head{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:16px;align-items:end}
+.project-view-page-head>button{grid-column:2;grid-row:1/span 2;align-self:center}
+.task-current-actions{display:flex;flex-wrap:wrap;gap:6px;padding:10px 20px;border-bottom:1px solid var(--line-soft)}
+.project-scene{margin-top:14px}
+.project-scene-filters{grid-template-columns:minmax(0,1fr);margin-bottom:10px}
+.project-location-item{display:inline-flex;align-items:center;gap:8px}
+.table-scroll{overflow-x:auto}
+
+.home-entry-main{position:relative}
+.home-result{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;width:100%;padding:10px 14px;border:0;border-bottom:1px solid var(--line-soft);background:transparent;text-align:left;font:inherit;color:var(--ink);cursor:pointer}
+.home-result:hover,.home-result:focus-visible{background:var(--line-soft)}
+.home-result b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.home-result small{color:var(--muted);font-size:11px}
+.home-result .home-context-kind{font-size:10px;color:var(--muted)}
+.home-result-empty{margin:0;padding:14px;color:var(--muted);font-size:12px}
+
+.workbench-dialog{width:min(640px,calc(100vw - 32px));max-height:calc(100vh - 48px)}
+.workbench-dialog .paper-dialog-head{padding:16px 20px}
+.workbench-dialog .paper-dialog-head h2{font-size:22px}
+.workbench-dialog .dialog-body{max-height:calc(100vh - 150px);overflow:auto;padding:18px 20px 20px}
+.workbench-dialog.home-confirm-dialog{width:min(980px,calc(100vw - 40px));height:auto}
+.workbench-dialog.home-confirm-dialog .dialog-body{padding:0}
+.workbench-dialog.drawer{width:min(760px,calc(100vw - 24px))}
+.home-confirm-task-field{display:grid;gap:5px;margin-top:10px;font-size:12px;font-weight:600}
+.home-confirm-note{margin:0;padding:10px 20px 14px;border-top:1px solid var(--line-soft);color:var(--muted);font-size:11px}
+.home-confirm-task-editor textarea,.dialog-form textarea{width:100%;min-height:96px;resize:vertical;border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--surface);color:var(--ink);font:inherit;font-size:13px;line-height:1.6}
+
+.stack,.dialog-form{display:grid;gap:12px}
+.dialog-form label{display:grid;gap:5px;font-size:12px;font-weight:600;color:var(--secondary)}
+.dialog-form small,.dialog-form p{margin:0;font-size:12px;color:var(--muted)}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+.form-error{margin:0;color:#991b1b;font-size:12px}
+.form-error:empty{display:none}
+.check-label{display:flex!important;align-items:flex-start;gap:8px;font-weight:400!important}
+.check-label input{width:auto;margin-top:3px}
+
+.library-text-preview{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.75 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+
+.software-candidate{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line-soft)}
+.software-candidate code{display:block;color:var(--muted);font-size:11px;overflow-wrap:anywhere}
+.software-step{display:grid;gap:10px}
+
+@media(max-width:700px){.field-grid{grid-template-columns:minmax(0,1fr)}.project-view-page-head{grid-template-columns:minmax(0,1fr)}.project-view-page-head>button{grid-column:1;grid-row:auto;justify-self:start;margin-top:8px}}
+
+.home-results{background:var(--surface)}
+.workbench-dialog .home-confirm-routes{grid-template-columns:minmax(0,1fr)}
+.workbench-dialog .home-confirm-task-field select{width:100%}
+.workbench-dialog .home-confirm-action-buttons .button{white-space:nowrap}
+.task-table td.empty{display:table-cell}
+.project-task-filters .chip{flex:none;white-space:nowrap}
+.library-material-row:not(:has(>input)){grid-template-columns:20px minmax(0,1fr) auto}
+.task-detail-workspace{grid-template-columns:minmax(0,.46fr) minmax(0,.54fr)}
+#software-candidates{grid-column:1/-1;min-width:0;margin-top:-4px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);box-shadow:0 8px 24px rgba(17,24,39,.08)}
+.executor-discovery-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.executor-discovery-head small{color:var(--muted);font-size:11px;line-height:1.6}.executor-discovery-head .button{flex:none;padding:3px 8px;font-size:11px}
+.software-candidate-list{max-height:260px;overflow-y:auto;overscroll-behavior:contain}.software-candidate-list .software-candidate:last-child{border-bottom:0}.software-candidate.is-added strong::after{content:" · 已在清单";color:var(--muted);font-weight:400}
+.executor-default-field select{transition:box-shadow .2s,border-color .2s}.executor-default-field.is-chosen select{border-color:var(--ink);box-shadow:0 0 0 3px rgba(17,24,39,.12)}.executor-default-field.needs-choice select{border-color:var(--danger);box-shadow:0 0 0 3px rgba(239,68,68,.15)}

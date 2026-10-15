@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gaiora"
-version = "0.9.0"
-description = "Continue every AI collaboration: local Markdown task cards that any AI tool can pick up again."
+name = "ember"
+version = "0.10.0"
+description = "Every conversation rekindles from the last one's embers: local Markdown task cards that people and AI work from together."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["PyYAML>=6,<7"]
@@ -18,14 +18,14 @@ classifiers = [
 ]
 
 [project.scripts]
-gaiora = "gaiora.cli:main"
+ember = "ember.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 namespaces = false
 
 [tool.setuptools.package-data]
-gaiora = ["web/**/*", "web/*", "examples/**/*", "examples/workspace/.gaiora/*.json", "templates/**/*", "templates/*", "skills/**/*"]
+ember = ["web/**/*", "web/*", "examples/**/*", "examples/workspace/.ember/*.json", "templates/**/*", "templates/*", "skills/**/*"]
 
 [tool.setuptools.exclude-package-data]
-gaiora = ["**/__pycache__/*", "**/*.pyc"]
+ember = ["**/__pycache__/*", "**/*.pyc"]

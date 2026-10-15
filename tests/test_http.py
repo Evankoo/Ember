@@ -10,9 +10,9 @@ from unittest.mock import patch
 
 import yaml
 
-from gaiora.server import LocalServer, workspace_lock
-from gaiora.executors import ExecutorRegistry
-from gaiora.store import Workspace, WorkspaceError
+from ember.server import LocalServer, workspace_lock
+from ember.executors import ExecutorRegistry
+from ember.store import Workspace, WorkspaceError
 from test_executors import software_fixture
 
 
@@ -41,7 +41,7 @@ class HTTPTests(unittest.TestCase):
         if payload is not None:
             body = json.dumps(payload, ensure_ascii=False).encode()
             values.setdefault("Content-Type", "application/json")
-            values.setdefault("X-Gaiora-Token", self.server.csrf_token)
+            values.setdefault("X-Ember-Token", self.server.csrf_token)
         conn.request(method, path, body=body, headers=values)
         response = conn.getresponse()
         result = response.status, dict(response.getheaders()), response.read()
@@ -56,14 +56,14 @@ class HTTPTests(unittest.TestCase):
     def test_host_origin_and_write_token_are_enforced(self):
         self.assertEqual(self.request("/api/state", headers={"Host": "evil.example"})[0], 403)
         self.assertEqual(self.request("/api/state", headers={"Origin": "https://evil.example"})[0], 403)
-        self.assertEqual(self.request("/api/tasks", "POST", {"title": "x"}, {"X-Gaiora-Token": "invalid"})[0], 403)
+        self.assertEqual(self.request("/api/tasks", "POST", {"title": "x"}, {"X-Ember-Token": "invalid"})[0], 403)
         # Neither mutation nor data disclose to a foreign browser origin.
         self.assertEqual(len(self.workspace.snapshot()["tasks"]), 8)
 
     def test_health_requires_installed_workspace_contract(self):
         health = self.data("/api/health")
         self.assertEqual(health["status"], "ready")
-        self.assertEqual(health["contract"]["skills"], ["gaiora-init", "gaiora", "gaiora-project"])
+        self.assertEqual(health["contract"]["skills"], ["ember-init", "ember", "ember-project"])
         (self.root / "AGENTS.md").unlink()
         self.assertEqual(self.request("/api/health")[0], 404)
 
@@ -72,14 +72,14 @@ class HTTPTests(unittest.TestCase):
         manifest = json.loads(manifest_path.read_text())
         manifest["skills"].extend([
             {"name": "private-custom-skill", "path": ".agents/skills/private-custom-skill/SKILL.md", "purpose": "Not part of Core"},
-            {"name": "gaiora", "path": "unregistered/private/SKILL.md", "purpose": "Unregistered duplicate"},
+            {"name": "ember", "path": "unregistered/private/SKILL.md", "purpose": "Unregistered duplicate"},
             None,
         ])
         manifest_path.write_text(json.dumps(manifest))
         before = {str(path.relative_to(self.root)): path.read_bytes() for path in self.root.rglob("*") if path.is_file()}
-        with patch.object(self.registry, "discover") as discovery, patch("gaiora.executors.subprocess.run") as launch:
+        with patch.object(self.registry, "discover") as discovery, patch("ember.executors.subprocess.run") as launch:
             settings = self.data("/api/settings")
-        self.assertEqual({item["name"] for item in settings["skills"]}, {"gaiora-init", "gaiora", "gaiora-project"})
+        self.assertEqual({item["name"] for item in settings["skills"]}, {"ember-init", "ember", "ember-project"})
         self.assertEqual(len(settings["skills"]), 3)
         self.assertEqual(settings["execution_environment"]["executors"], [])
         self.assertFalse(self.registry.path.exists())
@@ -91,13 +91,13 @@ class HTTPTests(unittest.TestCase):
         entries = software_fixture(self.registry.home)
         payload = {"executors": entries, "default_executor": "other-app", "expected_revision": self.registry.snapshot()["revision"]}
         before = self.workspace.snapshot()
-        self.assertEqual(self.request("/api/executors/save", "POST", payload, {"X-Gaiora-Token": "invalid"})[0], 403)
+        self.assertEqual(self.request("/api/executors/save", "POST", payload, {"X-Ember-Token": "invalid"})[0], 403)
         self.assertFalse(self.registry.path.exists())
         self.data("/api/executors/check", "POST", payload)
         self.assertFalse(self.registry.path.exists())
         saved = self.data("/api/executors/save", "POST", payload)
         open_payload = {"executor_id": "other-app", "expected_revision": saved["revision"], "confirmation": False}
-        with patch("gaiora.executors.sys.platform", "darwin"), patch("gaiora.executors.subprocess.run") as launch:
+        with patch("ember.executors.sys.platform", "darwin"), patch("ember.executors.subprocess.run") as launch:
             self.assertEqual(self.request("/api/executors/open", "POST", open_payload)[0], 400)
             self.assertEqual(self.request("/api/executors/open", "POST", {**open_payload, "confirmation": True, "path": "/bin/sh"})[0], 400)
             launch.assert_not_called()
@@ -177,13 +177,13 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual((self.root / "delivery/formal" / identifier / "产物.md").read_text(), "完整产物")
 
     def test_execution_metadata_is_persisted_through_existing_task_routes(self):
-        task = self.data("/api/tasks", "POST", {"title": "执行器登记", "goal": "如实记录", "executor": "codex", "skills_used": ["gaiora"]})
+        task = self.data("/api/tasks", "POST", {"title": "执行器登记", "goal": "如实记录", "executor": "codex", "skills_used": ["ember"]})
         identifier = task["id"]
         self.data(f"/api/tasks/{identifier}", "POST", {"executor": "opencode", "skills_used": ["example-skill"]})
         path = self.root / f"tasks/active/{identifier}.md"
         metadata = yaml.safe_load(path.read_text().split("---", 2)[1])
         self.assertEqual(metadata["executor"], "opencode")
-        self.assertEqual(metadata["skills_used"], ["gaiora", "example-skill"])
+        self.assertEqual(metadata["skills_used"], ["ember", "example-skill"])
         before = path.read_bytes()
         self.assertEqual(self.request(f"/api/tasks/{identifier}", "POST", {"executor": ""})[0], 400)
         self.assertEqual(path.read_bytes(), before)

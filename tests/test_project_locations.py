@@ -7,10 +7,10 @@ import tempfile
 import unittest
 from unittest import mock
 
-from gaiora.cli import main
-from gaiora.locator import register_default
-from gaiora.project_registration import plan_project
-from gaiora.store import Workspace, WorkspaceError
+from ember.cli import main
+from ember.locator import register_default
+from ember.project_registration import plan_project
+from ember.store import Workspace, WorkspaceError
 
 
 class ProjectLocationTests(unittest.TestCase):
@@ -49,7 +49,7 @@ class ProjectLocationTests(unittest.TestCase):
     def test_project_without_location_says_it_is_pending(self):
         self.create()
         overview = (self.workspace.path / "projects/autumn.md").read_text(encoding="utf-8")
-        self.assertIn("gaiora project-location", overview)
+        self.assertIn("ember project-location", overview)
         self.assertEqual(next(p for p in self.workspace.snapshot()["projects"] if p["id"] == "autumn")["locations"], [])
 
     def test_locations_must_be_absolute_single_line_paths(self):

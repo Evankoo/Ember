@@ -13,24 +13,24 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: python -m pip install .
       - run: python -m unittest discover -s tests -v
-      - run: gaiora init /tmp/gaiora-example --example
-      - run: gaiora check --workspace /tmp/gaiora-example
+      - run: ember init /tmp/ember-example --example
+      - run: ember check --workspace /tmp/ember-example
       - run: python -m pip wheel . --no-deps -w dist
       - name: Verify wheel resources and exclude bytecode
         run: |
           python - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
-          with ZipFile(next(Path('dist').glob('gaiora-*.whl'))) as wheel:
+          with ZipFile(next(Path('dist').glob('ember-*.whl'))) as wheel:
               names = set(wheel.namelist())
               assert not any('__pycache__' in name or name.endswith(('.pyc', '.pyo')) for name in names)
-              assert {'gaiora/web/index.html', 'gaiora/web/app.js', 'gaiora/web/fonts/OFL.txt', 'gaiora/skills/gaiora-init/scripts/bootstrap.py', 'gaiora/executors.py'} <= names
-              assert {'gaiora/onboarding.py', 'gaiora/onboarding_completion.py', 'gaiora/project_registration.py', 'gaiora/skills/gaiora-project/SKILL.md', 'gaiora/skills/gaiora-project/scripts/project.py'} <= names
-              assert any(name.startswith('gaiora/examples/workspace/tasks/') for name in names)
-              assert not any(name.startswith('gaiora/examples/workspace/archive/') or name.endswith('/archive-records.json') for name in names)
-              assert b'def archive_item(' not in wheel.read('gaiora/store.py')
-              assert b'"/api/archive"' not in wheel.read('gaiora/server.py')
-              assert b'renderArchive' not in wheel.read('gaiora/web/app.js')
+              assert {'ember/web/index.html', 'ember/web/app.js', 'ember/web/fonts/OFL.txt', 'ember/skills/ember-init/scripts/bootstrap.py', 'ember/executors.py'} <= names
+              assert {'ember/onboarding.py', 'ember/onboarding_completion.py', 'ember/project_registration.py', 'ember/skills/ember-project/SKILL.md', 'ember/skills/ember-project/scripts/project.py'} <= names
+              assert any(name.startswith('ember/examples/workspace/tasks/') for name in names)
+              assert not any(name.startswith('ember/examples/workspace/archive/') or name.endswith('/archive-records.json') for name in names)
+              assert b'def archive_item(' not in wheel.read('ember/store.py')
+              assert b'"/api/archive"' not in wheel.read('ember/server.py')
+              assert b'renderArchive' not in wheel.read('ember/web/app.js')
           PY
   browser:
     runs-on: ubuntu-latest

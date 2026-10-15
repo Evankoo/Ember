@@ -7,10 +7,10 @@ import tempfile
 import unittest
 from unittest import mock
 
-from gaiora.cli import main
-from gaiora import locator
-from gaiora.locator import config_path, install_skill, read_default, register_default
-from gaiora.store import Workspace, WorkspaceError
+from ember.cli import main
+from ember import locator
+from ember.locator import config_path, install_skill, read_default, register_default
+from ember.store import Workspace, WorkspaceError
 
 
 class LocatorTests(unittest.TestCase):
@@ -33,12 +33,12 @@ class LocatorTests(unittest.TestCase):
         return code, output.getvalue(), errors.getvalue()
 
     def test_default_workspace_is_recorded_in_private_machine_config(self):
-        record = register_default(self.workspace, python="/opt/gaiora/.venv/bin/python", home=self.home)
+        record = register_default(self.workspace, python="/opt/ember/.venv/bin/python", home=self.home)
         path = config_path(self.home)
-        self.assertEqual(path, self.home / ".config/gaiora/workspace.json")
+        self.assertEqual(path, self.home / ".config/ember/workspace.json")
         self.assertEqual(json.loads(path.read_text(encoding="utf-8")), record)
         self.assertEqual(record["workspace"], str(self.workspace.path))
-        self.assertEqual(record["python"], "/opt/gaiora/.venv/bin/python")
+        self.assertEqual(record["python"], "/opt/ember/.venv/bin/python")
         self.assertEqual(path.stat().st_mode & 0o777, 0o600)
         self.assertEqual(read_default(self.home), record)
         self.assertFalse((self.workspace.path / ".config").exists())
@@ -75,7 +75,7 @@ class LocatorTests(unittest.TestCase):
     def test_cli_uses_registered_workspace_when_none_is_given(self):
         code, _, errors = self.run_cli("check")
         self.assertEqual(code, 1)
-        self.assertIn("gaiora use", errors)
+        self.assertIn("ember use", errors)
         self.assertEqual(self.run_cli("use", str(self.workspace.path))[0], 0)
         code, output, _ = self.run_cli("where")
         self.assertEqual(code, 0)
@@ -94,9 +94,9 @@ class LocatorTests(unittest.TestCase):
     def test_daily_skill_installs_globally_without_overwriting_different_content(self):
         target = self.home / ".claude/skills"
         result = install_skill(target, home=self.home)
-        installed = target / "gaiora/SKILL.md"
-        self.assertEqual((result["status"], result["path"]), ("installed", str(target / "gaiora")))
-        self.assertIn("~/.config/gaiora/workspace.json", installed.read_text(encoding="utf-8"))
+        installed = target / "ember/SKILL.md"
+        self.assertEqual((result["status"], result["path"]), ("installed", str(target / "ember")))
+        self.assertIn("~/.config/ember/workspace.json", installed.read_text(encoding="utf-8"))
         self.assertEqual(install_skill(target, home=self.home)["status"], "unchanged")
         installed.write_text("local edit", encoding="utf-8")
         with self.assertRaises(WorkspaceError) as caught:
@@ -110,12 +110,12 @@ class LocatorTests(unittest.TestCase):
         link = self.home / "skills"
         link.symlink_to(real, target_is_directory=True)
         self.assertEqual(install_skill(link, home=self.home)["status"], "installed")
-        self.assertTrue((real / "gaiora/SKILL.md").is_file())
+        self.assertTrue((real / "ember/SKILL.md").is_file())
         elsewhere = self.root / "elsewhere"
         elsewhere.mkdir()
         target = self.home / "other-skills"
         target.mkdir()
-        (target / "gaiora").symlink_to(elsewhere, target_is_directory=True)
+        (target / "ember").symlink_to(elsewhere, target_is_directory=True)
         with self.assertRaises(WorkspaceError):
             install_skill(target, home=self.home)
         self.assertEqual(list(elsewhere.iterdir()), [])
@@ -125,11 +125,11 @@ class LocatorTests(unittest.TestCase):
         code, output, _ = self.run_cli("install-skill", "--target", str(target))
         self.assertEqual(code, 0)
         self.assertEqual(json.loads(output)["status"], "installed")
-        self.assertTrue((target / "gaiora/agents/openai.yaml").is_file())
+        self.assertTrue((target / "ember/agents/openai.yaml").is_file())
 
 
     def fake_official_copy(self, target, text="old official"):
-        old = target / "gaiora"
+        old = target / "ember"
         (old / "agents").mkdir(parents=True)
         (old / "SKILL.md").write_text(text, encoding="utf-8")
         (old / "agents/openai.yaml").write_text("old", encoding="utf-8")
@@ -141,13 +141,13 @@ class LocatorTests(unittest.TestCase):
         with mock.patch.object(locator, "_official_fingerprints", return_value=known):
             result = install_skill(target, home=self.home)
         self.assertEqual((result["status"], result["from"]), ("upgraded", "9.9.9"))
-        self.assertIn("~/.config/gaiora/workspace.json", (target / "gaiora/SKILL.md").read_text(encoding="utf-8"))
-        self.assertEqual(sorted(p.name for p in target.iterdir()), ["gaiora"])
+        self.assertIn("~/.config/ember/workspace.json", (target / "ember/SKILL.md").read_text(encoding="utf-8"))
+        self.assertEqual(sorted(p.name for p in target.iterdir()), ["ember"])
 
     def test_released_fingerprint_matches_both_installed_and_zip_copies(self):
         target = self.home / ".claude/skills"
         install_skill(target, home=self.home)
-        (target / "gaiora/LICENSE").write_text("MIT", encoding="utf-8")
+        (target / "ember/LICENSE").write_text("MIT", encoding="utf-8")
         self.assertEqual(install_skill(target, home=self.home)["status"], "unchanged")
 
     def test_failed_install_leaves_no_partial_skill(self):
@@ -158,7 +158,7 @@ class LocatorTests(unittest.TestCase):
                 install_skill(target, home=self.home)
         self.assertEqual(list(target.iterdir()), [])
         known = self.fake_official_copy(target)
-        before = locator._read_tree(target / "gaiora")
+        before = locator._read_tree(target / "ember")
         calls = []
 
         def fail_second(source, destination):
@@ -171,8 +171,8 @@ class LocatorTests(unittest.TestCase):
                 mock.patch.object(locator.os, "rename", side_effect=fail_second):
             with self.assertRaises(OSError):
                 install_skill(target, home=self.home)
-        self.assertEqual(locator._read_tree(target / "gaiora"), before)
-        self.assertEqual(sorted(p.name for p in target.iterdir()), ["gaiora"])
+        self.assertEqual(locator._read_tree(target / "ember"), before)
+        self.assertEqual(sorted(p.name for p in target.iterdir()), ["ember"])
 
     def test_install_skill_without_target_refreshes_every_remembered_folder(self):
         code, _, errors = self.run_cli("install-skill")
@@ -181,11 +181,11 @@ class LocatorTests(unittest.TestCase):
         first, second = self.home / ".claude/skills", self.home / ".agents/skills"
         for target in (first, second):
             self.assertEqual(self.run_cli("install-skill", "--target", str(target))[0], 0)
-        (first / "gaiora").rename(self.root / "removed-by-user")
+        (first / "ember").rename(self.root / "removed-by-user")
         code, output, _ = self.run_cli("install-skill")
         self.assertEqual(code, 0)
         statuses = {item["path"]: item["status"] for item in json.loads(output)}
-        self.assertEqual(statuses, {str(first / "gaiora"): "installed", str(second / "gaiora"): "unchanged"})
+        self.assertEqual(statuses, {str(first / "ember"): "installed", str(second / "ember"): "unchanged"})
 
 
     def test_refresh_finds_copies_installed_before_targets_were_remembered(self):
@@ -196,8 +196,8 @@ class LocatorTests(unittest.TestCase):
             code, output, _ = self.run_cli("install-skill")
         self.assertEqual(code, 0)
         self.assertEqual([(item["path"], item["status"]) for item in json.loads(output)],
-                         [(str(claude / "gaiora"), "upgraded")])
-        self.assertFalse((codex / "gaiora").exists())
+                         [(str(claude / "ember"), "upgraded")])
+        self.assertFalse((codex / "ember").exists())
         self.assertEqual(locator.remembered_targets(self.home), [str(claude)])
 
 
