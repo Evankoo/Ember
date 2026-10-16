@@ -1,6 +1,6 @@
 ---
 name: ember-project
-version: 3.0.0
+version: 3.0.1
 description: 为余烬新建业务项目或系统工作区。先读取现有登记并查重，收齐名称、用途、范围、类型、可选分类和本机工作目录，展示独立项目说明及建项方案，用户确认后通过既有接口登记并验证；不迁移资料或重分配任务。
 triggers: [新建项目, 建立系统工作区, 首个业务项目, 项目建项, 登记项目工作目录, 项目分类]
 tools: [read_file, terminal, browser]
@@ -12,7 +12,7 @@ writes_pages: false
 
 ## Contract
 
-只在用户已选择的 Core 工作区操作。`AGENTS.md` 是规则正本，`config/projects.json` 是登记，`projects/<id>.md` 是独立说明。复用已有 `Workspace.create_project`，不建立第二套项目格式。`project` 是业务项目，`system` 是系统工作区；`independent` 不是项目。可选的 `locations` 是该项目在本机的工作目录（绝对路径），AI 在这些目录里协作时据此对应项目；可选的 `category` 是用户自己起的分类名（20 字以内），只用于项目视图和侧栏分组，不改变类型、权限或任务归属；说明正本采用“总览 / 工作位置与入口 / 范围与要求 / 当前阶段 / 时间线”骨架。
+只在用户已选择的余烬工作区操作。`AGENTS.md` 是规则正本，`config/projects.json` 是登记，`projects/<id>.md` 是独立说明。复用已有 `Workspace.create_project`，不建立第二套项目格式。`project` 是业务项目，`system` 是系统工作区；`independent` 不是项目。可选的 `locations` 是该项目在本机的工作目录（绝对路径），AI 在这些目录里协作时据此对应项目；可选的 `category` 是用户自己起的分类名（20 字以内），只用于项目视图和侧栏分组，不改变类型、权限或任务归属；说明正本采用“总览 / 工作位置与入口 / 范围与要求 / 当前阶段 / 时间线”骨架。
 
 查重和方案阶段只读。登记必须获得用户对名称、ID、类型、用途与说明的明确确认；不猜业务事实。首次引导中的余烬系统项目和首个业务项目属于原安装任务，日后独立建项按 `ember` 判断跟踪范围，不为查重或调用本 Skill 再制造任务。
 
@@ -62,4 +62,4 @@ writes_pages: false
 
 ## Tools Used
 
-文件读取、终端与浏览器。只读方案和确认写入使用 Core 的 `project_registration` / `Workspace`，沿用既有检查与独立 Markdown 说明；不执行任意 shell 命令。
+文件读取、终端与浏览器。只读方案和确认写入使用余烬的 `project_registration` / `Workspace`，沿用既有检查与独立 Markdown 说明；不执行任意 shell 命令。

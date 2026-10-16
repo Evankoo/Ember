@@ -32,6 +32,8 @@ AI 用得越多，上下文越分散：
 
 ### 让 AI 帮你安装（推荐）
 
+需要 macOS 或 Linux，以及 Python 3.10 或更新版本（不少 Mac 自带的只有 3.9）。电脑上没有合适的 Python 时，AI 会先告诉你，等你同意后再安装。
+
 把这句话发给能读写本机文件的 AI 工具，比如 Codex、Claude Code、OpenCode：
 
 ```text
@@ -53,7 +55,7 @@ AI 会从[最新发行版](https://github.com/Evankoo/Ember/releases/latest)下�
 
 ### 手动安装
 
-需要 Python 3.10 或更新版本。在仓库目录执行：
+需要 Python 3.10 或更新版本（可用 `python3 --version` 查看；版本不够时换成 `python3.12` 等实际可用的命令）。在仓库目录执行：
 
 ```bash
 python3 -m venv .venv

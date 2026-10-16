@@ -1,8 +1,8 @@
 ---
 name: ember-init
-version: 4.0.0
+version: 4.0.1
 description: 一问一答引导首次安装余烬：欢迎并确认文档库，展示基础目录；把用户当前 AI 工具登记为默认执行器并装好日常 Skill，实际用它把本次对话创建为第一张任务卡；用户在工作台确认后，用建项目 Skill 建立简单练习项目，最终确认完成后移除本库的一次性初始化向导。不重置、迁移或升级已有工作区。
-triggers: [初始化余烬, 安装余烬, 安装余烬 Core, 建立新工作区, 首次使用余烬]
+triggers: [初始化余烬, 安装余烬, 安装余烬开源版, 建立新工作区, 首次使用余烬]
 tools: [read_file, terminal, browser]
 mutating: true
 writes_pages: false
@@ -50,7 +50,7 @@ bootstrap 完成后的空白业务模式是一个系统项目、零任务；示�
 
 等待用户回答，不同时追问业务项目、分类或软件配置。如果路径已在当前对话确认，欢迎后直接复述并沿用，不重复问。用户不懂路径时，解释这是电脑上的一个普通文件夹，提供一个基于本机用户目录的具体建议。只有用户自己提到 VS Code 时说明：VS Code 的“打开文件夹”只是编辑器当前打开的位置；它既不是余烬程序目录，也不会替余烬创建或登记文档库。安装不依赖 VS Code。
 
-在准备安装期间自行检查 macOS / Linux 与真实 Python 3.10+ 解释器，不能假定系统 `python3` 合格；检查本机是否已有安装或默认文档库，不读取其中业务内容。发现已有工作区先说明现状，本 Skill 不覆盖旧库。沿用名称和模式，未指定时使用余烬 / 空白业务模式 / 8783，不为这些默认项再发一轮问卷。非空、符号链接、包含关系或端口冲突时停止，不删除现场。
+在准备安装期间自行检查 macOS / Linux 与真实 Python 3.10+ 解释器，不能假定系统 `python3` 合格（不少 Mac 自带的 `python3` 只有 3.9）；可依次查看 `python3.13`、`python3.12`、`python3.11`、`python3.10`、Homebrew 与 `uv` 已装的版本。都没有时先停下，用一句话告诉用户缺少 Python 3.10+，并给出可选的安装方式（python.org 官方安装包、已有 Homebrew 时 `brew install python@3.12`、Linux 用系统包管理器）；安装 Python 会改动这台电脑，必须等用户明确同意并选定方式后才执行，不擅自安装或改动系统 Python。检查本机是否已有安装或默认文档库，不读取其中业务内容。发现已有工作区先说明现状，本 Skill 不覆盖旧库。沿用名称和模式，未指定时使用余烬 / 空白业务模式 / 8783，不为这些默认项再发一轮问卷。非空、符号链接、包含关系或端口冲突时停止，不删除现场。
 
 ### 2. 说明程序位置，确认本次创建范围
 
@@ -68,7 +68,7 @@ bootstrap 完成后的空白业务模式是一个系统项目、零任务；示�
 <真实Python> <Skill目录>/scripts/bootstrap.py --app-dir <程序目录> --workspace <数据目录> --mode empty|example --name <名称> --port 8783 --executor <实际调用工具>
 ```
 
-实际调用工具可为 opencode、codex、workbuddy、claude-code 等；未知则 manual，不能填模型名。独立初始包含 `ember-init`、`ember`、`ember-project` 三个 Skill 文件夹，init 内含 `assets/ember-0.10.0-py3-none-any.whl`；没有 wheel 时用固定 v0.10.0 地址。开发可传 `--source`。PyYAML 依赖仍须网络或缓存，不声称完全离线。
+实际调用工具可为 opencode、codex、claude-code、workbuddy、qianwen-office（千问办公）、doubao-work（豆包工作）等；未知则 manual，不能填模型名。独立初始包含 `ember-init`、`ember`、`ember-project` 三个 Skill 文件夹，init 内含 `assets/ember-0.10.1-py3-none-any.whl`；没有 wheel 时用固定 v0.10.1 地址。开发可传 `--source`。PyYAML 依赖仍须网络或缓存，不声称完全离线。
 
 ### 4. 保存安装记录，保留空任务列表
 

@@ -15,7 +15,7 @@ import sys
 import tempfile
 import urllib.request
 
-VERSION = "0.10.0"
+VERSION = "0.10.1"
 WHEEL = f"ember-{VERSION}-py3-none-any.whl"
 RELEASE = f"https://github.com/Evankoo/Ember/releases/download/v{VERSION}/{WHEEL}"
 
@@ -107,6 +107,15 @@ def run(args):
     def command(argv):
         subprocess.run([str(item) for item in argv], check=True)
 
+    def quiet(argv, keep=1):
+        """Run a step whose own hints target manual installs; show only its first lines, or everything on failure."""
+        result = subprocess.run([str(item) for item in argv], capture_output=True, text=True)
+        if result.returncode:
+            sys.stderr.write(result.stdout + result.stderr)
+            raise subprocess.CalledProcessError(result.returncode, argv, result.stdout, result.stderr)
+        for line in result.stdout.splitlines()[:keep]:
+            print(line, flush=True)
+
     def capture(argv):
         result = subprocess.run([str(item) for item in argv], capture_output=True, text=True)
         if result.returncode:
@@ -125,7 +134,7 @@ def run(args):
         python = app / ".venv/bin/python"
         receipt["stage"] = "package"
         save()
-        print("2/5 安装 Core 与三项基础 Skill", flush=True)
+        print("2/5 安装余烬程序与三项基础 Skill", flush=True)
         if source is None:
             bundled = Path(__file__).resolve().parents[1] / "assets" / WHEEL
             if bundled.is_file():
@@ -143,7 +152,7 @@ def run(args):
         init = [python, "-m", "ember", "init", workspace, "--name", args.name.strip()]
         if args.mode == "example":
             init.append("--example")
-        command(init)
+        quiet(init)
         receipt["stage"] = "system-project"
         save()
         print("4/5 登记余烬系统项目；安装记录保存在应用目录", flush=True)

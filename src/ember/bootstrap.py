@@ -26,7 +26,7 @@ def install_workspace_contract(workspace):
         header, _ = _parse_markdown((skill_root / "SKILL.md").read_text(encoding="utf-8"), name)
         skills.append({"name": name, "version": header["version"], "path": f".agents/skills/{name}/SKILL.md", "purpose": purpose})
     workspace._write_json("skills/manifest.json", {"version": 1, "skills": skills}, new=True)
-    workspace._atomic_text("skills/RESOLVER.md", "# Skills Resolver\n\n- 首次安装或建立新工作区：读取 [ember-init](../.agents/skills/ember-init/SKILL.md)。\n- 日常任务入口与只读检索：读取 [ember](../.agents/skills/ember/SKILL.md)，先判断是否需要任务卡；跟随系统级 [AGENTS.md](../AGENTS.md)、项目说明与原任务。\n- 新建业务项目或系统工作区：读取 [ember-project](../.agents/skills/ember-project/SKILL.md)，先查重、展示方案并取得确认；不迁移资料或重分配任务。\n- 其他业务 Skill 只在实际需要且可用时调用，不随 Core 安装。\n- 初始化 Skill 不重置、迁移或升级现有工作区。\n", new=True)
+    workspace._atomic_text("skills/RESOLVER.md", "# Skills Resolver\n\n- 首次安装或建立新工作区：读取 [ember-init](../.agents/skills/ember-init/SKILL.md)。\n- 日常任务入口与只读检索：读取 [ember](../.agents/skills/ember/SKILL.md)，先判断是否需要任务卡；跟随系统级 [AGENTS.md](../AGENTS.md)、项目说明与原任务。\n- 新建业务项目或系统工作区：读取 [ember-project](../.agents/skills/ember-project/SKILL.md)，先查重、展示方案并取得确认；不迁移资料或重分配任务。\n- 其他业务 Skill 只在实际需要且可用时调用，不随余烬安装。\n- 初始化 Skill 不重置、迁移或升级现有工作区。\n", new=True)
     # A user's chosen name is local data, not an installation default in source code.
     if not workspace._safe("config/workspace.json").exists():
         workspace._write_json("config/workspace.json", {"name": "余烬"}, new=True)

@@ -1,6 +1,6 @@
 # 最小版接口约定
 
-业务数据存放在用户明确指定的一个本地工作区；软件登记单独存放在当前用户的私有 Core 配置中。工作台只监听本机回环地址。GET `/api/state` 返回 `{ok: true, data: snapshot}`，snapshot 中包含本次服务的 `csrf_token`；POST 使用 JSON 与 `X-Ember-Token` 请求头。其余成功接口同样返回 `{ok: true, data: result}`，失败返回 `{ok: false, error: message}`。
+业务数据存放在用户明确指定的一个本地工作区；软件登记单独存放在当前用户的私有本机配置中。工作台只监听本机回环地址。GET `/api/state` 返回 `{ok: true, data: snapshot}`，snapshot 中包含本次服务的 `csrf_token`；POST 使用 JSON 与 `X-Ember-Token` 请求头。其余成功接口同样返回 `{ok: true, data: result}`，失败返回 `{ok: false, error: message}`。
 
 ## 工作区结构
 
@@ -105,8 +105,8 @@ POST /api/executors/open
 
 - `snapshot()`：返回上述清单、配置 `revision`、路径就绪 `ready`、`registry_readable`、`error` 和配置位置；不可读是未知，不是零项或已健康。
 - `validate(payload)`：接受 `executors`、`default_executor` 和可选 `expected_revision`，只校验元数据，返回 `authentication_verified:false`；不保存或启动。
-- `save(payload)`：相同字段且必须提供当前 `expected_revision`；版本冲突 409、原配置保留。显式保存使用私有锁、备份、原子替换，只修改一份 Core 配置。
+- `save(payload)`：相同字段且必须提供当前 `expected_revision`；版本冲突 409、原配置保留。显式保存使用私有锁、备份、原子替换，只修改一份本机配置。
 - `discover()`：HTTP 请求必须是空对象；只查常见应用目录（最多三处、两层）和命令安装目录，最多 1200 条目、32 目录、软限制两秒，返回候选、`warnings`、`limited` 和范围。候选不是已登记清单，不自动选默认或保存；允许手工添加其他可信软件。
-- `open_software(payload, workspace)`：只接受 `executor_id`、当前 `expected_revision`、`confirmation:true` 三个字段；必须是当前已保存默认软件。默认项、版本或路径变化即停止；工作区由服务决定，不接受请求路径、业务提示词、模型或 shell 参数。打开后返回 `opened:true`、`submitted:false`、`model_called:false`，后两项指 Core 没有提交或调用模型，不保证第三方客户端自身启动行为。
+- `open_software(payload, workspace)`：只接受 `executor_id`、当前 `expected_revision`、`confirmation:true` 三个字段；必须是当前已保存默认软件。默认项、版本或路径变化即停止；工作区由服务决定，不接受请求路径、业务提示词、模型或 shell 参数。打开后返回 `opened:true`、`submitted:false`、`model_called:false`，后两项指余烬没有提交或调用模型，不保证第三方客户端自身启动行为。
 
 GET `/api/settings` 只读取当前保留的基础 Skill 登记和本机配置；首次引导移除后只保留日常入口与建项；不做安装扫描或认证探测。浏览器先复制上下文，只有复制成功且用户明确确认时才调用打开接口。单独复制始终可用；剪贴板、终端或软件打开失败时文本保留，用户手工处理，不自动换软件。
