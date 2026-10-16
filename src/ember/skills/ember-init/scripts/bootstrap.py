@@ -145,7 +145,7 @@ def run(args):
                     with source.open("xb") as output:
                         while chunk := response.read(1024 * 1024):
                             output.write(chunk)
-        command([python, "-m", "pip", "install", source])
+        command([python, "-m", "pip", "install", "--disable-pip-version-check", source])
         receipt["stage"] = "workspace"
         save()
         print("3/5 建立已确认的新工作区与规范目录", flush=True)
