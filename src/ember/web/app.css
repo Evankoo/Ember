@@ -19,10 +19,8 @@ fieldset{margin:0;padding:0;border:0;min-width:0}
 
 .project-view-page-head{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:16px;align-items:end}
 .project-view-page-head>button{grid-column:2;grid-row:1/span 2;align-self:center}
-.project-scene{margin-top:14px}
 .project-scene-filters{grid-template-columns:minmax(0,1fr);margin-bottom:10px}
 .project-location-item{display:inline-flex;align-items:center;gap:8px}
-.table-scroll{overflow-x:auto}
 
 .home-entry-main{position:relative}
 .home-result{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;width:100%;padding:10px 14px;border:0;border-bottom:1px solid var(--line-soft);background:transparent;text-align:left;font:inherit;color:var(--ink);cursor:pointer}
@@ -61,8 +59,6 @@ fieldset{margin:0;padding:0;border:0;min-width:0}
 .task-table td.empty{display:table-cell}
 .project-task-filters .chip{flex:none;white-space:nowrap}
 .library-material-row:not(:has(>input)){grid-template-columns:20px minmax(0,1fr) auto}
-/* The workbench's 420px/520px column minimums overflow just above the 1180px drawer breakpoint. */
-.task-detail-workspace{grid-template-columns:minmax(0,.46fr) minmax(0,.54fr)}
 #software-candidates{grid-column:1/-1;min-width:0;margin-top:-4px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);box-shadow:0 8px 24px rgba(17,24,39,.08)}
 .executor-discovery-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.executor-discovery-head small{color:var(--muted);font-size:11px;line-height:1.6}.executor-discovery-head .button{flex:none;padding:3px 8px;font-size:11px}
 .software-candidate-list{max-height:260px;overflow-y:auto;overscroll-behavior:contain}.software-candidate-list .software-candidate:last-child{border-bottom:0}.software-candidate.is-added strong::after{content:" · 已在清单";color:var(--muted);font-weight:400}

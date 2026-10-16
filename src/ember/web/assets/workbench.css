@@ -449,7 +449,7 @@ body.drawer-open{overflow:hidden}
       @media(max-width:700px){.project-workspace-hero{padding:15px}.project-workspace-hero .intro-head,.project-hero-summary{align-items:stretch;flex-direction:column}.project-hero-actions .project-task-launcher{justify-content:flex-start}.project-hero-stats{justify-content:space-between}.project-pane-head{align-items:stretch;flex-direction:column}.project-pane-tools{width:100%}.project-pane-search{min-width:0;flex:1;width:auto}.project-task-filters{overflow-x:auto;flex-wrap:nowrap}.project-workspace-layout{height:680px;min-height:560px}.project-workspace-tabs{overflow-x:auto}.project-workspace-tabs button{white-space:nowrap}}
 /* task detail */
 body:has(.task-detail-workspace) .shell{padding-bottom:10px}
-.task-detail-workspace{display:grid;grid-template-columns:minmax(420px,.46fr) minmax(520px,.54fr);gap:12px;height:calc(100vh - 36px);min-height:600px}
+.task-detail-workspace{display:grid;grid-template-columns:minmax(0,.46fr) minmax(0,.54fr);gap:12px;height:calc(100vh - 36px);min-height:600px}
 .task-detail-workspace.no-materials{display:block;height:auto;min-height:calc(100vh - 56px)}.task-detail-workspace.no-materials .task-current-pane{width:min(780px,100%);min-height:calc(100vh - 70px);margin:0 auto}
 .task-current-pane,.task-delivery-workspace{min-width:0;min-height:0;overflow:hidden}.task-current-pane{display:flex;flex-direction:column}
 .task-current-head{box-sizing:border-box;height:64px;min-height:64px;max-height:64px;flex:0 0 64px;padding:7px 12px 6px;border-bottom:1px solid var(--line);overflow:hidden}

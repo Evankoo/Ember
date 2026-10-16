@@ -1,0 +1,272 @@
+{
+  "schema": 1,
+  "about": "Pages compared by tools/check_workbench_parity.py, and every difference from the full workbench that is allowed to remain. status: intentional = by design; pending = known, still to align.",
+  "widths": [
+    1440,
+    1000,
+    390
+  ],
+  "pages": [
+    {
+      "name": "home",
+      "local": "/",
+      "core": "#home"
+    },
+    {
+      "name": "projects",
+      "local": "/projects",
+      "core": "#projects"
+    },
+    {
+      "name": "project",
+      "core": "#project/chenyu",
+      "pick": {
+        "from": "projects",
+        "when": "() => !!document.querySelector('.project-workspace-hero') && !!document.querySelector('.project-entry-row') && !!document.querySelector('.context-reader-timeline li')"
+      }
+    },
+    {
+      "name": "system",
+      "core": "#project/ember",
+      "pick": {
+        "from": "projects",
+        "when": "() => !!document.querySelector('.system-workspace-hero')"
+      }
+    },
+    {
+      "name": "task",
+      "core": "#task/autumn-plan",
+      "pick": {
+        "from": "tasks",
+        "when": "() => !!document.querySelector('.task-delivery-file') && !!document.querySelector('.task-input-row') && !document.querySelector('.task-group-related')"
+      }
+    },
+    {
+      "name": "task-line",
+      "core": "#task/chenyu-line",
+      "pick": {
+        "from": "tasks",
+        "when": "() => !!document.querySelector('.task-group-related')"
+      }
+    },
+    {
+      "name": "library",
+      "local": "/library",
+      "core": "#library"
+    },
+    {
+      "name": "review",
+      "local": "/review",
+      "core": "#review"
+    },
+    {
+      "name": "settings",
+      "local": "/settings",
+      "core": "#settings"
+    }
+  ],
+  "ignore_classes": "^(active|current|selected|previewing|expanded|is-open|open|dragging|has-selection|has-materials|no-materials|loading|ready|error|dirty|saved|disabled|dimmed|located|empty|wide|inline|normal|attention|waiting|stalled|available|unavailable|needs-config|executor-provided|draft|final|waiting_user|blocked|completed|account_operations|course_teaching|novel_writing|system_building|has-delivery)$",
+  "allowed": [
+    {
+      "id": "*:only-core:.sidebar-bottom > .sidebar-update-button",
+      "status": "intentional",
+      "reason": "开源版独有：检查更新按钮"
+    },
+    {
+      "id": "*:only-core:.task-current-heading-tools > .task-manage-menu",
+      "status": "intentional",
+      "reason": "开源版独有：任务操作菜单（完整版由 AI 走流程完成这些操作）"
+    },
+    {
+      "id": "*:only-core:.task-manage-menu > *",
+      "status": "intentional",
+      "reason": "开源版独有：任务操作菜单内容"
+    },
+    {
+      "id": "*:only-core:.project-hero-actions > .button.ghost",
+      "status": "intentional",
+      "reason": "开源版独有：项目页“新建任务”"
+    },
+    {
+      "id": "projects:only-core:.project-view-page-head > .button.ghost",
+      "status": "intentional",
+      "reason": "开源版独有：项目视图“新建项目”"
+    },
+    {
+      "id": "review:only-core:.review-page-head > .button.ghost",
+      "status": "intentional",
+      "reason": "开源版独有：保存整理报告"
+    },
+    {
+      "id": "review:only-local:.review-page-head > .review-weekly-summary",
+      "status": "intentional",
+      "reason": "完整版独有：每周整理"
+    },
+    {
+      "id": "review:only-local:.review-weekly-summary > *",
+      "status": "intentional",
+      "reason": "完整版独有：每周整理"
+    },
+    {
+      "id": "review:only-local:.weekly-actions > *",
+      "status": "intentional",
+      "reason": "完整版独有：每周整理"
+    },
+    {
+      "id": "settings:only-local:*settings-catalog-section*",
+      "status": "intentional",
+      "reason": "完整版独有：运行 Agent 与集成目录"
+    },
+    {
+      "id": "settings:only-local:*settings-agent-*",
+      "status": "intentional",
+      "reason": "完整版独有：运行 Agent"
+    },
+    {
+      "id": "settings:only-local:*integration-*",
+      "status": "intentional",
+      "reason": "完整版独有：外部系统集成"
+    },
+    {
+      "id": "settings:only-local:*settings-dependency-*",
+      "status": "intentional",
+      "reason": "完整版独有：依赖检查"
+    },
+    {
+      "id": "settings:only-local:*settings-health-*",
+      "status": "intentional",
+      "reason": "完整版独有：健康指标与告警入口"
+    },
+    {
+      "id": "*:only-local:.toast",
+      "status": "intentional",
+      "reason": "状态：完整版常驻提示容器，开源版有提示时才出现"
+    },
+    {
+      "id": "*:only-core:.sidebar-children > .sidebar-empty",
+      "status": "intentional",
+      "reason": "数据：示例没有收藏项目"
+    },
+    {
+      "id": "home:only-local:*task-overview-more*",
+      "status": "intentional",
+      "reason": "数据：任务较多时才出现“更多”"
+    },
+    {
+      "id": "*:only-*:*> .task-group-tag",
+      "status": "intentional",
+      "reason": "数据：列表里是否恰好有任务线"
+    },
+    {
+      "id": "task:only-*:.task-file-preview > *",
+      "status": "intentional",
+      "reason": "数据：自动预览的文件类型不同"
+    },
+    {
+      "id": "task:only-local:.task-log-list > .task-log-entry.task-log-machine",
+      "status": "intentional",
+      "reason": "数据：是否有程序写入的日志"
+    },
+    {
+      "id": "task-line:only-local:.article.md > .md-table",
+      "status": "intentional",
+      "reason": "数据：任务正文里是否有表格"
+    },
+    {
+      "id": "library:only-local:.library-material-list > .library-material-limit",
+      "status": "intentional",
+      "reason": "数据：资料超过上限时才提示"
+    },
+    {
+      "id": "project:only-local:*project-entry-url*",
+      "status": "intentional",
+      "reason": "数据：入口里是否有网址"
+    },
+    {
+      "id": "project:only-local:.project-entry-actions > .button.ghost",
+      "status": "intentional",
+      "reason": "数据：完整版入口有可打开的登记目录"
+    },
+    {
+      "id": "project:style:.sidebar-project-row > .sidebar-dot",
+      "status": "intentional",
+      "reason": "状态：分类圆点的文字色不可见"
+    },
+    {
+      "id": "system:*",
+      "status": "pending",
+      "reason": "系统工作区页：完整版用 system-workspace 版式，开源版仍用项目页版式"
+    },
+    {
+      "id": "home:only-local:.home-command-shell > .home-entry-context",
+      "status": "pending",
+      "reason": "首页：完整版的任务上下文条在输入框下方独立一行"
+    },
+    {
+      "id": "library:only-local:*library-preview-head-actions*",
+      "status": "pending",
+      "reason": "资料浏览：完整版进入时自动预览第一项并显示文件操作"
+    },
+    {
+      "id": "review:only-*:*organization-*-preview.panel*",
+      "status": "pending",
+      "reason": "任务检视：完整版右侧检视区带窄屏抽屉（review-responsive-drawer）与关闭按钮"
+    },
+    {
+      "id": "review:only-local:.review-inspector-tabs > .review-drawer-close",
+      "status": "pending",
+      "reason": "任务检视：窄屏抽屉关闭按钮"
+    },
+    {
+      "id": "review:only-local:.organize-task-main > .organize-task-evidence",
+      "status": "pending",
+      "reason": "任务检视：任务行的证据提示（交付、输入）"
+    },
+    {
+      "id": "review:only-local:.organization-report-item > .badge",
+      "status": "pending",
+      "reason": "任务检视：整理报告的状态徽标"
+    },
+    {
+      "id": "review:only-local:.organization-report-meta > .organization-report-missing",
+      "status": "pending",
+      "reason": "任务检视：报告缺失提示"
+    },
+    {
+      "id": "review:only-local:.organization-report-tools > .button.ghost",
+      "status": "pending",
+      "reason": "任务检视：报告区工具按钮"
+    },
+    {
+      "id": "review:only-core:*organize-task-footer-actions*",
+      "status": "pending",
+      "reason": "任务检视：底部操作的包裹层与完整版不同"
+    },
+    {
+      "id": "settings:only-local:*settings-skill-*",
+      "status": "pending",
+      "reason": "设置：Skills 区完整版有分类栏、筛选与结果区"
+    },
+    {
+      "id": "settings:only-local:*skill-results*",
+      "status": "pending",
+      "reason": "设置：Skills 区完整版有分类栏、筛选与结果区"
+    },
+    {
+      "id": "settings:only-local:*skill-category-*",
+      "status": "pending",
+      "reason": "设置：Skills 区完整版有分类栏、筛选与结果区"
+    },
+    {
+      "id": "settings:only-core:.settings-skills-module > .compact-skill-list",
+      "status": "pending",
+      "reason": "设置：Skills 列表应放进完整版的结果区结构"
+    },
+    {
+      "id": "settings:style:.compact-skill-row > .skill-status",
+      "status": "pending",
+      "reason": "设置：结构未对齐导致 Skill 状态徽标为绿色，完整版为中性色"
+    }
+  ],
+  "transparent_classes": "^(action-form)$"
+}

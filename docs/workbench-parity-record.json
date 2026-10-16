@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "checked_at": "2026-10-16T17:44:27+00:00",
+  "source_commit": "8ba276c22ddb1ea9f5293eb144407c402d88cc31",
+  "ui_sha256": "3f10d5ed0e6ccf0d3e49b372ae43e648801f43280ac11021b7cc277a491a39c9",
+  "pages": [
+    "home",
+    "projects",
+    "project",
+    "system",
+    "task",
+    "task-line",
+    "library",
+    "review",
+    "settings"
+  ],
+  "widths": [
+    1440,
+    1000,
+    390
+  ],
+  "pending": 86,
+  "intentional": 79
+}
