@@ -80,3 +80,17 @@ fieldset{margin:0;padding:0;border:0;min-width:0}
 .execution-confirm-feedback{flex:1 1 auto;min-width:0;margin:0;color:var(--secondary);font-size:11px;line-height:1.5}
 .execution-confirm-feedback.error{color:var(--danger)}
 .home-prompt-manual-copy{width:100%;height:100%;min-height:240px;border:0;background:transparent;color:var(--secondary);font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;resize:none}
+
+/* Update check: visible on every page in the sidebar, and in settings. */
+.sidebar-update-button{display:flex;width:calc(100% - 16px);align-items:center;justify-content:center;gap:6px;margin:0 8px 8px;padding:7px 10px;border:1px solid var(--brand-action,#8b2329);border-radius:8px;background:var(--brand-action,#8b2329);color:#fff;font:inherit;font-size:12px;font-weight:650;cursor:pointer}
+.sidebar-update-button:hover{background:var(--brand-action-hover,#741c21)}
+.sidebar-update-button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.update-panel{display:grid;gap:12px}
+.update-summary{display:grid;gap:4px;padding:12px 14px;border:1px solid var(--line-soft);border-radius:10px;background:var(--line-soft)}
+.update-summary strong{font-size:15px}
+.update-summary p{margin:0;font-size:12px;line-height:1.6}
+.update-summary.is-new{border-color:var(--brand-action,#8b2329)}
+.update-notes{border:1px solid var(--line-soft);border-radius:10px;padding:8px 12px}
+.update-notes summary{cursor:pointer;font-size:12px;font-weight:650}
+.update-notes .article{max-height:200px;overflow:auto;font-size:12px}
+.update-prompt .home-prompt-body{max-height:240px;overflow:auto}

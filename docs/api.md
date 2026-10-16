@@ -82,6 +82,7 @@ GET  /api/settings
 GET  /api/file?id=...
 GET  /api/raw?id=...                 # 始终作为附件下载
 GET  /api/preview?id=...             # 图片、PDF、音视频在页面内预览；HTML、SVG 等不提供
+GET  /api/update                     # 仅在用户点击时查询 GitHub 最新发行版；有新版时附带共享结构的更新提示词，不下载、不安装
 POST /api/reveal                     # {id} 或 {task_id, folder:input|delivery} 或 {project, location}；mode:reveal|open
 POST /api/onboarding/remove-init-skill
 POST /api/projects

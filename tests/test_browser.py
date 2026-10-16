@@ -156,6 +156,25 @@ class SettingsBrowserTests(unittest.TestCase):
         self.assertTrue(self.page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1"))
         self.assert_untouched()
 
+    def test_update_button_shows_the_release_and_a_copyable_prompt(self):
+        newer = {"tag": "v99.0.0", "url": "https://github.com/Evankoo/Ember/releases/tag/v99.0.0",
+                 "published_at": "2026-10-20", "notes": "<img src=x onerror=window.bad=1> 新功能"}
+        with patch("ember.updates.fetch_latest", return_value=newer):
+            self.page.goto(self.base + "/#library")
+            expect(self.page.locator("#update-button")).to_be_visible()
+            self.page.locator("#update-button").click()
+            expect(self.page.locator(".update-summary")).to_contain_text("发现新版本 99.0.0")
+            self.assertEqual(self.page.locator(".update-notes img").count(), 0)
+            self.page.locator('[data-action="copy-update"]').click()
+            expect(self.page.locator("#update-feedback")).to_contain_text("已复制")
+            self.assertIn("ember-99.0.0-py3-none-any.whl", self.page.evaluate("window.__copies")[-1])
+        self.page.locator("#dialog-close").click()
+        with patch("ember.updates.fetch_latest", side_effect=OSError("offline")):
+            self.page.locator("#update-button").click()
+            expect(self.page.locator(".update-summary")).to_contain_text("没能检查更新")
+        self.assertFalse(self.page.evaluate("Boolean(window.bad)"))
+        self.assert_untouched()
+
     def test_project_task_list_filters_without_losing_search_focus(self):
         self.page.goto(self.base + "/#project/chenyu")
         expect(self.page.locator(".project-task-row")).to_have_count(5)

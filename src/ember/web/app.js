@@ -406,6 +406,41 @@ const app = (() => {
     area.focus(); area.select();
   }
 
+  /* ---------- 检查更新 ---------- */
+  /* Asks GitHub only when clicked. Installing is left to the user's AI tool with the prompt below. */
+  const updateState = { result: null, environment: null };
+  async function checkUpdate() {
+    openDialog("检查更新", `<div class="update-panel" aria-live="polite"><p class="muted">正在查询 GitHub 上的最新发行版…</p></div>`);
+    let result, failure = "";
+    try { result = await api("api/update"); } catch (error) { failure = error.message; }
+    try { updateState.environment = (await api("api/settings")).execution_environment; } catch { updateState.environment = null; }
+    updateState.result = result || null;
+    const panel = dialogBody.querySelector(".update-panel");
+    if (!panel) return;
+    const releases = "https://github.com/Evankoo/Ember/releases";
+    if (failure) { panel.innerHTML = `<div class="update-summary"><strong>没能检查更新</strong><p class="form-error">${esc(failure)}</p></div><div class="form-actions"><a class="button ghost" href="${releases}" target="_blank" rel="noopener noreferrer">打开发行页</a></div>`; return; }
+    const link = `<a class="button ghost" href="${esc(result.url)}" target="_blank" rel="noopener noreferrer">查看发行页</a>`;
+    if (!result.newer) { panel.innerHTML = `<div class="update-summary is-current"><strong>已是最新版本 ${esc(result.current)}</strong><p class="muted">GitHub 上最新的发行版是 ${esc(result.latest)}${result.published_at ? `（${esc(result.published_at)} 发布）` : ""}。</p></div><div class="form-actions">${link}</div>`; return; }
+    const environment = updateState.environment, selected = environment?.executors?.find(entry => entry.id === environment.default_executor);
+    panel.innerHTML = `<div class="update-summary is-new"><strong>发现新版本 ${esc(result.latest)}</strong><p class="muted">当前 ${esc(result.current)}${result.published_at ? ` · ${esc(result.published_at)} 发布` : ""}。更新由你的 AI 工具执行：复制下面的提示词交给它，它会先备份、校验官方程序包，再更新并检查。</p></div>${result.notes.trim() ? `<details class="update-notes" open><summary>更新说明</summary><div class="article md">${markdown(result.notes)}</div></details>` : ""}<section class="home-prompt-review update-prompt"><header><span class="home-prompt-state ready">更新提示词</span><small>${new Intl.NumberFormat("zh-CN").format(result.prompt.text.length)} 字 · 只读</small></header><div class="home-prompt-body article md" id="update-prompt-body" tabindex="0">${markdown(result.prompt.text)}</div></section><p class="execution-confirm-feedback" id="update-feedback" role="status" aria-live="polite"></p><div class="form-actions">${link}<button class="button ghost" type="button" data-action="copy-update">复制更新提示词</button><button class="button primary" type="button" data-action="copy-open-update"${environment?.ready ? "" : " disabled"}>${environment?.ready ? `复制并用 ${esc(selected.label)} 打开` : "未配置执行软件"}</button></div>${environment?.ready ? "" : `<p class="muted">也可以先到 <a href="#settings" data-action="open-settings">设置 → 执行环境</a> 配置常用的 AI 工具。</p>`}`;
+  }
+
+  function updateFeedback(message, error = false) {
+    const node = document.getElementById("update-feedback");
+    if (node) { node.textContent = message; node.classList.toggle("error", error); }
+  }
+
+  async function copyUpdatePrompt() {
+    const text = updateState.result?.prompt?.text;
+    if (!text) throw new Error("没有可复制的更新提示词。");
+    try { await navigator.clipboard.writeText(text); return true; }
+    catch {
+      const area = Object.assign(document.createElement("textarea"), { value: text, readOnly: true, className: "home-prompt-manual-copy" });
+      document.getElementById("update-prompt-body").replaceChildren(area); area.focus(); area.select();
+      return false;
+    }
+  }
+
   /* ---------- 项目视图 ---------- */
   const recentCompleted = (items, limit = 30) => items.filter(t => t.status === "completed" && days(t.updated_at || t.date) <= limit);
 
@@ -768,7 +803,7 @@ const app = (() => {
   /* ---------- 设置 ---------- */
   function renderSettings() {
     main.className = "shell app-main settings-page paper-management-page";
-    main.innerHTML = `<section class="settings-hub paper-management-page"><header class="settings-hub-head"><div><h1>设置</h1><p>本机执行环境与当前文档库的基础 Skill，在这里查看和管理。</p></div><div class="settings-hub-actions"><button id="health-check-button" class="button" type="button" data-action="health-check">检查服务状态</button></div></header><nav class="settings-section-nav" aria-label="设置分区"><a href="#settings" data-action="scroll-to" data-id="execution-environment">执行环境</a><a href="#settings" data-action="scroll-to" data-id="settings-skills-section">Skills</a></nav><section id="execution-environment" class="settings-execution-strip"><div class="settings-section-head"><div><h2>执行环境</h2><p>先看当前生效的环境，需要时再修改配置。</p></div><span>仅对这台电脑生效</span></div><div id="software-content" aria-live="polite">正在读取本机已保存的软件清单…</div></section><section id="health-result" class="settings-health-summary"><div class="settings-health-main"><span class="settings-health-state">服务状态</span><small>只在点击“检查服务状态”后检查；不会验证软件登录或调用模型。</small></div></section><section id="settings-skills-section" class="settings-skills-module"><div class="settings-skills-head"><div><h2>Skills</h2><p>这里显示当前文档库保留的基础 Skill。首次引导完成并确认移除后，日常任务入口和项目建立继续保留。登记不代表模型已登录或能够执行；专业业务 Skill 由你另行准备。</p></div></div><div id="settings-skills" class="compact-skill-list">正在读取当前工作区的登记…</div></section></section>`;
+    main.innerHTML = `<section class="settings-hub paper-management-page"><header class="settings-hub-head"><div><h1>设置</h1><p>本机执行环境与当前文档库的基础 Skill，在这里查看和管理。</p></div><div class="settings-hub-actions"><button class="button" type="button" data-action="check-update">检查更新</button><button id="health-check-button" class="button" type="button" data-action="health-check">检查服务状态</button></div></header><nav class="settings-section-nav" aria-label="设置分区"><a href="#settings" data-action="scroll-to" data-id="execution-environment">执行环境</a><a href="#settings" data-action="scroll-to" data-id="settings-skills-section">Skills</a></nav><section id="execution-environment" class="settings-execution-strip"><div class="settings-section-head"><div><h2>执行环境</h2><p>先看当前生效的环境，需要时再修改配置。</p></div><span>仅对这台电脑生效</span></div><div id="software-content" aria-live="polite">正在读取本机已保存的软件清单…</div></section><section id="health-result" class="settings-health-summary"><div class="settings-health-main"><span class="settings-health-state">服务状态</span><small>只在点击“检查服务状态”后检查；不会验证软件登录或调用模型。</small></div></section><section id="settings-skills-section" class="settings-skills-module"><div class="settings-skills-head"><div><h2>Skills</h2><p>这里显示当前文档库保留的基础 Skill。首次引导完成并确认移除后，日常任务入口和项目建立继续保留。登记不代表模型已登录或能够执行；专业业务 Skill 由你另行准备。</p></div></div><div id="settings-skills" class="compact-skill-list">正在读取当前工作区的登记…</div></section></section>`;
     readSettings();
   }
 
@@ -1094,6 +1129,12 @@ const app = (() => {
         try { await navigator.clipboard.writeText(id); notice("已复制。"); } catch { notice("浏览器无法写入剪贴板，请手动选择复制。", true); }
         return;
       case "confirm-close": closeConfirm(); return;
+      case "check-update": setMenu(false); await checkUpdate(); return;
+      case "copy-update": {
+        const copied = await copyUpdatePrompt();
+        updateFeedback(copied ? "更新提示词已复制。请在 AI 工具里粘贴并确认发送。" : "浏览器没能写入剪贴板，已选中完整提示词，请按 ⌘C 手动复制。", !copied);
+        return;
+      }
       case "confirm-reset": {
         const input = document.getElementById("confirm-request");
         confirm.request = input.value = confirm.defaultTask;
@@ -1132,6 +1173,16 @@ const app = (() => {
         case "discover-software": await softwareRequest("discover"); break;
         case "check-software": await softwareRequest("check"); break;
         case "save-software": await softwareRequest("save"); break;
+        case "copy-open-update": {
+          const environment = updateState.environment;
+          if (!(await copyUpdatePrompt())) { updateFeedback("① 复制失败：浏览器没能写入剪贴板，因此没有打开软件。已选中完整提示词，请手动复制。", true); break; }
+          updateFeedback("① 已复制更新提示词；② 正在打开软件…");
+          try {
+            const opened = await api("api/executors/open", { executor_id: environment.default_executor, expected_revision: environment.revision, confirmation: true });
+            updateFeedback(`① 已复制更新提示词；② 已打开 ${opened.label}。请在软件里粘贴并确认发送。`);
+          } catch (error) { updateFeedback(`① 已复制更新提示词；② 打开失败：${error.message}`, true); }
+          break;
+        }
         case "copy-open-context": {
           await state.contextPromise;
           const environment = state.preview?.environment, text = fullPrompt();

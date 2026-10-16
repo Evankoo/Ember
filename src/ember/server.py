@@ -100,6 +100,10 @@ class Handler(BaseHTTPRequestHandler):
                 self.json({"execution_environment": self.server.executor_registry.snapshot(),
                            "skills": [{"name": item["name"], "version": item.get("version", "未登记版本"),
                                       "purpose": item.get("purpose", ""), "registered": True} for item in records]})
+            elif path == "/api/update":
+                # Only on the user's click; the result says what is available, it installs nothing.
+                from .updates import check_update
+                self.json(check_update(self.server.workspace))
             elif path == "/api/preview":
                 file, _ = self.server.workspace.raw_file(query.get("id", [""])[0])
                 if not preview_kind(file):
