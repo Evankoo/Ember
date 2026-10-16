@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from .bootstrap import verify_workspace_contract
-from .store import Workspace, WorkspaceError
+from .store import Workspace, WorkspaceError, project_card
 
 
 def plan_project(workspace: Workspace, payload: dict) -> dict:
@@ -26,7 +26,7 @@ def plan_project(workspace: Workspace, payload: dict) -> dict:
                if item["id"] == identifier or item["name"].casefold() == name.casefold()]
     return {"project": {"id": identifier, "name": name, "kind": kind, "description": description,
                         "focus": focus, "overview": overview, "locations": locations, "category": category}, "matches": matches, "can_create": not matches,
-            "canonical_paths": ["config/projects.json", f"projects/{identifier}.md"],
+            "canonical_paths": ["config/projects.json", project_card(identifier)],
             "boundaries": "只登记项目和说明；不迁移资料、重分配任务、调用模型或发布。"}
 
 

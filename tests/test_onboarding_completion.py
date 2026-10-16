@@ -82,7 +82,7 @@ class OnboardingCompletionTests(unittest.TestCase):
             self.assertEqual(before, self.bytes())
 
     def test_tampered_receipt_snapshot_is_rejected_before_cleanup(self):
-        receipt = self.workspace.path / "inputs" / self.task["id"] / "安装记录.json"
+        receipt = self.workspace.docs / "任务资料" / self.task["id"] / "安装记录.json"
         original = receipt.read_text()
         # Both variants still describe the same ready installation; the second
         # even preserves byte size, so the existing SHA-256 gate must catch it.

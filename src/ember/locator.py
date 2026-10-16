@@ -50,10 +50,10 @@ def register_default(workspace: Workspace, python=None, *, replace=False, home=N
     existing = read_default(home)
     if existing and existing["workspace"] != str(workspace.path) and not replace:
         raise WorkspaceError(f"本机已登记另一个默认工作区：{existing['workspace']}。如需切换，请明确使用 --replace。", 409)
-    record = {"version": 1, "workspace": str(workspace.path),
+    record = {"version": 1, "workspace": str(workspace.path), "documents": str(workspace.docs),
               "python": str(Path(python or sys.executable).absolute()),
               "registered_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-    if existing and all(existing.get(key) == record[key] for key in ("workspace", "python")):
+    if existing and all(existing.get(key) == record[key] for key in ("workspace", "documents", "python")):
         return existing
     _write_private_json(config_path(home), record)
     return record

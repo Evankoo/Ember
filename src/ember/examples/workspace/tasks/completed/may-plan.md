@@ -14,7 +14,7 @@ skills_used:
 artifact_mode: delivery
 inputs:
   items:
-    - path: inputs/may-plan/晨屿品牌简报.md
+    - path: 任务资料/may-plan/晨屿品牌简报.md
       purpose: 记录品牌语气、顾客场景与合作边界，供五月与秋季方案共同参考。
       sha256: 1c97103ed77d5ba859e4d685027bca87d2f72f97f42c38c38722301005c0937a
       added_at: '2026-05-10 12:00:00+08:00'
@@ -22,9 +22,9 @@ inputs:
       size: 1298
       id: example-may-plan-1
       name: 晨屿品牌简报.md
-      source_locator: inputs/may-plan/晨屿品牌简报.md
+      source_locator: 任务资料/may-plan/晨屿品牌简报.md
       source_environment: fictional-example
-    - path: inputs/may-plan/五月内容需求.md
+    - path: 任务资料/may-plan/五月内容需求.md
       purpose: 五月任务的原始要求，帮助重新理解旧方案的目标与限制。
       sha256: b0183bcd19ab5b6a8479ebd634c5aa5349668fd97576f323c62d3ce29ef21a52
       added_at: '2026-05-10 12:00:00+08:00'
@@ -32,20 +32,20 @@ inputs:
       size: 1346
       id: example-may-plan-2
       name: 五月内容需求.md
-      source_locator: inputs/may-plan/五月内容需求.md
+      source_locator: 任务资料/may-plan/五月内容需求.md
       source_environment: fictional-example
-  folder: inputs/may-plan
+  folder: 任务资料/may-plan
 outputs:
-  - delivery/formal/may-plan/五月内容方案V1.0.md
+  - 交付/正式交付/may-plan/五月内容方案V1.0.md
 delivery:
   state: final
-  folder: delivery/formal/may-plan
+  folder: 交付/正式交付/may-plan
 ---
 # 五月内容方案
 
 ## Quick Navigation
 
-- [打开任务文件夹](<../../delivery/formal/may-plan/>)
+- [打开任务文件夹](<../../交付/正式交付/may-plan/>)
 
 
 ## 任务目标

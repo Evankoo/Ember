@@ -229,12 +229,12 @@ class ExecutorRegistry:
                 if sys.platform != "darwin":
                     raise WorkspaceError(".app 打开仅支持 macOS，请使用本机命令行软件或手工打开。")
                 subprocess.run(["/usr/bin/open", "-a", str(path)], check=True, timeout=10,
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                               capture_output=True, text=True)
             elif sys.platform == "darwin":
                 command = "cd " + shlex.quote(str(workspace)) + " && exec " + shlex.quote(str(path))
                 script = 'tell application "Terminal"\nactivate\ndo script ' + json.dumps(command, ensure_ascii=False) + '\nend tell'
                 subprocess.run(["/usr/bin/osascript", "-"], input=script, text=True, check=True, timeout=15,
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                               capture_output=True)
             elif sys.platform.startswith("linux"):
                 terminal = next((value for name in ("x-terminal-emulator", "gnome-terminal", "konsole", "xterm") if (value := shutil.which(name))), None)
                 if not terminal or not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
@@ -245,8 +245,14 @@ class ExecutorRegistry:
                                  stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             else:
                 raise WorkspaceError("当前系统不支持软件打开；上下文保留，请手工执行。")
-        except (OSError, subprocess.SubprocessError):
-            raise WorkspaceError("软件未能打开；上下文保留，请在软件中手工粘贴执行。") from None
+        except subprocess.CalledProcessError as error:
+            # Keep the system's own reason; "it did not open" alone cannot be diagnosed.
+            reason = (error.stderr or error.stdout or "").strip()[:300] or f"退出码 {error.returncode}"
+            raise WorkspaceError(f"{selected['label']} 未能打开（{reason}）；提示词已保留，请手工打开软件后粘贴。") from None
+        except subprocess.TimeoutExpired:
+            raise WorkspaceError(f"{selected['label']} 打开超时；提示词已保留，请手工打开软件后粘贴。") from None
+        except OSError as error:
+            raise WorkspaceError(f"{selected['label']} 未能打开（{error.strerror or error}）；提示词已保留，请手工打开软件后粘贴。") from None
         return {"opened": True, "label": selected["label"], "submitted": False, "model_called": False}
 
     def discover(self, *, application_roots=None, command_dirs=None):

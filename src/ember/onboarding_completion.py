@@ -30,7 +30,9 @@ def _accepted_task(workspace, task_id):
     if len(receipts) != 1 or receipts[0].get("storage") != "snapshot":
         raise WorkspaceError("任务缺少本次安装记录的唯一输入快照。")
     receipt = workspace._json(receipts[0]["path"])
-    if (receipt.get("workspace") != str(workspace.path) or receipt.get("status") != "ready"
+    # A workspace copied by migrate-layout keeps its original installation receipt.
+    origins = {str(workspace.path), workspace._json("config/workspace.json", {}).get("migrated_from")}
+    if (receipt.get("workspace") not in origins or receipt.get("status") != "ready"
             or receipt.get("system_project_id") != "ember"):
         raise WorkspaceError("安装记录不属于本工作区或尚未安装就绪。")
     return task_id

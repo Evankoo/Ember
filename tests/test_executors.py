@@ -2,6 +2,7 @@ import json
 import os
 import plistlib
 import shlex
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -194,6 +195,15 @@ class ExecutorTests(unittest.TestCase):
         self.assertIn(json.dumps(command, ensure_ascii=False), script)
         self.assertNotIn("in front window", script)
         self.assertNotIn("--prompt", script)
+
+    def test_failed_launch_keeps_the_system_reason(self):
+        view = self.saved()
+        failure = subprocess.CalledProcessError(1, ["/usr/bin/osascript", "-"], stderr="execution error: Not authorized to send Apple events to Terminal. (-1743)")
+        with patch("ember.executors.sys.platform", "darwin"), patch("ember.executors.subprocess.run", side_effect=failure):
+            with self.assertRaises(WorkspaceError) as raised:
+                self.registry.open_software(self.open_payload(view), self.workspace)
+        self.assertIn("-1743", str(raised.exception))
+        self.assertIn("提示词已保留", str(raised.exception))
 
     def test_linux_command_uses_a_terminal_not_a_background_model_job(self):
         view = self.saved()

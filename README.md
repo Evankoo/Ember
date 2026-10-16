@@ -39,19 +39,19 @@ AI 用得越多，上下文越分散：
 ```text
 请按官方初始化 Skill，帮我安装完整开源版余烬：
 https://github.com/Evankoo/Ember
-请直接读取并执行 ember-init，一问一答。先欢迎我并确认文档库路径，装好后展示基础目录，继续引导。
+请直接读取并执行 ember-init，一问一答。装好后展示基础目录，继续引导。
 ```
 
 AI 会从[最新发行版](https://github.com/Evankoo/Ember/releases/latest)下载 `ember-init-*.zip`，解压出三个 Skill，然后由初始化 Skill 一步一步带你完成：
 
-1. 欢迎你，确认文档库位置，再说明独立的程序安装位置；
+1. 欢迎你，说明固定的安装位置：系统目录 `~/Ember`（规则、Skill、配置和程序）与文档库 `~/Ember文档`（项目、任务、资料和成果）；
 2. 安装程序、基础文件夹和三个自带 Skill，建立余烬系统项目，先保存安装记录，不提前建任务；
 3. 展示实际文档库目录，等你确认后，配置当前使用的 AI 工具并装好日常 Skill；以后可在“设置 → 执行环境 → 修改配置”更换工具；
 4. 真正用日常 Skill 把本次对话创建为第一张“余烬首次使用”任务卡，让你在工作台检查；你反馈 OK 后才继续；
 5. 用建项目 Skill 带你确认并建立一个简单练习项目，再到工作台查看；
 6. 最后问你是否确认完成并移除一次性安装向导。确认后保留任务、项目和资料，日常 / 建项目两个 Skill 继续使用，只移除这份文档库内的初始化 Skill。
 
-文档库就是下面命令中的“工作区”，是存放项目、任务、资料与成果的普通文件夹，和程序目录分开。安装不需要 VS Code；编辑器“打开文件夹”也不会自动建立余烬文档库。三个 Skill 已随包提供，无需另找初始化 Skill。“开始引导”由安装中的 AI 读取并执行 Skill、在当前对话主动提问；程序本身不会调用 AI 或自己发起聊天。
+文档库是存放项目、任务、资料与成果的普通文件夹，只放这些内容；规则文件、Skill 和程序都在系统目录里。命令中的 `--workspace` 指向系统目录。安装不需要 VS Code；编辑器“打开文件夹”也不会自动建立余烬文档库。三个 Skill 已随包提供，无需另找初始化 Skill。“开始引导”由安装中的 AI 读取并执行 Skill、在当前对话主动提问；程序本身不会调用 AI 或自己发起聊天。
 
 ### 手动安装
 
@@ -61,12 +61,14 @@ AI 会从[最新发行版](https://github.com/Evankoo/Ember/releases/latest)下�
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install .
-ember init ./workspace --example
-ember use ./workspace
+ember init ~/Ember --example     # 同时建立 ~/Ember文档
+ember use ~/Ember
 ember serve
 ```
 
-浏览器打开 **http://127.0.0.1:8783/**，按 `Ctrl+C` 停止。`--example` 会放入完全虚构的示例客户、项目和任务；去掉它就是空白工作区。
+浏览器打开 **http://127.0.0.1:8783/**，按 `Ctrl+C` 停止。`--example` 会放入完全虚构的示例客户、项目和任务；去掉它就是空白文档库。文档库默认是系统目录旁边的“<系统目录名>文档”，也可用 `--documents` 指定。
+
+旧版（0.10 及以前）把规则和资料放在同一个文件夹。用 `ember migrate-layout <旧文件夹> ~/Ember` 复制成新结构，核对后再 `ember use ~/Ember --replace`；旧文件夹不会被改动。
 
 ## 怎么用
 
@@ -82,7 +84,7 @@ ember serve
 
 ### AI 怎么找到工作区
 
-初始化（或 `ember use <工作区>`）会把工作区位置和程序的 Python 路径记在 `~/.config/ember/workspace.json`。日常 Skill 在当前目录不是工作区时读取这个文件。`ember where` 可以查看当前登记；本机已登记另一个工作区时不会被悄悄替换，需要明确使用 `--replace`。
+初始化（或 `ember use <系统目录>`）会把系统目录、文档库和程序的 Python 路径记在 `~/.config/ember/workspace.json`。日常 Skill 在当前目录不是工作区时读取这个文件。`ember where` 可以查看当前登记；本机已登记另一个工作区时不会被悄悄替换，需要明确使用 `--replace`。
 
 全局 Skill 也可以手动安装：
 

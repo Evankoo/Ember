@@ -13,16 +13,16 @@ skills_used:
   - ember
 artifact_mode: delivery
 outputs:
-  - delivery/formal/studio-intro/工作室服务介绍V1.0.md
+  - 交付/正式交付/studio-intro/工作室服务介绍V1.0.md
 delivery:
   state: final
-  folder: delivery/formal/studio-intro
+  folder: 交付/正式交付/studio-intro
 ---
 # 工作室服务介绍
 
 ## Quick Navigation
 
-- [打开任务文件夹](<../../delivery/formal/studio-intro/>)
+- [打开任务文件夹](<../../交付/正式交付/studio-intro/>)
 
 
 ## 任务目标

@@ -19,7 +19,6 @@ fieldset{margin:0;padding:0;border:0;min-width:0}
 
 .project-view-page-head{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:16px;align-items:end}
 .project-view-page-head>button{grid-column:2;grid-row:1/span 2;align-self:center}
-.task-current-actions{display:flex;flex-wrap:wrap;gap:6px;padding:10px 20px;border-bottom:1px solid var(--line-soft)}
 .project-scene{margin-top:14px}
 .project-scene-filters{grid-template-columns:minmax(0,1fr);margin-bottom:10px}
 .project-location-item{display:inline-flex;align-items:center;gap:8px}
@@ -37,12 +36,8 @@ fieldset{margin:0;padding:0;border:0;min-width:0}
 .workbench-dialog .paper-dialog-head{padding:16px 20px}
 .workbench-dialog .paper-dialog-head h2{font-size:22px}
 .workbench-dialog .dialog-body{max-height:calc(100vh - 150px);overflow:auto;padding:18px 20px 20px}
-.workbench-dialog.home-confirm-dialog{width:min(980px,calc(100vw - 40px));height:auto}
-.workbench-dialog.home-confirm-dialog .dialog-body{padding:0}
 .workbench-dialog.drawer{width:min(760px,calc(100vw - 24px))}
-.home-confirm-task-field{display:grid;gap:5px;margin-top:10px;font-size:12px;font-weight:600}
-.home-confirm-note{margin:0;padding:10px 20px 14px;border-top:1px solid var(--line-soft);color:var(--muted);font-size:11px}
-.home-confirm-task-editor textarea,.dialog-form textarea{width:100%;min-height:96px;resize:vertical;border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--surface);color:var(--ink);font:inherit;font-size:13px;line-height:1.6}
+.dialog-form textarea{width:100%;min-height:96px;resize:vertical;border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--surface);color:var(--ink);font:inherit;font-size:13px;line-height:1.6}
 
 .stack,.dialog-form{display:grid;gap:12px}
 .dialog-form label{display:grid;gap:5px;font-size:12px;font-weight:600;color:var(--secondary)}
@@ -63,14 +58,25 @@ fieldset{margin:0;padding:0;border:0;min-width:0}
 @media(max-width:700px){.field-grid{grid-template-columns:minmax(0,1fr)}.project-view-page-head{grid-template-columns:minmax(0,1fr)}.project-view-page-head>button{grid-column:1;grid-row:auto;justify-self:start;margin-top:8px}}
 
 .home-results{background:var(--surface)}
-.workbench-dialog .home-confirm-routes{grid-template-columns:minmax(0,1fr)}
-.workbench-dialog .home-confirm-task-field select{width:100%}
-.workbench-dialog .home-confirm-action-buttons .button{white-space:nowrap}
 .task-table td.empty{display:table-cell}
 .project-task-filters .chip{flex:none;white-space:nowrap}
 .library-material-row:not(:has(>input)){grid-template-columns:20px minmax(0,1fr) auto}
+/* The workbench's 420px/520px column minimums overflow just above the 1180px drawer breakpoint. */
 .task-detail-workspace{grid-template-columns:minmax(0,.46fr) minmax(0,.54fr)}
 #software-candidates{grid-column:1/-1;min-width:0;margin-top:-4px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);box-shadow:0 8px 24px rgba(17,24,39,.08)}
 .executor-discovery-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.executor-discovery-head small{color:var(--muted);font-size:11px;line-height:1.6}.executor-discovery-head .button{flex:none;padding:3px 8px;font-size:11px}
 .software-candidate-list{max-height:260px;overflow-y:auto;overscroll-behavior:contain}.software-candidate-list .software-candidate:last-child{border-bottom:0}.software-candidate.is-added strong::after{content:" · 已在清单";color:var(--muted);font-weight:400}
 .executor-default-field select{transition:box-shadow .2s,border-color .2s}.executor-default-field.is-chosen select{border-color:var(--ink);box-shadow:0 0 0 3px rgba(17,24,39,.12)}.executor-default-field.needs-choice select{border-color:var(--danger);box-shadow:0 0 0 3px rgba(239,68,68,.15)}
+
+/* Task actions the open-source edition performs in the page (the full workbench routes them through AI). */
+.task-manage-menu{position:relative}
+.task-manage-menu>summary{list-style:none;cursor:pointer;white-space:nowrap}
+.task-manage-menu>summary::-webkit-details-marker{display:none}
+.task-manage-list{position:fixed;z-index:90;display:grid;min-width:150px;padding:5px;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:0 14px 40px rgba(15,23,42,.14)}
+.task-manage-list button{padding:7px 10px;border:0;border-radius:7px;background:transparent;color:var(--ink);font:inherit;font-size:12px;text-align:left;white-space:nowrap;cursor:pointer}
+.task-manage-list button:hover,.task-manage-list button:focus-visible{background:var(--line-soft)}
+
+/* Copy and open report their own results inside the confirmation, never behind it. */
+.execution-confirm-feedback{flex:1 1 auto;min-width:0;margin:0;color:var(--secondary);font-size:11px;line-height:1.5}
+.execution-confirm-feedback.error{color:var(--danger)}
+.home-prompt-manual-copy{width:100%;height:100%;min-height:240px;border:0;background:transparent;color:var(--secondary);font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;resize:none}

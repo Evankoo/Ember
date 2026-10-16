@@ -12,8 +12,10 @@ import stat
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from . import __version__
-from .store import WorkspaceError
+from .store import WorkspaceError, preview_kind
 from .executors import ExecutorRegistry
+import subprocess
+import sys
 
 WEB = Path(__file__).resolve().parent / "web"
 MAX_BODY = 1_048_576
@@ -39,7 +41,8 @@ class Handler(BaseHTTPRequestHandler):
         pass  # Do not retain task content or visitor requests in access logs.
 
     def end_headers(self):
-        self.send_header("Content-Security-Policy", CSP)
+        csp = CSP.replace("frame-ancestors 'none'", "frame-ancestors 'self'") if getattr(self, "framable", False) else CSP
+        self.send_header("Content-Security-Policy", csp)
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Cache-Control", "no-store")
@@ -73,6 +76,7 @@ class Handler(BaseHTTPRequestHandler):
             raise WorkspaceError("跨来源请求不受支持", 403)
 
     def do_GET(self):
+        self.framable = False
         try:
             self.local_request()
             parsed = urlsplit(self.path)
@@ -96,6 +100,15 @@ class Handler(BaseHTTPRequestHandler):
                 self.json({"execution_environment": self.server.executor_registry.snapshot(),
                            "skills": [{"name": item["name"], "version": item.get("version", "未登记版本"),
                                       "purpose": item.get("purpose", ""), "registered": True} for item in records]})
+            elif path == "/api/preview":
+                file, _ = self.server.workspace.raw_file(query.get("id", [""])[0])
+                if not preview_kind(file):
+                    raise WorkspaceError("这类文件不在页面中预览，请下载或用系统应用打开。", 415)
+                with os.fdopen(os.open(file, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)), "rb") as stream:
+                    if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                        raise WorkspaceError("仅支持普通文件预览")
+                    self.framable = True  # PDFs render in a same-origin frame on the task page.
+                    self.send(200, stream.read(), mimetypes.guess_type(file.name)[0] or "application/octet-stream")
             elif path in {"/api/file", "/api/raw"}:
                 file_id = query.get("id", [""])[0]
                 if path == "/api/file":
@@ -164,6 +177,9 @@ class Handler(BaseHTTPRequestHandler):
                 if payload:
                     raise WorkspaceError("查找只使用受限的本机安装目录，不接受自定义扫描参数。")
                 result = self.server.executor_registry.discover()
+            elif path == "/api/reveal":
+                mode = payload.pop("mode", "reveal")
+                result = reveal(w.locate(payload), mode)
             elif path == "/api/executors/open":
                 result = self.server.executor_registry.open_software(payload, w.path)
             elif path == "/api/onboarding/remove-init-skill":
@@ -191,6 +207,29 @@ class Handler(BaseHTTPRequestHandler):
             self.error("请求 JSON 无效")
         except OSError:
             self.error("写入失败，原数据已保留，请检查工作区权限", 500)
+
+
+def reveal(target: Path, mode: str = "reveal") -> dict:
+    """Show a workspace file or folder in Finder, or open a file with its default application.
+
+    The target is always resolved by the workspace from an indexed material or task folder;
+    no request-provided path or command reaches the system.
+    """
+    if mode not in ("reveal", "open"):
+        raise WorkspaceError("mode 必须为 reveal 或 open。")
+    if sys.platform == "darwin":
+        argv = ["/usr/bin/open", "-R", str(target)] if mode == "reveal" and target.is_file() else ["/usr/bin/open", str(target)]
+    elif sys.platform.startswith("linux"):
+        argv = ["xdg-open", str(target.parent if mode == "reveal" and target.is_file() else target)]
+    else:
+        raise WorkspaceError("当前系统不支持在文件管理器中打开。")
+    try:
+        result = subprocess.run(argv, capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise WorkspaceError(f"没能打开：{error}") from None
+    if result.returncode:
+        raise WorkspaceError(f"没能打开：{(result.stderr or result.stdout).strip()[:300] or f'退出码 {result.returncode}'}")
+    return {"opened": target.name, "mode": mode}
 
 
 @contextmanager

@@ -14,24 +14,24 @@ skills_used:
 artifact_mode: none
 inputs:
   items:
-    - path: inputs/autumn-plan/秋季新品资料.md
+    - path: 任务资料/autumn-plan/秋季新品资料.md
       purpose: 两款虚构新品的场景、拍摄建议和未确认字段。
       storage: reference
       size: 1514
       sha256: 69d5cd798c911b534f0a65629b64f080ef8ff0b3c3a39ef0630282ee5438a560
       id: example-autumn-assets-1
       name: 秋季新品资料.md
-      source_locator: inputs/autumn-plan/秋季新品资料.md
+      source_locator: 任务资料/autumn-plan/秋季新品资料.md
       source_environment: fictional-example
       added_at: '2026-09-19 12:00:00+08:00'
-    - path: inputs/autumn-plan/秋季活动简报.md
+    - path: 任务资料/autumn-plan/秋季活动简报.md
       purpose: 本轮新要求、拟定活动安排与待确认信息。
       storage: reference
       size: 1460
       sha256: 992d07c4fa76ccc082ac0f3cbd047437101444199a1fecbeb27d02aa3af32f88
       id: example-autumn-assets-2
       name: 秋季活动简报.md
-      source_locator: inputs/autumn-plan/秋季活动简报.md
+      source_locator: 任务资料/autumn-plan/秋季活动简报.md
       source_environment: fictional-example
       added_at: '2026-09-19 12:00:00+08:00'
 ---

@@ -38,13 +38,13 @@ class ProjectCategoryTests(unittest.TestCase):
 
     def test_category_can_be_changed_and_cleared_without_touching_the_card(self):
         self.create()
-        card = (self.workspace.path / "projects/autumn.md").read_bytes()
+        card = (self.workspace.docs / "项目/autumn/项目看板.md").read_bytes()
         self.workspace.update_project_category("autumn", {"category": "课程"})
         self.assertEqual(self.categories()["autumn"], "课程")
         self.workspace.update_project_category("autumn", {"category": ""})
         self.assertEqual(self.categories()["autumn"], "")
         self.assertNotIn("category", json.loads((self.workspace.path / "config/projects.json").read_text())["projects"][0])
-        self.assertEqual((self.workspace.path / "projects/autumn.md").read_bytes(), card)
+        self.assertEqual((self.workspace.docs / "项目/autumn/项目看板.md").read_bytes(), card)
         with self.assertRaises(WorkspaceError) as caught:
             self.workspace.update_project_category("missing", {"category": "课程"})
         self.assertEqual(caught.exception.status, 404)

@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import re
 import tempfile
 import threading
 import unittest
@@ -75,11 +76,13 @@ class SettingsBrowserTests(unittest.TestCase):
         self.workspace.update_project_locations("chenyu", {"add": location})
         self.addCleanup(self.workspace.update_project_locations, "chenyu", {"remove": location})
         self.page.goto(self.base + "/#project/chenyu")
-        expect(self.page.locator("main")).to_contain_text("本机工作目录")
-        expect(self.page.locator("main code", has_text=location)).to_be_visible()
+        # Registered after the card was written: shown once, in the location strip.
+        expect(self.page.locator(".project-location-strip code", has_text=location)).to_be_visible()
+        expect(self.page.locator(".context-reader-timeline li")).to_have_count(2)
+        expect(self.page.locator(".project-entry-row")).to_have_count(1)
         self.page.goto(self.base + "/#project/studio")
         expect(self.page.locator("main h1")).to_contain_text("栖木")
-        expect(self.page.locator("main")).not_to_contain_text("本机工作目录")
+        expect(self.page.locator(".project-location-strip code")).to_have_count(0)
         self.assertEqual(self.errors, [])
 
     def test_task_page_fits_just_above_the_drawer_breakpoint(self):
@@ -110,9 +113,46 @@ class SettingsBrowserTests(unittest.TestCase):
         expect(log.locator("summary")).to_have_text("添加输入快照 · 2 条")
         expect(log.locator(".task-log-entry").last.locator("time")).to_have_text("2026-10-13 09:00")
         expect(self.page.locator(".task-technical-info h3")).to_have_text("技术信息")
-        expect(self.page.locator(".task-technical-summary")).to_contain_text("执行工具 Claude Code")
-        expect(self.page.locator(".task-input-icon .task-file-kind").first).to_have_text("MD")
+        expect(self.page.locator(".task-technical-summary")).to_contain_text("执行器 Claude Code")
+        expect(self.page.locator(".task-delivery-file .task-file-kind").first).to_have_text("MD")
+        expect(self.page.locator(".task-file-preview .article h1, .task-file-preview .article h2").first).to_be_visible()
         self.page.set_viewport_size({"width": 390, "height": 900})
+        self.assertTrue(self.page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1"))
+        self.assert_untouched()
+
+    def test_home_requires_a_request_before_confirming(self):
+        self.page.goto(self.base + "/#home")
+        for value in ("", "   "):
+            self.page.locator("#context-request").fill(value)
+            self.page.locator("#context-prepare").click()
+            expect(self.page.locator("#notice")).to_have_text("请先描述本轮要求")
+            self.assertFalse(self.page.locator("#home-confirm-dialog").evaluate("node => node.open"))
+        self.page.locator("#context-request").fill("整理活动资料")
+        self.page.locator("#context-prepare").click()
+        self.page.locator("#prompt-state.ready").wait_for()
+        expect(self.page.locator("#confirm-request")).to_have_value("整理活动资料")
+        self.page.locator("#confirm-request").fill("改过的任务")
+        self.page.locator('[data-action="confirm-reset"]').click()
+        expect(self.page.locator("#confirm-request")).to_have_value("整理活动资料")
+        expect(self.page.locator("#prompt-preview")).to_contain_text("授权边界")
+        expect(self.page.locator('input[name="confirm-route"][value="continue"]')).to_be_disabled()
+        self.assert_untouched()
+
+    def test_task_page_previews_files_and_opens_the_drawer_when_narrow(self):
+        self.page.goto(self.base + "/#task/autumn-plan")
+        expect(self.page.locator("#task-file-preview-title")).to_have_text("秋季内容方案V0.2草稿.md")
+        expect(self.page.locator(".task-preview-actions")).to_contain_text("Finder 中显示")
+        self.page.locator('[data-action="task-files"][data-id="input"]').click()
+        first = self.page.locator(".task-input-row .task-input-name").first
+        name = first.inner_text()
+        first.click()
+        expect(self.page.locator("#task-file-preview-title")).to_have_text(name)
+        self.page.set_viewport_size({"width": 1000, "height": 900})
+        expect(self.page.locator("#task-material-toggle")).to_be_visible()
+        self.page.locator("#task-material-toggle").click()
+        expect(self.page.locator("#task-materials")).to_have_class(re.compile("is-open"))
+        self.page.keyboard.press("Escape")
+        expect(self.page.locator("#task-materials")).not_to_have_class(re.compile("is-open"))
         self.assertTrue(self.page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1"))
         self.assert_untouched()
 
@@ -132,8 +172,8 @@ class SettingsBrowserTests(unittest.TestCase):
         self.assert_untouched()
 
     def workspace_bytes(self):
-        return {str(path.relative_to(self.workspace.path)): hashlib.sha256(path.read_bytes()).hexdigest()
-                for path in self.workspace.path.rglob("*") if path.is_file()}
+        return {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+                for root in (self.workspace.path, self.workspace.docs) for path in root.rglob("*") if path.is_file()}
 
     def settings(self):
         self.page.goto(self.base + "/#settings")
@@ -147,7 +187,7 @@ class SettingsBrowserTests(unittest.TestCase):
         self.page.goto(self.base + "/#home")
         self.page.locator("#context-request").fill("请整理当前任务，不要发布或完成它。")
         self.page.locator("#context-prepare").click()
-        self.page.locator("#context-output").wait_for()
+        self.page.locator("#prompt-state.ready").wait_for()
 
     def assert_untouched(self):
         self.assertEqual(self.workspace_bytes(), self.original_files)
@@ -284,7 +324,7 @@ class SettingsBrowserTests(unittest.TestCase):
                 self.assertEqual((len(state['projects']), len(state['tasks'])), (2, 1))
                 self.assertEqual(state['tasks'][0]['status'], 'completed')
                 self.assertFalse((workspace.path / '.agents/skills/ember-init').exists())
-                self.assertFalse((workspace.path / 'delivery/formal' / first['id']).exists())
+                self.assertFalse((workspace.path / '交付/正式交付' / first['id']).exists())
                 self.assertTrue((app / 'installation-report.md').is_file())
             finally:
                 server.shutdown()
@@ -407,13 +447,15 @@ class SettingsBrowserTests(unittest.TestCase):
             self.assertEqual(len(self.page.evaluate("window.__copies")), 1)
             launch.assert_not_called()
             self.page.locator("#copy-open-context-button").click()
-            self.page.wait_for_function("()=>document.getElementById('notice').textContent.includes('请手工粘贴')")
+            self.page.wait_for_function("()=>document.getElementById('confirm-feedback').textContent.includes('已打开')")
             launch.assert_called_once()
             payload, workspace = launch.call_args.args
             self.assertEqual(set(payload), {"executor_id", "expected_revision", "confirmation"})
             self.assertTrue(payload["confirmation"])
             self.assertEqual(workspace, self.workspace.path)
-            self.assertTrue(self.page.locator("#context-output").is_visible())
+            copies = self.page.evaluate("window.__copies")
+            self.assertEqual(copies[0], copies[1])
+            self.assertTrue(copies[0].startswith("## 余烬 · Ember 共享任务提示\n\n### 任务\n\n请整理当前任务"))
         self.assert_untouched()
 
     def test_clipboard_failure_and_stale_saved_configuration_never_launch_a_program(self):
@@ -422,7 +464,8 @@ class SettingsBrowserTests(unittest.TestCase):
         with patch.object(self.registry, "open_software") as launch:
             self.page.evaluate("()=>{navigator.clipboard.writeText=async()=>{throw new Error('denied')}}")
             self.page.locator("#copy-open-context-button").click()
-            self.page.wait_for_function("()=>document.getElementById('notice').textContent.includes('没有打开')")
+            self.page.wait_for_function("()=>document.getElementById('confirm-feedback').textContent.includes('复制失败')")
+            self.assertTrue(self.page.locator("#confirm-feedback").is_visible())
             launch.assert_not_called()
         self.page.evaluate("()=>{navigator.clipboard.writeText=async text=>window.__copies.push(text)}")
         payload = {"executors": [{**entry, "label": entry["label"] + "已修改"} for entry in self.entries],
@@ -430,7 +473,7 @@ class SettingsBrowserTests(unittest.TestCase):
         self.registry.save(payload)
         with patch("ember.executors.subprocess.run") as run:
             self.page.locator("#copy-open-context-button").click()
-            self.page.wait_for_function("()=>document.getElementById('notice').textContent.includes('已改变')")
+            self.page.wait_for_function("()=>document.getElementById('confirm-feedback').textContent.includes('已改变')")
             run.assert_not_called()
         self.assert_untouched()
 

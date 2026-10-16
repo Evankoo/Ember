@@ -15,8 +15,9 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="余烬本地任务工作台")
     parser.add_argument("--version", action="version", version=__version__)
     commands = parser.add_subparsers(dest="command", required=True)
-    init = commands.add_parser("init", help="初始化一个新工作区，拒绝覆盖非空目录")
-    init.add_argument("workspace", type=Path)
+    init = commands.add_parser("init", help="初始化系统目录与文档库，拒绝覆盖非空目录")
+    init.add_argument("workspace", type=Path, help="系统目录（规则、Skill、配置）")
+    init.add_argument("--documents", type=Path, help="文档库；默认与系统目录同级的“<系统目录名>文档”")
     init.add_argument("--example", action="store_true", help="安装完整虚构示例")
     init.add_argument("--name", help="工作区名称")
     serve = commands.add_parser("serve", help="启动本机工作台")
@@ -44,6 +45,10 @@ def main(argv=None):
     category.add_argument("--clear", action="store_true")
     category.add_argument("--workspace", type=Path, help="默认使用本机登记的工作区")
     commands.add_parser("skill-path", help="显示可安装或读取的初始化 Skill 目录")
+    migrate = commands.add_parser("migrate-layout", help="把旧版单目录工作区复制为系统目录与文档库两处；原目录保留不动")
+    migrate.add_argument("old", type=Path, help="旧版单目录工作区")
+    migrate.add_argument("workspace", type=Path, help="新系统目录（必须为空或不存在）")
+    migrate.add_argument("--documents", type=Path, help="新文档库；默认与系统目录同级的“<系统目录名>文档”")
     args = parser.parse_args(argv)
     if args.command == "skill-path":
         print(Path(__file__).resolve().parent / "skills" / "ember-init")
@@ -82,17 +87,22 @@ def main(argv=None):
                 raise WorkspaceError(f"已登记的默认工作区不可用：{stored['workspace']}（{error}）") from None
             print(json.dumps(stored, ensure_ascii=False, indent=2))
             return 0
+        if args.command == "migrate-layout":
+            from .migrate import migrate_layout
+            print(json.dumps(migrate_layout(args.old, args.workspace, args.documents), ensure_ascii=False, indent=2))
+            return 0
         if args.command == "use":
             print(json.dumps(register_default(Workspace(args.workspace), replace=args.replace), ensure_ascii=False, indent=2))
             return 0
-        workspace = Workspace(args.workspace) if args.command == "init" else resolve_workspace(args.workspace)
+        workspace = Workspace(args.workspace, args.documents) if args.command == "init" else resolve_workspace(args.workspace)
         if args.command == "init":
             if args.name is not None and (not args.name.strip() or len(args.name.strip()) > 80):
                 raise WorkspaceError("工作区名称应为 1–80 字符")
             workspace.initialize(example=args.example)
             if args.name is not None:
-                workspace._write_json("config/workspace.json", {"name": args.name.strip()})
-            print(f"工作区已建立：{args.workspace.resolve()}")
+                workspace._write_json("config/workspace.json", {**workspace._json("config/workspace.json"), "name": args.name.strip()})
+            print(f"系统目录已建立：{workspace.path}")
+            print(f"文档库已建立：{workspace.docs}")
             print(f"启动：ember serve --workspace {args.workspace} --port 8783")
             print(f"设为本机默认（让任意目录的 AI 找到它）：ember use {args.workspace}")
         elif args.command == "check":

@@ -22,6 +22,7 @@ class HTTPTests(unittest.TestCase):
         self.root = Path(self.temp.name) / "workspace"
         self.workspace = Workspace(self.root)
         self.workspace.initialize(example=True)
+        self.docs = self.workspace.docs
         self.registry = ExecutorRegistry(Path(self.temp.name) / "machine-home")
         self.server = LocalServer(self.workspace, 0, executor_registry=self.registry)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -52,6 +53,36 @@ class HTTPTests(unittest.TestCase):
         status, _, body = self.request(path, method, payload)
         self.assertEqual(status, 200, body)
         return json.loads(body)["data"]
+
+    def test_media_preview_is_inline_only_for_safe_types(self):
+        image = self.docs / "交付/草稿/autumn-plan/封面.png"
+        image.write_bytes(b"\x89PNG\r\n\x1a\nfixture")
+        (self.docs / "交付/草稿/autumn-plan/页面.svg").write_text("<svg onload='alert(1)'/>")
+        status, headers, body = self.request("/api/preview?id=" + quote("交付/草稿/autumn-plan/封面.png"))
+        self.assertEqual((status, headers["Content-Type"], body), (200, "image/png", image.read_bytes()))
+        self.assertIn("frame-ancestors 'self'", headers["Content-Security-Policy"])
+        self.assertNotIn("Content-Disposition", headers)
+        for name in ("页面.svg", "秋季内容方案V0.2草稿.md"):
+            self.assertEqual(self.request("/api/preview?id=" + quote(f"交付/草稿/autumn-plan/{name}"))[0], 415)
+        self.assertIn("frame-ancestors 'none'", self.request("/api/state")[1]["Content-Security-Policy"])
+        meta = next(item for item in self.data("/api/state")["files"] if item["name"] == "封面.png")
+        self.assertEqual(meta["preview"], "image")
+
+    def test_reveal_opens_only_indexed_files_task_folders_and_registered_locations(self):
+        with patch("ember.server.subprocess.run") as run:
+            run.return_value.returncode = 0
+            self.data("/api/reveal", "POST", {"id": "交付/草稿/autumn-plan/秋季内容方案V0.2草稿.md"})
+            self.assertEqual(Path(run.call_args.args[0][-1]), self.docs / "交付/草稿/autumn-plan/秋季内容方案V0.2草稿.md")
+            self.data("/api/reveal", "POST", {"task_id": "autumn-plan", "folder": "input", "mode": "open"})
+            self.assertEqual(Path(run.call_args.args[0][-1]), self.docs / "任务资料/autumn-plan")
+            for payload in ({"id": "../config/projects.json"}, {"id": "/etc/passwd"}, {"task_id": "autumn-plan", "folder": "../.."},
+                            {"project": "chenyu", "location": "/"}, {"id": "交付/草稿/autumn-plan/秋季内容方案V0.2草稿.md", "mode": "run"}):
+                self.assertGreaterEqual(self.request("/api/reveal", "POST", payload)[0], 400, payload)
+            self.assertEqual(run.call_count, 2)
+            run.return_value.returncode, run.return_value.stderr = 1, "LSOpenURLsWithRole() failed"
+            status, _, body = self.request("/api/reveal", "POST", {"task_id": "autumn-plan", "folder": "delivery"})
+            self.assertEqual(status, 400)
+            self.assertIn("LSOpenURLsWithRole", json.loads(body)["error"])
 
     def test_host_origin_and_write_token_are_enforced(self):
         self.assertEqual(self.request("/api/state", headers={"Host": "evil.example"})[0], 403)
@@ -121,17 +152,17 @@ class HTTPTests(unittest.TestCase):
     def test_reference_and_nonfile_completion_are_persisted(self):
         task = self.data("/api/tasks", "POST", {"title": "引用与无文件验证", "project": "independent", "goal": "保留引用与结果", "artifact_mode": "none"})
         identifier = task["id"]
-        source = "delivery/formal/may-plan/五月内容方案V1.0.md"
+        source = "交付/正式交付/may-plan/五月内容方案V1.0.md"
         result = self.data(f"/api/tasks/{identifier}/references", "POST", {"path": source, "purpose": "复用已交付资料"})
         self.assertEqual(result["storage"], "reference")
-        self.assertFalse((self.root / "inputs" / identifier).exists())
+        self.assertFalse((self.docs / "任务资料" / identifier).exists())
         self.assertEqual(self.request(f"/api/tasks/{identifier}/complete", "POST", {"confirmation": False})[0], 400)
         self.data(f"/api/tasks/{identifier}", "POST", {"current": "已核对引用", "log_entry": "无需独立文件"})
         self.data(f"/api/tasks/{identifier}/complete", "POST", {"confirmation": True})
         saved = next(t for t in Workspace(self.root).snapshot()["tasks"] if t["id"] == identifier)
         self.assertEqual(saved["status"], "completed")
         self.assertEqual(saved["inputs"], [source])
-        self.assertFalse((self.root / "delivery/formal" / identifier).exists())
+        self.assertFalse((self.docs / "交付/正式交付" / identifier).exists())
 
     def test_static_traversal_and_private_workspace_are_not_served(self):
         for path in ["/../pyproject.toml", "/assets/%2e%2e/server.py", "/.git/config", "/config/projects.json", "/assets/..%5cserver.py"]:
@@ -154,7 +185,7 @@ class HTTPTests(unittest.TestCase):
         item = self.workspace.snapshot()["files"][0]
         outside = Path(self.temp.name) / "secret.txt"
         outside.write_text("private")
-        target = self.root / item["id"]
+        target = self.docs / item["id"]
         target.unlink()
         target.symlink_to(outside)
         status, _, body = self.request("/api/raw?id=" + quote(item["id"]))
@@ -173,14 +204,14 @@ class HTTPTests(unittest.TestCase):
         saved = next(x for x in reloaded["tasks"] if x["id"] == identifier)
         self.assertEqual(saved["status"], "completed")
         self.assertEqual(saved["current"], "已保存结果")
-        self.assertTrue((self.root / "tasks/completed" / (identifier + ".md")).is_file())
-        self.assertEqual((self.root / "delivery/formal" / identifier / "产物.md").read_text(), "完整产物")
+        self.assertTrue((self.docs / "tasks/completed" / (identifier + ".md")).is_file())
+        self.assertEqual((self.docs / "交付/正式交付" / identifier / "产物.md").read_text(), "完整产物")
 
     def test_execution_metadata_is_persisted_through_existing_task_routes(self):
         task = self.data("/api/tasks", "POST", {"title": "执行器登记", "goal": "如实记录", "executor": "codex", "skills_used": ["ember"]})
         identifier = task["id"]
         self.data(f"/api/tasks/{identifier}", "POST", {"executor": "opencode", "skills_used": ["example-skill"]})
-        path = self.root / f"tasks/active/{identifier}.md"
+        path = self.docs / f"tasks/active/{identifier}.md"
         metadata = yaml.safe_load(path.read_text().split("---", 2)[1])
         self.assertEqual(metadata["executor"], "opencode")
         self.assertEqual(metadata["skills_used"], ["ember", "example-skill"])

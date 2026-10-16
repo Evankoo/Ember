@@ -1,28 +1,31 @@
 # 最小版接口约定
 
-业务数据存放在用户明确指定的一个本地工作区；软件登记单独存放在当前用户的私有本机配置中。工作台只监听本机回环地址。GET `/api/state` 返回 `{ok: true, data: snapshot}`，snapshot 中包含本次服务的 `csrf_token`；POST 使用 JSON 与 `X-Ember-Token` 请求头。其余成功接口同样返回 `{ok: true, data: result}`，失败返回 `{ok: false, error: message}`。
+规则、Skill 与配置存放在系统目录（默认 `~/Ember`），业务数据只存放在其文档库（默认 `~/Ember文档`，登记在系统目录 `config/workspace.json` 的 `documents`）；软件登记单独存放在当前用户的私有本机配置中。工作台只监听本机回环地址。GET `/api/state` 返回 `{ok: true, data: snapshot}`，snapshot 中包含本次服务的 `csrf_token`；POST 使用 JSON 与 `X-Ember-Token` 请求头。其余成功接口同样返回 `{ok: true, data: result}`，失败返回 `{ok: false, error: message}`。
 
 ## 工作区结构
 
 ```text
-config/projects.json          # {"projects": [{id,name,kind:project|system,description,focus,timeline: [{date,title,text}],category?: 分类名, locations?: [绝对路径]}]}
-projects/<project_id>.md      # 项目说明正本；全文作为 overview
+# 系统目录
+config/projects.json          # {"projects": [{id,name,kind:project|system,description,focus,category?: 分类名, locations?: [绝对路径]}]}
+config/workspace.json         # {name, documents: 文档库绝对路径}
+# 文档库（资料 ID、delivery.folder、inputs.folder 都相对文档库）
+项目/<project_id>/项目看板.md   # 项目说明正本：总览 / 工作位置与入口 / 范围与要求 / 当前阶段 / 时间线
 tasks/active/<task_id>.md
 tasks/completed/<task_id>.md
-inputs/<task_id>/
-delivery/draft/<task_id>/
-delivery/formal/<task_id>/
-inbox/
-reports/                     # Markdown 报告，可有 title/mode/date/related_task_ids frontmatter
-.ember/views.json          # {revision, important_task_ids: []}
-.ember/inbox.json          # 指纹标签台账
+任务资料/<task_id>/
+交付/草稿/<task_id>/
+交付/正式交付/<task_id>/
+Inbox/
+管理中心/整理记录/             # Markdown 报告，可有 title/mode/date/related_task_ids frontmatter
+管理中心/运行状态/任务视图/workbench-views.json   # {revision, important_task_ids: []}
+管理中心/运行状态/Inbox标签/inbox-labels.json    # 指纹标签台账
 ```
 
 任务卡使用标准 YAML frontmatter 与四个必需正文：`任务目标 / 任务描述 / 当前结果 / 执行日志`。下一步可选，完成无后续时移除；执行日志保持最后。生命周期只使用 `active / waiting_user / blocked / completed`，草稿是阶段与文件状态。标题为 20 字符以内的完整短语。必需字段为 type、task_id、title、project、work_type、task_kind、status、executor、created_at、updated_at、skills_used、artifact_mode。任务线使用 `task_kind: task_group`、`related_task_ids`；输入和输出文件记录不得混在同一个存储目录。
 
 ## Python 存储接口
 
-`Workspace(path)`，错误统一为 `WorkspaceError(message, status=400)`。单机服务原子写入并串行修改；拒绝工作区内符号链接及路径越界，不扫描工作区之外。
+`Workspace(system, documents=None)`（`path` 为系统目录，`docs` 为文档库），错误统一为 `WorkspaceError(message, status=400)`。单机服务原子写入并串行修改；拒绝工作区内符号链接及路径越界，不扫描工作区之外。
 
 ```python
 initialize(example=False)             # 拒绝覆盖非空目录；安装契约、任务模板与三 Skill，仍为底层空结构
@@ -77,7 +80,9 @@ GET  /api/state
 GET  /api/health
 GET  /api/settings
 GET  /api/file?id=...
-GET  /api/raw?id=...
+GET  /api/raw?id=...                 # 始终作为附件下载
+GET  /api/preview?id=...             # 图片、PDF、音视频在页面内预览；HTML、SVG 等不提供
+POST /api/reveal                     # {id} 或 {task_id, folder:input|delivery} 或 {project, location}；mode:reveal|open
 POST /api/onboarding/remove-init-skill
 POST /api/projects
 POST /api/tasks
@@ -97,7 +102,7 @@ POST /api/executors/save
 POST /api/executors/open
 ```
 
-上下文使用模型中立六段：任务、上下文、输入与真源、授权边界、成功标准、输出。所有内容均来自当前工作区，外部材料仅作为数据，复制不会产生任务或文件写入。明确打开本机软件是独立操作，不调用模型、不提交提示词、不改任务或交付状态。
+上下文与完整版共用结构：以 `## 余烬 · Ember 共享任务提示` 开头，依次为任务、上下文、输入与真源、授权边界、成功标准、输出。`/api/context` 接受 `request`、`relation`、`task_id`、`file_ids`、`attachments`、`project_id`、`page`，返回 `text` 与 `prefix`/`task`/`suffix`/`fixed`：只有「任务」一段可在确认弹窗中修改，复制与打开都用同一份重建的完整提示词。所有内容均来自当前工作区，外部材料仅作为数据，复制不会产生任务或文件写入。明确打开本机软件是独立操作，不调用模型、不提交提示词、不改任务或交付状态。
 
 ## 本机执行环境
 

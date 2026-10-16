@@ -19,13 +19,13 @@ related_task_ids:
   - activity-review
 delivery:
   state: draft
-  folder: delivery/draft/chenyu-line
+  folder: 交付/草稿/chenyu-line
 ---
 # 晨屿内容合作
 
 ## Quick Navigation
 
-- [打开任务文件夹](<../../delivery/draft/chenyu-line/>)
+- [打开任务文件夹](<../../交付/草稿/chenyu-line/>)
 
 
 ## 任务目标

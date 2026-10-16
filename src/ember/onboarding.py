@@ -11,7 +11,7 @@ import tempfile
 from . import __version__
 from .bootstrap import CONTRACT_FILES, PACKAGE, verify_workspace_contract
 from .project_registration import plan_project
-from .store import Workspace, WorkspaceError, _tree
+from .store import INBOX_LEDGER, VIEWS, Workspace, WorkspaceError, _now, _tree, project_card
 
 
 def _factory_workspace(workspace: Workspace, mode: str) -> None:
@@ -20,7 +20,7 @@ def _factory_workspace(workspace: Workspace, mode: str) -> None:
         raise WorkspaceError("初始化模式必须为 empty 或 example。")
     state = workspace.snapshot()
     allowed = {*CONTRACT_FILES, "config/projects.json", "config/workspace.json", "skills/manifest.json",
-               "skills/RESOLVER.md", ".ember/views.json", ".ember/inbox.json", ".ember/service.lock"}
+               "skills/RESOLVER.md", VIEWS, INBOX_LEDGER, ".ember/service.lock"}
     for name in ("ember-init", "ember", "ember-project"):
         source = PACKAGE / "skills" / name
         allowed.update(f".agents/skills/{name}/{p.relative_to(source).as_posix()}" for p in source.rglob("*")
@@ -36,7 +36,10 @@ def _factory_workspace(workspace: Workspace, mode: str) -> None:
                 allowed.add(relative)
                 if relative != "config/workspace.json" and workspace._safe(relative, exists=True).read_bytes() != path.read_bytes():
                     raise WorkspaceError("示例已修改，拒绝将其视为新安装。", 409)
-    if any(p.relative_to(workspace.path).as_posix() not in allowed for p in _tree(workspace.path) if p.is_file()):
+    # The program's own folder (app/, with its virtual environment links) is not workspace content.
+    roots = [item for item in workspace.path.iterdir() if item.name != "app"] + [workspace.docs]
+    present = [p for root in roots for p in _tree(root) if p.is_file()]
+    if any(workspace._rel(p) not in allowed for p in present):
         raise WorkspaceError("工作区已有额外文件，停止安装登记并保留现场。", 409)
 
 
@@ -45,8 +48,12 @@ def _app_directory(workspace: Workspace, app_dir: Path) -> Path:
     if original.is_symlink() or not original.is_dir():
         raise WorkspaceError("应用目录必须是实际存在的独立目录。")
     app = original.resolve()
-    if app == workspace.path or app in workspace.path.parents or workspace.path in app.parents:
-        raise WorkspaceError("应用目录和工作区不能互相包含。")
+    # The program lives in the system folder's app/ subfolder, or in its own folder;
+    # it must never hold, or sit inside, the document library.
+    if app != workspace.path / "app" and (app == workspace.path or app in workspace.path.parents or workspace.path in app.parents):
+        raise WorkspaceError("应用目录应为系统目录下的 app，或与系统目录互不包含。")
+    if app == workspace.docs or app in workspace.docs.parents or workspace.docs in app.parents:
+        raise WorkspaceError("应用目录和文档库不能互相包含。")
     return app
 
 
@@ -58,11 +65,18 @@ def begin_installation(workspace: Workspace, *, app_dir: Path, executor: str = "
         proposal = plan_project(workspace, {"id": "ember", "name": "余烬", "kind": "system",
                                "description": "管理本机余烬的安装、验收和后续独立系统维护；不代替业务项目。",
                                "focus": "完成本次首次安装与人工验收",
-                               "overview": "# 余烬\n\n## 系统用途\n\n本机余烬的安装、验收与维护入口。业务目标使用独立业务项目。\n\n## 边界\n\n只管理本地工作区；不配置模型凭据、不自动运行 AI，也不提供归档或删除接口。\n"})
+                               "overview": "\n".join([
+                                   "# 余烬", "", "## 当前概况", "", "本机余烬的安装、验收与维护入口。业务目标使用独立业务项目。", "",
+                                   "## 工作位置与入口", "", "| 类型 | 环境 | 路径或网址 | 用途与访问说明 |", "|---|---|---|---|",
+                                   f"| 系统目录 | 本机 | `{workspace.path}` | 规则、Skill、配置与程序；平时不用打开 |",
+                                   f"| 文档库 | 本机 | `{workspace.docs}` | 项目、任务、输入资料与交付 |", "",
+                                   "## 范围与要求", "", "只管理本机余烬；不配置模型凭据、不自动运行 AI，也不提供归档或删除接口。", "",
+                                   "## 当前阶段", "", "完成本次首次安装与人工验收。", "",
+                                   "## 时间线", "", f"- {_now()[:10]}：安装余烬并登记本系统。", ""])})
         if not proposal["can_create"]:
             raise WorkspaceError("余烬系统项目已存在；保留现有安装，不重复创建。", 409)
         workspace.create_project(proposal["project"])
-        return {"system_project_id": "ember", "system_project_path": "projects/ember.md"}
+        return {"system_project_id": "ember", "system_project_path": project_card("ember")}
 
 
 def record_installation(workspace: Workspace, receipt: dict) -> dict:
@@ -95,7 +109,7 @@ def record_installation(workspace: Workspace, receipt: dict) -> dict:
     next_step = ("按启动命令打开工作台并配置当前 AI 工具；由 ember 使用普通建任务接口，将当前对话建成第一张真实任务卡。用户在工作台检查 OK 后，再通过 ember-project 确认并建立练习项目。" if status == "ready"
                  else "检查应用目录中的安装收据、失败说明及保留的隔离测试目录；修复前保留现有证据，不重置工作区。")
     content = (f"# 余烬安装记录\n\n- 版本：{__version__}\n- 安装状态：{status}\n- 阶段：{stage}\n"
-               f"- 应用目录：{app}\n- 工作区：{workspace.path}\n- 模式：{receipt['mode']}\n"
+               f"- 应用目录：{app}\n- 系统目录：{workspace.path}\n- 文档库：{workspace.docs}\n- 模式：{receipt['mode']}\n"
                f"- 检查：{'、'.join(checks) or '尚无'}\n\n{current}\n\n"
                "技术测试使用隔离工作区。安装记录保存在应用目录，不是任务输入或交付；安装脚本不创建首任务，不调用模型。\n\n"
                f"## 下一步\n\n{next_step}\n")

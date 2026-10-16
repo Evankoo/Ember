@@ -1,27 +1,32 @@
 # 工作区与使用说明
 
-安装程序和工作数据相互独立。初始化建立以下相对路径：
+和完整版一样分成两处：系统目录（默认 `~/Ember`）放规则、Skill、配置和程序；文档库（默认 `~/Ember文档`）只放任务与资料。
 
 ```text
-AGENTS.md           系统操作规则正本
-SOUL.md             工作原则
-MEMORY.md           空白的长期上下文记录
-RESOLVER.md         当前工作区相对路径
-WORKBENCH_DESIGN.md  统一设计约定
-.agents/skills/     初始三项 Skill；确认移除向导后保留日常与建项
-skills/             Skill 登记与路由
-templates/          任务卡创建模板
-config/             项目/系统注册与工作区名称
-projects/           项目说明 Markdown（总览 / 工作位置与入口 / 范围与要求 / 当前阶段 / 时间线）
-tasks/active/       活跃、等待确认或阻碍中的任务卡
-tasks/completed/    已完成任务卡
-inputs/             每项任务的输入快照
-delivery/draft/     草稿交付
-delivery/formal/    正式交付
-inbox/              本地待分类来源
-reports/            已保存的检视报告
-.ember/           重要事项与 Inbox 标签
+~/Ember/
+  AGENTS.md            系统操作规则正本
+  SOUL.md              工作原则
+  MEMORY.md            空白的长期上下文记录
+  RESOLVER.md          位置说明
+  WORKBENCH_DESIGN.md  统一设计约定
+  .agents/skills/      初始三项 Skill；确认移除向导后保留日常与建项
+  skills/              Skill 登记与路由
+  templates/           任务卡创建模板
+  config/              项目/系统注册、文档库位置与名称
+  app/                 程序与安装记录
+~/Ember文档/
+  项目/<id>/项目看板.md  项目说明（总览 / 工作位置与入口 / 范围与要求 / 当前阶段 / 时间线）
+  tasks/active/        活跃、等待确认或阻碍中的任务卡
+  tasks/completed/     已完成任务卡
+  任务资料/<task_id>/   每项任务的输入快照
+  交付/草稿/            草稿交付
+  交付/正式交付/        正式交付
+  Inbox/               本地待分类来源
+  管理中心/整理记录/     已保存的检视报告
+  管理中心/运行状态/     重要事项与 Inbox 标签
 ```
+
+Finder 生成的 `.DS_Store` 等隐藏文件不会被当成资料。旧版单目录工作区请用 `ember migrate-layout <旧文件夹> ~/Ember` 复制迁移；原文件夹保持不动。
 
 可以关闭服务后编辑 Markdown，再重新启动读取。编辑时保留必需的 frontmatter 和四个必需正文标题（任务目标、任务描述、当前结果、执行日志）；下一步按需添加，执行日志保持最后；错误卡片会明确报错，不会被默默当成不存在。未识别的旧系统数据应先人工核对，不要直接整库拷入。
 
@@ -37,7 +42,7 @@ reports/            已保存的检视报告
 
 ## 输入与交付
 
-界面“添加资料”只新增 UTF-8 文字文件，可选输入、草稿或已有资料引用。新增文字内容受单次 1 MiB 请求限制。同名文件不可覆盖；变更材料应另起名字。图片、PDF 等已有草稿文件可在关闭服务后放入对应任务交付目录，并同步任务卡的 artifact_mode、delivery.state/folder、outputs 和 Quick Navigation，随后校验；资料浏览提供下载。输入快照需要在任务卡 `inputs.items` 登记相对路径、大小、SHA-256、来源和用途，校验会拒绝缺失或变更的快照；不要只放文件而省略登记。文本预览仅支持可读文字格式。
+界面“添加资料”只新增 UTF-8 文字文件，可选输入、草稿或已有资料引用。新增文字内容受单次 1 MiB 请求限制。同名文件不可覆盖；变更材料应另起名字。图片、PDF 等已有草稿文件可在关闭服务后放入对应任务交付目录，并同步任务卡的 artifact_mode、delivery.state/folder、outputs 和 Quick Navigation，随后校验；资料浏览提供下载。输入快照需要在任务卡 `inputs.items` 登记相对路径、大小、SHA-256、来源和用途，校验会拒绝缺失或变更的快照；不要只放文件而省略登记。任务页与资料浏览可直接预览文字、图片、PDF 与音视频；其他格式可用系统应用打开或下载。
 
 示例输入登记可以引用工作区内已有输入或正式交付，不复制来源。界面支持通过已有文件路径登记新引用，校验位置且不复制。输入登记使用 `storage`、`size`、`source_locator`、`source_environment`、`sha256`、`added_at` 等字段。
 
@@ -47,7 +52,7 @@ reports/            已保存的检视报告
 
 ## Inbox 与旧资料
 
-把真实待分类包放入 `inbox/`。标签 `未分类 / 处理中 / 待归档 / 可删除` 由内容指纹关联，不移动来源。工作台不会扫描系统 Downloads。
+把真实待分类包放入文档库的 `Inbox/`。标签 `未分类 / 处理中 / 待归档 / 可删除` 由内容指纹关联，不移动来源。工作台不会扫描系统 Downloads。
 
 标签是资料状态元数据；`待归档` 或 `可删除` 的名字不授权任何操作。v0.3.0 不包含归档中心、归档复制接口或永久删除操作，也不自动把标签转换成文件处理动作。
 

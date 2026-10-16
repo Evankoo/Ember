@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Install into two new local directories; retain partial state on failure."""
+"""Install into the fixed system folder and document library; retain partial state on failure.
+
+Defaults match the full system's split: ~/Ember holds rules, Skills, configuration
+and the program (app/); ~/Ember文档 holds only tasks, inputs, deliveries and projects.
+"""
 from __future__ import annotations
 
 import argparse
@@ -30,14 +34,22 @@ def new_directory(value):
     return result
 
 
+def contains(parent, child):
+    return parent == child or parent in child.parents
+
+
 def validate(args):
     if sys.version_info < (3, 10):
         raise ValueError("需要 Python 3.10 或更新版本")
     if platform.system() not in {"Darwin", "Linux"}:
         raise ValueError("此版本支持 macOS 和 Linux")
-    app, workspace = new_directory(args.app_dir), new_directory(args.workspace)
-    if app == workspace or app in workspace.parents or workspace in app.parents:
-        raise ValueError("应用目录和数据目录必须独立，不能互相包含")
+    workspace = new_directory(args.workspace or Path.home() / "Ember")
+    documents = new_directory(args.documents or workspace.parent / (workspace.name + "文档"))
+    app = new_directory(args.app_dir or workspace / "app")
+    if contains(workspace, documents) or contains(documents, workspace):
+        raise ValueError("系统目录和文档库必须独立，不能互相包含")
+    if contains(app, documents) or contains(documents, app) or (app != workspace / "app" and (contains(app, workspace) or contains(workspace, app))):
+        raise ValueError("程序目录应为系统目录下的 app，且不能与文档库互相包含")
     if not args.name.strip() or len(args.name.strip()) > 80:
         raise ValueError("工作区名称应为 1–80 字符")
     executor = getattr(args, "executor", "manual")
@@ -53,9 +65,9 @@ def validate(args):
         if not ((source.is_dir() and (source / "pyproject.toml").is_file()) or
                 (source.is_file() and source.suffix == ".whl")):
             raise ValueError("source 应为本地源码目录或 wheel 文件")
-        if source == app or app in source.parents or source == workspace or workspace in source.parents:
-            raise ValueError("安装源不能位于新应用或数据目录中")
-    return app, workspace, source
+        if any(contains(root, source) for root in (app, workspace, documents)):
+            raise ValueError("安装源不能位于新系统目录、程序目录或文档库中")
+    return app, workspace, documents, source
 
 
 SMOKE = r'''
@@ -65,7 +77,7 @@ from ember.store import Workspace
 from ember.bootstrap import verify_workspace_contract
 from ember.server import LocalServer
 directory = sys.argv[1]
-w = Workspace(Path(directory) / "workspace")
+w = Workspace(Path(directory) / "Ember")
 w.initialize()
 w.create_project({"name": "验证项目", "id": "check", "description": "临时验证"})
 t = w.create_task({"title": "验证正式交付", "project": "check", "goal": "验证真实文件保存"})
@@ -73,11 +85,11 @@ w.add_material(t["id"], {"kind": "input", "name": "输入.md", "content": "验�
 w.add_material(t["id"], {"kind": "draft", "name": "成果.md", "content": "验证交付"})
 w.promote_task(t["id"], {"confirmation": True})
 r = w.create_task({"title": "验证无文件完成", "project": "independent", "goal": "无需文件", "artifact_mode": "none"})
-w.add_reference(r["id"], {"path": f"delivery/formal/{t['id']}/成果.md", "purpose": "验证引用不复制"})
+w.add_reference(r["id"], {"path": f"交付/正式交付/{t['id']}/成果.md", "purpose": "验证引用不复制"})
 w.complete_task(r["id"], {"confirmation": True})
 state = w.snapshot()
 assert len(state["tasks"]) == 2 and all(t["status"] == "completed" for t in state["tasks"])
-assert (w.path / "delivery/formal" / t["id"] / "成果.md").read_text() == "验证交付"
+assert (w.docs / "交付/正式交付" / t["id"] / "成果.md").read_text() == "验证交付"
 verify_workspace_contract(w)
 server = LocalServer(w, 0)
 thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -93,9 +105,9 @@ print("临时工作区验证通过：输入、交付、无文件完成、本机 
 
 
 def run(args):
-    app, workspace, source = validate(args)
+    app, workspace, documents, source = validate(args)
     receipt = {"version": VERSION, "status": "installing", "stage": "environment",
-               "app_dir": str(app), "workspace": str(workspace), "mode": args.mode,
+               "app_dir": str(app), "workspace": str(workspace), "documents": str(documents), "mode": args.mode,
                "name": args.name.strip(), "executor": getattr(args, "executor", "manual").strip(),
                "checks": [], "created_at": datetime.now(timezone.utc).isoformat()}
     app.mkdir(parents=True, exist_ok=True)
@@ -129,7 +141,7 @@ def run(args):
 
     save()
     try:
-        print("1/5 建立独立应用目录与 Python 环境", flush=True)
+        print(f"1/5 在 {app} 建立程序与 Python 环境", flush=True)
         command([sys.executable, "-m", "venv", app / ".venv"])
         python = app / ".venv/bin/python"
         receipt["stage"] = "package"
@@ -148,14 +160,14 @@ def run(args):
         command([python, "-m", "pip", "install", "--disable-pip-version-check", source])
         receipt["stage"] = "workspace"
         save()
-        print("3/5 建立已确认的新工作区与规范目录", flush=True)
-        init = [python, "-m", "ember", "init", workspace, "--name", args.name.strip()]
+        print(f"3/5 建立系统目录 {workspace} 与文档库 {documents}", flush=True)
+        init = [python, "-m", "ember", "init", workspace, "--documents", documents, "--name", args.name.strip()]
         if args.mode == "example":
             init.append("--example")
         quiet(init)
         receipt["stage"] = "system-project"
         save()
-        print("4/5 登记余烬系统项目；安装记录保存在应用目录", flush=True)
+        print("4/5 登记余烬系统项目；安装记录保存在程序目录", flush=True)
         receipt.update(capture([python, "-m", "ember.onboarding", "begin", "--workspace", workspace,
                                "--app-dir", app, "--executor", receipt["executor"], "--mode", args.mode]))
         save()
@@ -164,7 +176,7 @@ def run(args):
         receipt.update(stage="verification", check_argv=check, startup_argv=start)
         save()
         write_back()
-        print("5/5 检查真实工作区；在隔离工作区验证任务、交付和 HTTP，保存安装报告", flush=True)
+        print("5/5 检查系统目录与文档库；在隔离目录验证任务、交付和 HTTP，保存安装报告", flush=True)
         command(check)
         receipt["checks"].append("workspace-contract")
         verification = Path(tempfile.mkdtemp(prefix="ember-init-check-"))
@@ -190,7 +202,7 @@ def run(args):
         print(json.dumps(receipt, ensure_ascii=False, indent=2))
         print(f"安装收据：{receipt_path}\n安装报告：{receipt['report_path']}\n启动：{shlex.join(start)}\n停止：在服务进程按 Ctrl+C\n下一步：打开工作台并配置当前 AI 工具；由 ember 将当前对话建成第一张任务卡，用户检查 OK 后再通过 ember-project 建立练习项目。")
         if receipt["default_workspace"] == "registered":
-            print(f"本机默认工作区：{workspace}（记录在 ~/.config/ember/workspace.json）")
+            print(f"本机默认：系统目录 {workspace}，文档库 {documents}（记录在 ~/.config/ember/workspace.json）")
         else:
             print(f"本机已有另一个默认工作区，未替换：{receipt['default_workspace_note']}")
         return 0
@@ -210,9 +222,10 @@ def run(args):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="在新目录中安装余烬并验证初始化")
-    parser.add_argument("--app-dir", required=True)
-    parser.add_argument("--workspace", required=True)
+    parser = argparse.ArgumentParser(description="安装余烬到固定位置并验证初始化：系统目录 ~/Ember，文档库 ~/Ember文档")
+    parser.add_argument("--workspace", help="系统目录；默认 ~/Ember")
+    parser.add_argument("--documents", help="文档库；默认与系统目录同级的“<系统目录名>文档”")
+    parser.add_argument("--app-dir", help="程序目录；默认系统目录下的 app")
     parser.add_argument("--mode", choices=("empty", "example"), required=True)
     parser.add_argument("--name", default="余烬")
     parser.add_argument("--port", type=int, default=8783)

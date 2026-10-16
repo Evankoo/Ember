@@ -57,21 +57,24 @@ AI 读取 `ember-project`，先查重并展示名称、用途、范围和独立�
 初始 ZIP 有 `ember-init/`、`ember/`、`ember-project/` 三个同级目录，init 内附同版本 wheel。wheel 包含程序、三个 Skill、系统规则、页面、虚构示例及字体许可证。程序依赖 Python ≥3.10、macOS / Linux；PyYAML 仍需网络或缓存，不声称完全离线。
 
 ```text
-程序目录/
-  .venv/                         独立程序环境
-  installation.json              安装选择、阶段、检查和启动参数
-  installation-report.md         成功时的技术安装记录
-  installation-failure.md         失败时的说明（仅失败时生成）
-文档库/
-  projects/ember.md             自动建立的系统项目
-  tasks/active/                   安装刚结束时为空
-  tasks/completed/                最终确认完成的任务
-  inputs/                         首卡建立后保存安装记录快照
-  delivery/draft/                 有真实成果才创建任务子目录
-  delivery/formal/
-  inbox/ reports/
+~/Ember/                          系统目录（与完整版的运行目录对应）
+  AGENTS.md SOUL.md MEMORY.md RESOLVER.md WORKBENCH_DESIGN.md
   .agents/skills/                 初始三项，确认移除后两项
   skills/manifest.json            当前 Skill 登记与引导完成记录
+  templates/ config/              任务卡模板；项目注册与文档库位置
+  app/                            程序目录
+    .venv/                        独立程序环境
+    installation.json             安装选择、阶段、检查和启动参数
+    installation-report.md        成功时的技术安装记录
+    installation-failure.md       失败时的说明（仅失败时生成）
+~/Ember文档/                      文档库（与完整版的共享文档目录对应）
+  项目/ember/项目看板.md           自动建立的系统项目
+  tasks/active/                   安装刚结束时为空
+  tasks/completed/                最终确认完成的任务
+  任务资料/                        首卡建立后保存安装记录快照
+  交付/草稿/  交付/正式交付/        有真实成果才创建任务子目录
+  Inbox/                          待分类资料
+  管理中心/整理记录/  管理中心/运行状态/
 ```
 
 空白安装刚结束为 **1 项目 / 0 任务**；日常 Skill 建卡后为 **1 / 1**；练习建项后为 **2 / 1**。最终确认把首任务移到 completed，不删除它。示例模式原有 2 项目 / 8 示例任务，安装仅增加系统项目；后续建真实首卡和练习项目后为 4 / 9。普通 `ember init` 只建骨架，空白为 0 / 0，示例为 2 / 8，不执行完整引导。

@@ -82,7 +82,7 @@ class BootstrapTests(unittest.TestCase):
         self.assertEqual(main(["check", "--workspace", str(workspace.path)]), 1)
 
     def args(self, **changes):
-        values = dict(app_dir=str(self.root / "app"), workspace=str(self.root / "data"),
+        values = dict(app_dir=str(self.root / "app"), workspace=str(self.root / "data"), documents=None,
                       name="Ember", port=8783, source=None, mode="empty", executor="opencode")
         values.update(changes)
         return argparse.Namespace(**values)
@@ -99,6 +99,25 @@ class BootstrapTests(unittest.TestCase):
             helper.validate(self.args(app_dir=str(self.root / "new"), workspace=str(self.root / "new/data")))
         self.assertFalse((self.root / "new").exists())
 
+    def test_default_locations_are_fixed_under_the_user_folder(self):
+        with patch.dict(os.environ, {"HOME": str(self.root)}):
+            app, workspace, documents, _ = helper.validate(self.args(app_dir=None, workspace=None))
+        base = self.root.resolve()
+        self.assertEqual((workspace, documents, app), (base / "Ember", base / "Ember文档", base / "Ember/app"))
+        with self.assertRaises(ValueError):
+            helper.validate(self.args(workspace=str(self.root / "sys"), documents=str(self.root / "sys/docs")))
+
+    def test_default_installer_keeps_program_in_system_folder_and_data_in_library(self):
+        result, receipt = self.run_installer_fixture(app_dir=None)
+        self.assertEqual(result, 0)
+        workspace = Workspace(self.root / "data")
+        self.assertEqual(Path(receipt["app_dir"]), workspace.path / "app")
+        self.assertEqual(Path(receipt["documents"]), workspace.docs)
+        self.assertEqual(sorted(p.name for p in workspace.docs.iterdir()), ["Inbox", "tasks", "交付", "任务资料", "管理中心", "项目"])
+        self.assertTrue((workspace.docs / "项目/ember/项目看板.md").is_file())
+        self.assertFalse((workspace.path / "tasks").exists())
+        self.assertTrue((workspace.path / "app/installation-report.md").is_file())
+
     def test_taken_port_fails_before_installation(self):
         with socket.socket() as listener:
             listener.bind(("127.0.0.1", 0))
@@ -106,7 +125,7 @@ class BootstrapTests(unittest.TestCase):
                 helper.validate(self.args(port=listener.getsockname()[1]))
         self.assertFalse((self.root / "app").exists())
 
-    def run_installer_fixture(self, *, fail_workflow=False, fail_package=False, mode="empty"):
+    def run_installer_fixture(self, *, fail_workflow=False, fail_package=False, mode="empty", app_dir="app"):
         """Mock only package installation; run real Core subprocesses and writes."""
         real_run = subprocess.run
 
@@ -123,7 +142,7 @@ class BootstrapTests(unittest.TestCase):
             if fail_workflow and argv[1:3] == ["-c", helper.SMOKE]:
                 raise RuntimeError("fixture isolated workflow failed")
             # The fixture does not create a real venv; retain this test interpreter's dependencies.
-            if Path(argv[0]) == self.root.resolve() / "app/.venv/bin/python":
+            if Path(argv[0]) in (self.root.resolve() / "app/.venv/bin/python", self.root.resolve() / "data/app/.venv/bin/python"):
                 argv = [sys.executable, *argv[1:]]
             return real_run(argv, **kwargs)
 
@@ -134,8 +153,10 @@ class BootstrapTests(unittest.TestCase):
         self.home.mkdir(exist_ok=True)
         # Installer subprocesses write machine config under HOME; never touch the real one.
         with patch.object(helper.subprocess, "run", side_effect=run), patch.dict(os.environ, {"HOME": str(self.home)}):
-            result = helper.run(self.args(source=str(Path(__file__).resolve().parents[1]), port=port, mode=mode))
-        return result, json.loads((self.root / "app/installation.json").read_text())
+            result = helper.run(self.args(source=str(Path(__file__).resolve().parents[1]), port=port, mode=mode,
+                                          app_dir=app_dir and str(self.root / app_dir)))
+        app = self.root / app_dir if app_dir else self.root / "data/app"
+        return result, json.loads((app / "installation.json").read_text())
 
     def test_real_installer_preserves_app_record_without_creating_first_task(self):
         result, receipt = self.run_installer_fixture()

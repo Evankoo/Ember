@@ -8,7 +8,7 @@ from . import __version__
 PACKAGE = Path(__file__).resolve().parent
 CONTRACT_FILES = ("AGENTS.md", "SOUL.md", "MEMORY.md", "RESOLVER.md", "WORKBENCH_DESIGN.md", "templates/task-card.md")
 INIT_ROUTE = "- 首次安装或建立新工作区：读取 [ember-init](../.agents/skills/ember-init/SKILL.md)。"
-INIT_ROOT_ROUTE = "| 首次安装 Skill | .agents/skills/ember-init/SKILL.md |"
+INIT_ROOT_ROUTE = "| 首次安装 Skill | 系统目录 .agents/skills/ember-init/SKILL.md |"
 
 
 def install_workspace_contract(workspace):

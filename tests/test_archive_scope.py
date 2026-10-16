@@ -18,8 +18,9 @@ class ArchiveScopeTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name) / 'workspace'
-        self.workspace = Workspace(self.root)
+        self.workspace = Workspace(Path(self.temp.name) / 'workspace')
+        # Historical archive files and task cards live in the document library.
+        self.root = self.workspace.docs
 
     def bytes(self):
         return {str(p.relative_to(self.root)): p.read_bytes() for p in self.root.rglob('*') if p.is_file()}
@@ -44,9 +45,10 @@ class ArchiveScopeTests(unittest.TestCase):
         legacy = self.root / 'archive/sample/previous/notes.md'
         legacy.parent.mkdir(parents=True)
         legacy.write_text('Historical user-owned file: preserve it.\n')
+        (self.root / '.ember').mkdir()
         (self.root / '.ember/archive-records.json').write_text('old malformed receipt: do not migrate\n')
         before = self.bytes()
-        state = Workspace(self.root).snapshot()
+        state = Workspace(self.workspace.path).snapshot()
         self.assertNotIn('archives', state)
         self.assertNotIn(legacy.relative_to(self.root).as_posix(), {f['id'] for f in state['files']})
         with self.assertRaises(WorkspaceError):

@@ -38,7 +38,7 @@ class ProjectLocationTests(unittest.TestCase):
 
     def test_new_project_card_uses_the_shared_skeleton_with_working_locations(self):
         result = self.create(locations=[str(self.code)])
-        overview = (self.workspace.path / "projects/autumn.md").read_text(encoding="utf-8")
+        overview = (self.workspace.docs / "项目/autumn/项目看板.md").read_text(encoding="utf-8")
         for heading in ("## 项目总览", "## 工作位置与入口", "## 范围与要求", "## 当前阶段", "## 时间线"):
             self.assertIn(heading, overview)
         self.assertIn(f"`{self.code}`", overview)
@@ -48,7 +48,7 @@ class ProjectLocationTests(unittest.TestCase):
 
     def test_project_without_location_says_it_is_pending(self):
         self.create()
-        overview = (self.workspace.path / "projects/autumn.md").read_text(encoding="utf-8")
+        overview = (self.workspace.docs / "项目/autumn/项目看板.md").read_text(encoding="utf-8")
         self.assertIn("ember project-location", overview)
         self.assertEqual(next(p for p in self.workspace.snapshot()["projects"] if p["id"] == "autumn")["locations"], [])
 
@@ -56,15 +56,15 @@ class ProjectLocationTests(unittest.TestCase):
         for bad in (["relative/path"], ["/ok", "/ok"], ["/tmp/a\nb"], "/not-a-list"):
             with self.subTest(bad=bad), self.assertRaises(WorkspaceError):
                 self.create(locations=bad)
-        self.assertFalse((self.workspace.path / "projects/autumn.md").exists())
+        self.assertFalse((self.workspace.docs / "项目/autumn/项目看板.md").exists())
 
     def test_locations_are_added_and_removed_without_touching_the_card(self):
         self.create()
-        card = (self.workspace.path / "projects/autumn.md").read_bytes()
+        card = (self.workspace.docs / "项目/autumn/项目看板.md").read_bytes()
         self.assertEqual(self.workspace.update_project_locations("autumn", {"add": str(self.code)})["locations"], [str(self.code)])
         self.assertEqual(self.workspace.update_project_locations("autumn", {"add": str(self.code)})["locations"], [str(self.code)])
         self.assertEqual(self.workspace.update_project_locations("autumn", {"remove": str(self.code)})["locations"], [])
-        self.assertEqual((self.workspace.path / "projects/autumn.md").read_bytes(), card)
+        self.assertEqual((self.workspace.docs / "项目/autumn/项目看板.md").read_bytes(), card)
         with self.assertRaises(WorkspaceError) as caught:
             self.workspace.update_project_locations("missing", {"add": str(self.code)})
         self.assertEqual(caught.exception.status, 404)

@@ -46,8 +46,8 @@ class Fixture(unittest.TestCase):
                                           "executor": "opencode", "skills_used": ["ember"]})
 
     def files(self):
-        return {str(p.relative_to(self.workspace.path)): p.read_bytes()
-                for p in self.workspace.path.rglob("*") if p.is_file()}
+        return {self.workspace._rel(p): p.read_bytes()
+                for root in (self.workspace.path, self.workspace.docs) for p in root.rglob("*") if p.is_file()}
 
 
 class OnboardingTests(Fixture):
@@ -60,9 +60,9 @@ class OnboardingTests(Fixture):
         self.assertEqual(state["files"], [])
         self.assertNotIn("task_id", start)
         self.assertNotIn("task_path", start)
-        for folder in ("inputs", "delivery/draft", "delivery/formal"):
-            self.assertEqual(list((self.workspace.path / folder).iterdir()), [])
-        self.assertFalse((self.workspace.path / "archive").exists())
+        for folder in ("任务资料", "交付/草稿", "交付/正式交付"):
+            self.assertEqual(list((self.workspace.docs / folder).iterdir()), [])
+        self.assertFalse((self.workspace.docs / "archive").exists())
 
     def test_ready_receipt_produces_app_report_without_workspace_mutation(self):
         from ember.onboarding import record_installation
@@ -191,7 +191,7 @@ class OnboardingTests(Fixture):
     def test_modified_example_or_unexpected_file_is_not_a_new_installation(self):
         self.workspace = Workspace(self.root / "modified-example")
         self.workspace.initialize(example=True)
-        card = next((self.workspace.path / "tasks/active").glob("*.md"))
+        card = next((self.workspace.docs / "tasks/active").glob("*.md"))
         card.write_text(card.read_text().replace("## 当前结果", "## 当前结果\n\n用户已经续接。"))
         before = self.files()
         with self.assertRaises(WorkspaceError):
@@ -259,7 +259,7 @@ class ProjectRegistrationTests(Fixture):
             self.assertEqual(before, self.files())
         result = register_project(self.workspace, self.proposal(), task_id=start["id"], confirmation=True)
         self.assertEqual(result["id"], "my-project")
-        self.assertTrue((self.workspace.path / "projects/my-project.md").is_file())
+        self.assertTrue((self.workspace.docs / "项目/my-project/项目看板.md").is_file())
         state = self.workspace.snapshot()
         self.assertEqual(len(state["tasks"]), 1)
         self.assertEqual(state["tasks"][0]["project"], "ember")
@@ -297,7 +297,7 @@ class ProjectRegistrationTests(Fixture):
         plan.write_text(json.dumps(self.proposal()))
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(helper.main(confirmed), 0)
-        self.assertTrue((self.workspace.path / "projects/my-project.md").is_file())
+        self.assertTrue((self.workspace.docs / "项目/my-project/项目看板.md").is_file())
 
     def test_same_id_or_name_is_never_overwritten_and_reserved_scope_is_rejected(self):
         from ember.project_registration import plan_project, register_project

@@ -14,7 +14,7 @@ skills_used:
 artifact_mode: delivery
 inputs:
   items:
-    - path: inputs/pricing-template/现行报价资料.md
+    - path: 任务资料/pricing-template/现行报价资料.md
       purpose: 报价模板修改的原始依据，金额与范围均为虚构。
       sha256: b10bd95277048f93a400283a3d8d0dc4167e40eca3ecba164213fff06ed7331a
       added_at: '2026-09-22 12:00:00+08:00'
@@ -22,20 +22,20 @@ inputs:
       size: 1508
       id: example-pricing-template-1
       name: 现行报价资料.md
-      source_locator: inputs/pricing-template/现行报价资料.md
+      source_locator: 任务资料/pricing-template/现行报价资料.md
       source_environment: fictional-example
-  folder: inputs/pricing-template
+  folder: 任务资料/pricing-template
 outputs:
-  - delivery/draft/pricing-template/报价模板V0.2草稿.md
+  - 交付/草稿/pricing-template/报价模板V0.2草稿.md
 delivery:
   state: draft
-  folder: delivery/draft/pricing-template
+  folder: 交付/草稿/pricing-template
 ---
 # 报价模板更新
 
 ## Quick Navigation
 
-- [打开任务文件夹](<../../delivery/draft/pricing-template/>)
+- [打开任务文件夹](<../../交付/草稿/pricing-template/>)
 
 
 ## 任务目标

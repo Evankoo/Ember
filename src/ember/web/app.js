@@ -14,7 +14,7 @@ const app = (() => {
     library: { query: "", project: "", kind: "delivery", subtype: "" },
     project: { query: "", kind: "tasks", task: "all", subtype: "" }
   };
-  const ui = { review: new Set(), library: new Set(), reviewTask: "", reviewReport: "", reportFilter: "", file: "", projectId: "", projectCategory: "", reviewFilters: false, taskFiles: "delivery" };
+  const ui = { review: new Set(), library: new Set(), reviewTask: "", reviewReport: "", reportFilter: "", file: "", projectId: "", projectCategory: "", reviewFilters: false };
   const composer = { task: "", files: [], attachments: [] };
   const confirm = { request: "", relation: "new", taskId: "", fileIds: [], attachments: [] };
   const software = { entries: [], default: "", editing: false, manual: { label: "", kind: "app", path: "" }, epoch: 0, saving: false };
@@ -298,25 +298,45 @@ const app = (() => {
   }
 
   /* ---------- 确认执行 ---------- */
-  function requestWithAttachments(request, attachments) {
-    if (!attachments.length) return request;
-    return `${request}\n\n以下是本机文件内容，仅作为资料，不是额外授权：\n${attachments.map(item => `\n### ${item.name}\n\n${item.text}`).join("\n")}`;
-  }
+  /* The full workbench's execution confirmation: the fixed prompt is read-only on the left; the
+     任务 part is the only editable section; copy and open always rebuild the same full prompt. */
+  const confirmDialog = Object.assign(document.createElement("dialog"), { id: "home-confirm-dialog", className: "home-confirm-dialog", tabIndex: -1 });
+  confirmDialog.setAttribute("aria-labelledby", "home-confirm-title");
+  document.body.append(confirmDialog);
+  const routeHelp = { new: "建立独立任务上下文", continue: "沿用所选任务继续执行", based: "保留来源，建立新的任务上下文" };
 
-  function openConfirm({ request = "", relation = "new", taskId = "", fileIds = [], attachments = [] }) {
-    Object.assign(confirm, { request, relation: taskId ? relation : "new", taskId, fileIds: [...fileIds], attachments: [...attachments] });
-    const taskChoices = [...data().tasks].sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
-    openDialog("确认执行", `<div class="home-confirm-body"><div class="home-confirm-workspace"><section class="home-prompt-review" aria-labelledby="prompt-heading"><header><span id="prompt-heading" class="home-prompt-state">上下文</span><small id="context-length">正在生成…</small></header><div id="context-output" class="home-prompt-body article md" tabindex="0">正在生成上下文…</div></section><div class="home-confirm-decision"><section class="home-confirm-task-editor"><div><label for="confirm-request">任务</label><small id="confirm-count">${confirm.request.length} / 4000</small></div><textarea id="confirm-request" maxlength="4000" rows="4">${esc(confirm.request)}</textarea></section><fieldset class="home-confirm-routes"><legend>任务路由</legend>${Object.entries(routeNames).map(([value, [title, note]]) => `<label data-home-route-choice><input type="radio" name="confirm-route" value="${value}"${confirm.relation === value ? " checked" : ""}><span><b>${title}</b><small>${note}</small></span></label>`).join("")}<label id="confirm-task-field" class="home-confirm-task-field"${confirm.relation === "new" ? " hidden" : ""}>关联任务<select id="confirm-task">${option("", "选择任务", confirm.taskId)}${taskChoices.map(t => option(t.id, t.title, confirm.taskId)).join("")}</select></label></fieldset><section class="home-confirm-material-section"><div class="home-confirm-material-head"><span>相关资料 <b id="confirm-material-count">0</b></span></div><div id="confirm-materials" class="home-confirm-materials"></div></section><div class="home-confirm-actions"><div class="execution-route-status"><small>执行环境</small><strong id="confirm-environment">正在读取设置…</strong><a href="#settings" data-action="open-settings">在设置页配置</a></div><div class="home-confirm-action-buttons"><button id="copy-context-button" class="button ghost" type="button" data-action="copy-context">复制提示词</button><button id="copy-open-context-button" class="button primary" type="button" data-action="copy-open-context" disabled>复制并打开</button></div></div></div></div><p class="home-confirm-note">复制或打开软件都不会发送提示词、调用模型，也不会创建或修改任务。请在软件里自行粘贴并确认发送。</p></div>`, "home-confirm-dialog");
+  function openConfirm({ request = "", relation = "new", taskId = "", fileIds = [], attachments = [], projectId = "", page = "home" }) {
+    Object.assign(confirm, { request, defaultTask: request, relation: taskId ? relation : "new", taskId, fileIds: [...fileIds], attachments: [...attachments], projectId, page, prompt: null });
+    state.dialogReturn = document.activeElement;
+    const source = task(taskId);
+    confirmDialog.innerHTML = `<div class="home-confirm-head"><div><h2 id="home-confirm-title">确认执行</h2><p id="home-confirm-task">${source ? `${esc(routeNames[confirm.relation][0])} · ${esc(source.title)}` : projectId && project(projectId) ? `新任务 · ${esc(project(projectId).name)}` : "新任务 · 未选择相关任务"}</p></div><button class="home-dialog-close" type="button" data-action="confirm-close" aria-label="关闭确认弹窗">×</button></div><div class="home-confirm-body"><div class="home-confirm-workspace"><section class="home-prompt-review"><header><span id="prompt-state" class="home-prompt-state loading">正在生成固定提示词…</span><small id="prompt-meta">五段 · 只读</small></header><div class="home-prompt-body article md" id="prompt-preview" tabindex="0"></div></section><div class="home-confirm-decision"><section class="home-confirm-task-editor"><div><label for="confirm-request">任务</label><small id="confirm-count">${confirm.request.length} / 4000</small></div><textarea id="confirm-request" maxlength="4000" rows="7" placeholder="输入本轮任务提示词">${esc(confirm.request)}</textarea><button class="link-button" type="button" data-action="confirm-reset">恢复默认任务</button></section><fieldset class="home-confirm-routes"><legend>任务路由</legend>${Object.entries(routeNames).map(([value, [title]]) => `<label data-home-route-choice class="${value !== "new" && !source ? "disabled" : ""}"><input type="radio" name="confirm-route" value="${value}"${confirm.relation === value ? " checked" : ""}${value !== "new" && !source ? " disabled" : ""}><span><b>${title}</b></span></label>`).join("")}<p id="confirm-route-help">${routeHelp[confirm.relation]}</p></fieldset><section class="home-confirm-material-section"><div class="home-confirm-material-head"><span>相关资料 <b id="confirm-material-count">0</b></span></div><div class="home-confirm-materials" id="confirm-materials"></div></section></div></div></div><footer class="execution-confirm-foot home-confirm-foot"><button class="button ghost" id="copy-context-button" type="button" data-action="copy-context" disabled>复制提示词</button><button class="button ghost" type="button" data-action="confirm-close">返回修改</button><p class="execution-confirm-feedback" id="confirm-feedback" role="status" aria-live="polite"></p><div class="execution-confirm-runner"><span class="execution-confirm-runner-name" id="confirm-environment" role="status" data-state="loading">正在读取设置…</span><a class="button ghost execution-confirm-configure" id="confirm-configure" href="#settings" data-action="open-settings" hidden>去配置</a><button class="button primary gstudio-execute-key" id="copy-open-context-button" type="button" data-action="copy-open-context" aria-label="复制并打开" title="复制并打开" disabled>${brandMark}</button></div></footer>`;
     renderConfirmMaterials();
+    if (!confirmDialog.open) confirmDialog.showModal();
+    confirmDialog.focus();
     readEnvironment();
     refreshContext();
   }
 
+  function closeConfirm() { if (confirmDialog.open) confirmDialog.close(); }
+  confirmDialog.addEventListener("close", () => {
+    const previous = state.dialogReturn;
+    if (previous?.isConnected) previous.focus(); else document.getElementById("context-request")?.focus();
+    state.dialogReturn = null;
+  });
+  confirmDialog.addEventListener("click", event => { if (event.target === confirmDialog) closeConfirm(); });
+
+  function confirmFeedback(message, error = false) {
+    const node = document.getElementById("confirm-feedback");
+    if (!node) return;
+    node.textContent = message;
+    node.classList.toggle("error", error);
+  }
+
   function renderConfirmMaterials() {
-    const items = confirm.fileIds.map(id => file(id)).filter(Boolean).map(f => `<span class="home-context-chip"><span class="home-context-kind">资料</span><b>${esc(f.name)}</b></span>`)
-      .concat(confirm.attachments.map(item => `<span class="home-context-chip"><span class="home-context-kind">文件</span><b>${esc(item.name)}</b></span>`));
+    const items = confirm.fileIds.map(id => file(id)).filter(Boolean).map(f => `<span><b>${esc(f.name)}</b><small>${esc(kindName(f.kind))}</small></span>`)
+      .concat(confirm.attachments.map(item => `<span><b>${esc(item.name)}</b><small>附带文件</small></span>`));
     document.getElementById("confirm-material-count").textContent = String(items.length);
-    document.getElementById("confirm-materials").innerHTML = items.join("") || `<small class="muted">未附带资料。</small>`;
+    document.getElementById("confirm-materials").innerHTML = items.join("") || `<em>无附加文件</em>`;
   }
 
   async function readEnvironment() {
@@ -324,11 +344,26 @@ const app = (() => {
     try { environment = (await api("api/settings")).execution_environment; } catch (error) { failure = error.message; }
     state.preview = { ...(state.preview || {}), environment };
     const selected = environment?.executors.find(entry => entry.id === environment.default_executor);
-    const label = document.getElementById("confirm-environment"), button = document.getElementById("copy-open-context-button");
+    const label = document.getElementById("confirm-environment");
     if (!label) return;
-    label.textContent = environment?.ready ? selected.label : failure || environment?.error || "未配置可用的默认软件";
-    button.disabled = !environment?.ready || !state.preview?.text;
-    button.textContent = environment?.ready ? `复制并打开 · ${selected.label}` : "复制并打开";
+    label.textContent = environment?.ready ? selected.label : failure || environment?.error || "未配置执行软件";
+    label.dataset.state = environment?.ready ? "ready" : "missing";
+    if (selected) label.title = selected.path;
+    document.getElementById("confirm-configure").hidden = Boolean(environment?.ready);
+    const button = document.getElementById("copy-open-context-button");
+    button.setAttribute("aria-label", environment?.ready ? `复制并用 ${selected.label} 打开` : "请先配置执行软件");
+    button.title = button.getAttribute("aria-label");
+    syncConfirmButtons();
+  }
+
+  const fullPrompt = () => confirm.prompt && confirm.request.trim() ? confirm.prompt.prefix + confirm.request.trim() + confirm.prompt.suffix : "";
+  function syncConfirmButtons() {
+    const ready = Boolean(fullPrompt()) && !/^\s*#{2,3}\s+(任务|上下文|输入与真源|授权边界|成功标准|输出)\s*$/m.test(confirm.request);
+    const copy = document.getElementById("copy-context-button"), open = document.getElementById("copy-open-context-button");
+    if (copy && !copy.dataset.busy) copy.disabled = !ready;
+    if (open && !open.dataset.busy) open.disabled = !ready || !state.preview?.environment?.ready;
+    const input = document.getElementById("confirm-request");
+    if (input) input.setAttribute("aria-invalid", String(!confirm.request.trim()));
   }
 
   function refreshContext() {
@@ -338,33 +373,37 @@ const app = (() => {
 
   async function generateContext() {
     const request = ++state.contextRequest;
-    const output = document.getElementById("context-output");
+    const output = document.getElementById("prompt-preview"), stateNode = document.getElementById("prompt-state"), meta = document.getElementById("prompt-meta");
     if (!output) return;
-    if (!confirm.request.trim()) { output.innerHTML = `<p class="muted">先写下这次要做的事。</p>`; state.preview = { ...(state.preview || {}), text: "" }; document.getElementById("copy-open-context-button").disabled = true; return; }
-    if (confirm.relation !== "new" && !confirm.taskId) { output.innerHTML = `<p class="muted">选择要关联的任务后生成上下文。</p>`; state.preview = { ...(state.preview || {}), text: "" }; return; }
+    confirm.prompt = null; syncConfirmButtons();
+    stateNode.textContent = "正在生成固定提示词…"; stateNode.className = "home-prompt-state loading";
     try {
-      const payload = { request: requestWithAttachments(confirm.request, confirm.attachments), relation: confirm.relation, file_ids: confirm.fileIds };
+      const payload = { request: confirm.defaultTask || confirm.request || "（待填写）", relation: confirm.relation, file_ids: confirm.fileIds, attachments: confirm.attachments, page: confirm.page };
       if (confirm.relation !== "new") payload.task_id = confirm.taskId;
+      if (confirm.projectId && confirm.relation === "new") payload.project_id = confirm.projectId;
       const result = await api("api/context", payload);
-      if (request !== state.contextRequest || !document.getElementById("context-output")) return;
-      state.preview = { ...(state.preview || {}), text: result.text };
-      output.innerHTML = markdown(result.text);
-      document.getElementById("context-length").textContent = `${result.text.length} 字 · 只读`;
-      const button = document.getElementById("copy-open-context-button");
-      button.disabled = !state.preview.environment?.ready;
+      if (request !== state.contextRequest || !document.getElementById("prompt-preview")) return;
+      confirm.prompt = result;
+      output.innerHTML = markdown(result.fixed);
+      output.scrollTop = 0;
+      stateNode.textContent = "固定提示词"; stateNode.className = "home-prompt-state ready";
+      meta.textContent = `${new Intl.NumberFormat("zh-CN").format(result.fixed.length)} 字 · 只读`;
+      syncConfirmButtons();
     } catch (error) {
-      if (request === state.contextRequest) output.innerHTML = `<p class="form-error">${esc(error.message)}</p>`;
+      if (request !== state.contextRequest) return;
+      stateNode.textContent = error.message || "提示词生成失败"; stateNode.className = "home-prompt-state error";
+      meta.textContent = "生成失败";
     }
   }
-  let contextTimer = null;
-  const scheduleContext = () => { clearTimeout(contextTimer); contextTimer = setTimeout(refreshContext, 300); };
 
   function selectOutput() {
-    const output = document.getElementById("context-output");
-    if (!output) return;
-    output.focus();
-    const range = document.createRange(); range.selectNodeContents(output);
-    const selection = getSelection(); selection.removeAllRanges(); selection.addRange(range);
+    const input = document.getElementById("confirm-request");
+    if (!input) return;
+    const text = fullPrompt();
+    const area = Object.assign(document.createElement("textarea"), { value: text, readOnly: true, className: "home-prompt-manual-copy" });
+    area.setAttribute("aria-label", "完整提示词，请手动复制");
+    document.getElementById("prompt-preview").replaceChildren(area);
+    area.focus(); area.select();
   }
 
   /* ---------- 项目视图 ---------- */
@@ -406,9 +445,38 @@ const app = (() => {
     main.innerHTML = `<header class="project-view-page-head"><h1>项目视图</h1><p>${data().projects.length} 个项目 · ${activeCount} 项进行中 · ${attention} 个需要关注</p><button id="new-project-button" class="button ghost" type="button" data-action="new-project">新建项目</button></header><nav class="chips project-category-filters" aria-label="项目分类">${tabs.map(([value, name, count]) => `<button class="chip${selected === value ? " active" : ""}" type="button" data-action="project-category" data-id="${esc(value)}" aria-pressed="${selected === value}">${esc(name)}<small>${count}</small></button>`).join("")}</nav><section class="project-view-grid">${visible.map(projectCard).join("")}${showIndependent ? projectCard(independent) : ""}${!visible.length && !showIndependent ? `<p class="library-empty">该分类尚未登记项目。</p>` : ""}</section>`;
   }
 
-  function cardBody(p) {
-    const overview = String(p.overview || p.description || "");
-    return overview.replace(/^#\s+.*\n?/, "").replace(/^##\s+(?:项目|系统)总览\s*\n/m, "").trim();
+  /* Project card sections, read the same way as the full workbench: overview, entries,
+     scope and stage on the left; the dated timeline in the right column. */
+  function cardSections(p) {
+    const body = String(p.overview || "").replace(/^#\s+.*\n?/, "");
+    const sections = {}, parts = body.split(/^##\s+(.+?)\s*$/m);
+    sections[""] = parts[0].trim();
+    for (let i = 1; i < parts.length; i += 2) sections[parts[i]] = (parts[i + 1] || "").trim();
+    return sections;
+  }
+
+  function entryRows(source, p) {
+    const lines = source.split("\n"), out = [], prose = [];
+    const cells = line => /^\s*\|.*\|\s*$/.test(line) ? line.trim().slice(1, -1).split(/(?<!\\)\|/).map(cell => cell.trim().replace(/\\\|/g, "|")) : [];
+    const flush = () => { if (prose.length) out.push(markdown(prose.splice(0).join("\n"))); };
+    for (let i = 0; i < lines.length;) {
+      const head = cells(lines[i]).join("|"), divider = cells(lines[i + 1] || "");
+      const four = head === "类型|环境|路径或网址|用途与访问说明", three = head === "类型|路径或网址|用途";
+      if (!(four || three) || !divider.length || !divider.every(cell => /^:?-{3,}:?$/.test(cell.replace(/\s/g, "")))) { prose.push(lines[i++]); continue; }
+      flush(); i += 2;
+      const rows = [];
+      while (i < lines.length && cells(lines[i]).length) {
+        const row = cells(lines[i++]), [label, environment, value, note] = four ? row : [row[0], "本机", row[1], row[2]];
+        const literal = String(value || "").replace(/^`|`$/g, "");
+        const url = /^https?:\/\//.test(literal), path = literal.startsWith("/");
+        const locator = url ? `<a class="project-entry-url" href="${esc(literal)}" target="_blank" rel="noopener noreferrer"><code class="project-entry-locator">${esc(literal)}</code></a>` : `<code class="project-entry-locator">${esc(literal)}</code>`;
+        const actions = (url || path ? `<button type="button" class="button ghost" data-action="copy-entry" data-id="${esc(literal)}" aria-label="复制${esc(label)}">复制</button>` : "") + (path && (p.locations || []).includes(literal) ? `<button type="button" class="button ghost" data-action="reveal-location" data-id="${esc(p.id)}" data-location="${esc(literal)}">打开目录</button>` : "");
+        rows.push(`<div class="project-entry-row"><div class="project-entry-label"><strong>${esc(label)}</strong><small>${esc(environment)}</small></div><div class="project-entry-content">${locator}<div class="project-entry-note">${inline(note || "")}</div></div><div class="project-entry-actions">${actions}</div></div>`);
+      }
+      out.push(`<div class="project-entry-list">${rows.join("")}</div>`);
+    }
+    flush();
+    return out.join("");
   }
 
   function renderProject() {
@@ -416,14 +484,23 @@ const app = (() => {
     main.className = "shell app-main project-workspace-page paper-management-page";
     if (!p) { main.innerHTML = `<section class="panel project-intro-card"><h1>找不到项目</h1><p>该项目不在当前工作区。</p><a href="#projects">返回项目视图</a></section>`; return; }
     if (ui.projectId !== p.id) { ui.projectId = p.id; filters.project = { query: "", kind: "tasks", task: "all", subtype: "" }; ui.file = ""; }
-    const entity = p.kind === "system" ? "系统" : "项目";
+    const system = p.kind === "system", entity = system ? "系统" : "项目";
     const tasks = data().tasks.filter(t => t.project === p.id);
     const deliveries = data().files.filter(f => f.project === p.id && ["draft", "formal"].includes(f.kind));
     const inputs = data().files.filter(f => f.project === p.id && f.kind === "input");
-    const timeline = (p.timeline || []).map(item => `<li><b>${esc(item.date)}</b> ${esc(item.title)}${item.text ? `：${esc(item.text)}` : ""}</li>`).join("");
-    const locations = (p.locations || []).length ? `<div class="project-location-strip"><div class="project-location-items">${p.locations.map(path => `<span class="project-location-item"><small>本机工作目录</small><code>${esc(path)}</code></span>`).join("")}</div></div>` : "";
+    const sections = cardSections(p);
+    const primaryHeading = ["项目总览", "当前概况", "系统总览"].find(name => name in sections) || (system ? "当前概况" : "项目总览");
+    const entryHeading = ["工作位置与入口", "系统入口"].find(name => name in sections);
+    const primary = markdown(sections[primaryHeading] || sections[""] || p.description || "");
+    const extra = [entryHeading && sections[entryHeading] ? `<section class="project-description-section"><h3>${esc(entryHeading)}</h3>${entryRows(sections[entryHeading], p)}</section>` : ""]
+      .concat(["范围与要求", "当前阶段"].map(name => sections[name] ? `<section class="project-description-section"><h3>${name}</h3>${markdown(sections[name])}</section>` : "")).join("");
+    // Timeline lives in the card; older registries kept it in config/projects.json instead.
+    const timeline = sections["时间线"] ? markdown(sections["时间线"]) : (p.timeline || []).length ? `<ul>${p.timeline.map(item => `<li>${esc(item.date)}：${esc(item.title)}${item.text ? `。${esc(item.text)}` : ""}</li>`).join("")}</ul>` : "";
+    const described = entryHeading ? sections[entryHeading] : "";
+    const locations = (p.locations || []).filter(path => !described.includes(path)).map(path => `<span class="project-location-item wide"><small>本机工作目录</small><code>${esc(path)}</code></span>`).join("");
     const tabs = [["tasks", "任务", tasks.length], ["delivery", "交付文件", deliveries.length], ["input", "输入资料", inputs.length]];
-    main.innerHTML = `<section class="panel project-intro-card project-workspace-hero"><div class="intro-head"><div><span class="eyebrow">${p.kind === "system" ? "SYSTEM" : "PROJECT"}${p.category ? ` · ${esc(p.category)}` : ""}</span><h1>${esc(p.name)}</h1></div><div class="project-hero-actions"><button class="button ghost" type="button" data-action="new-task" data-project="${esc(p.id)}">新建任务</button><div class="project-task-launcher">${actionKey("project-context", `从该${entity}准备上下文`, `data-id="${esc(p.id)}"`)}</div></div></div><div class="intro-desc">${esc(p.description || "")}</div><div class="project-hero-summary"><div class="project-current-focus"><small>当前重点</small><strong>${esc(p.focus || "暂无明确推进主线")}</strong></div><div class="project-hero-stats"><span><b>${tasks.length}</b> 项任务 · <b>${tasks.filter(t => t.status === "active").length}</b> 项进行中 · <b>${deliveries.length}</b> 个交付文件</span></div></div><section class="context-overview-panel"><section class="context-overview-primary"><h2>${entity}总览</h2><div class="context-overview-copy">${markdown(cardBody(p)) || `<p>暂无${entity}说明。</p>`}</div></section>${timeline ? `<hr><section class="context-reader-timeline"><h3>时间线</h3><div class="context-overview-copy"><ul>${timeline}</ul></div></section>` : ""}</section>${locations}</section><nav class="project-workspace-tabs" role="tablist" aria-label="${entity}内容">${tabs.map(([id, label, count]) => `<button class="${filters.project.kind === id ? "active" : ""}" role="tab" type="button" data-action="project-tab" data-id="${id}" aria-selected="${filters.project.kind === id}">${label}<span>${count}</span></button>`).join("")}</nav><div id="project-scene" class="project-scene"></div>`;
+    const focus = p.focus ? `<div class="project-current-focus"><small>当前重点</small><strong>${esc(p.focus)}</strong></div>` : "";
+    main.innerHTML = `<section class="panel project-intro-card project-workspace-hero"><div class="intro-head"><div><span class="eyebrow">${system ? "SYSTEM" : "PROJECT"}</span><h1>${esc(p.name)}</h1></div><div class="project-hero-actions"><button class="button ghost" type="button" data-action="new-task" data-project="${esc(p.id)}">新建任务</button><div class="project-task-launcher">${actionKey("project-context", `开始${entity}任务并确认执行器`, `data-id="${esc(p.id)}"`)}</div></div></div><div class="intro-desc"></div><div class="project-hero-summary">${focus}<div class="project-hero-stats"><span><b>${tasks.filter(t => t.status !== "completed").length}</b>进行中</span><span><b>${tasks.filter(t => t.kind === "task_line").length}</b>任务主线</span><span><b>${tasks.filter(t => t.status === "completed").length}</b>已完成</span></div></div>${primary ? `<section class="context-overview-panel" aria-labelledby="context-overview-title" tabindex="0"><section class="context-overview-primary"><h2 id="context-overview-title">${esc(primaryHeading)}</h2><div class="context-overview-copy">${primary}${extra}</div></section><hr><section class="context-reader-timeline"><h3>时间线</h3>${timeline ? `<div class="context-overview-copy">${timeline}</div>` : `<p class="context-reader-empty">暂无有日期意义的变化。</p>`}</section></section>` : `<div class="context-overview-unavailable">${entity}说明尚无已确认的概览内容。</div>`}<div class="project-location-strip" aria-label="${entity}位置"><div class="project-location-items"><span class="project-location-item"><small>说明正本</small><strong>余烬 · Ember</strong></span>${locations}</div><div class="project-location-actions"></div></div></section><nav class="project-workspace-tabs" role="tablist" aria-label="${entity}内容">${tabs.map(([id, label, count]) => `<button class="${filters.project.kind === id ? "active" : ""}" role="tab" type="button" data-action="project-tab" data-id="${id}" aria-selected="${filters.project.kind === id}">${label}<span>${count}</span></button>`).join("")}</nav><div id="project-scene" class="project-scene"></div>`;
     renderProjectScene();
   }
 
@@ -455,24 +532,133 @@ const app = (() => {
   }
 
   /* ---------- 任务详情 ---------- */
+  /* Same structure as the full workbench: task body on the left; on the right the delivery /
+     input file list, a draggable divider and the preview. Below 1180px the right side is a drawer. */
+  const taskUi = { taskId: "", mode: "delivery", scope: "current", selected: new Set(), folders: new Set(), preview: null, split: 0, open: false };
+  const folderOf = f => f.id.slice(f.id.indexOf(`/${f.taskId}/`) + f.taskId.length + 2);
+
+  function previewBody(item) {
+    const src = `api/preview?id=${encodeURIComponent(item.id)}`;
+    if (typeof item.text === "string") return /\.(md|markdown)$/i.test(item.name) ? `<article class="article md">${markdown(item.text)}</article>` : `<pre class="library-text-preview">${esc(item.text)}</pre>`;
+    if (item.preview === "image") return `<div class="library-preview-media"><img src="${src}" alt="${esc(item.name)}"></div>`;
+    if (item.preview === "video") return `<div class="library-preview-media"><video src="${src}" controls preload="metadata"></video></div>`;
+    if (item.preview === "audio") return `<div class="library-preview-media"><audio src="${src}" controls preload="metadata"></audio></div>`;
+    if (item.preview === "pdf") return `<div class="library-preview-media"><iframe src="${src}" title="${esc(item.name)}"></iframe></div>`;
+    return `<div class="library-file-info"><h3>${esc(item.name)}</h3><div class="library-file-meta"><span>类型</span><span>${esc(item.media_type || kindName(item.kind))}</span><span>大小</span><span>${bytes(item.bytes)}</span><span>更新时间</span><span>${esc(item.updated_at || "")}</span><span>路径</span><span>${esc(item.relative_path)}</span></div><p class="muted">这类文件不在页面中预览，可用系统应用打开或下载到本机。</p></div>`;
+  }
+  const fileActions = item => `<button class="button" type="button" data-action="reveal" data-id="${esc(item.id)}" data-mode="reveal">Finder 中显示</button><button class="button" type="button" data-action="reveal" data-id="${esc(item.id)}" data-mode="open">系统应用打开</button><a class="button" href="api/raw?id=${encodeURIComponent(item.id)}" download>下载到本机</a>`;
+
+  function deliveryTree(files) {
+    const root = { dirs: {}, files: [] };
+    for (const f of files) {
+      const parts = folderOf(f).split("/");
+      let node = root;
+      for (const part of parts.slice(0, -1)) node = node.dirs[part] ||= { dirs: {}, files: [] };
+      node.files.push(f);
+    }
+    return root;
+  }
+  const treeSize = node => node.files.length + Object.values(node.dirs).reduce((sum, child) => sum + treeSize(child), 0);
+  function treeRows(node, depth, key) {
+    const pad = `data-depth="${depth}"`;
+    const folders = Object.keys(node.dirs).sort().map(name => {
+      const id = `${key}/${name}`, open = taskUi.folders.has(id), child = node.dirs[name];
+      return `<div class="task-delivery-file task-delivery-folder${open ? " expanded" : ""}" ${pad}><button class="task-folder-toggle" type="button" data-action="task-folder" data-id="${esc(id)}" aria-expanded="${open}"><span class="task-folder-caret">›</span><span class="task-folder-icon">📁</span><span class="task-folder-name">${esc(name)}</span><span class="task-folder-count">${treeSize(child)} 项</span></button></div><div class="task-folder-children${open ? " expanded" : ""}">${treeRows(child, depth + 1, id)}</div>`;
+    });
+    const files = [...node.files].sort((a, b) => a.name.localeCompare(b.name)).map(f => `<div class="task-delivery-file${taskUi.preview?.id === f.id ? " previewing" : ""}" ${pad}><input type="checkbox" data-task-file-check="${esc(f.id)}" aria-label="选择 ${esc(f.name)}"${taskUi.selected.has(f.id) ? " checked" : ""}><span>${fileKind(f)}</span><button type="button" data-action="task-preview" data-id="${esc(f.id)}" title="${esc(folderOf(f))}">${esc(f.name)}</button></div>`);
+    return folders.concat(files).join("");
+  }
+
   function renderTask() {
     const item = task(state.id);
     main.className = "shell app-main task-detail-page paper-management-page";
     if (!item) { main.innerHTML = `<section class="panel task-current-pane"><h1>找不到任务</h1><p>该任务不在当前工作区。</p><a href="#home">返回任务台</a></section>`; return; }
+    if (taskUi.taskId !== item.id) Object.assign(taskUi, { taskId: item.id, mode: "delivery", scope: "current", selected: new Set(), folders: new Set(), preview: null, split: 0, open: false });
     const inputIds = new Set(item.inputs || []);
     const inputs = data().files.filter(f => inputIds.has(f.id));
     const deliveries = data().files.filter(f => (item.outputs || []).includes(f.id));
-    const hasMaterials = inputs.length + deliveries.length > 0;
+    const related = item.kind === "task_line" ? (item.related || []).map(task).filter(Boolean) : [];
+    const relatedFiles = related.flatMap(t => data().files.filter(f => (t.outputs || []).includes(f.id)));
+    const hasMaterials = inputs.length + deliveries.length + related.length > 0;
+    for (const id of [...taskUi.selected]) if (!file(id)) taskUi.selected.delete(id);
+    if (taskUi.preview && !file(taskUi.preview.id)) taskUi.preview = null;
     const open = item.status !== "completed";
-    const completion = item.artifact_mode === "delivery" ? `<button id="promote-task-button" class="button ghost" type="button" data-action="promote" data-id="${esc(item.id)}">正式交付并完成</button>` : `<button id="complete-task-button" class="button ghost" type="button" data-action="complete" data-id="${esc(item.id)}">完成任务</button>`;
-    const actions = `${open ? `<button id="edit-task-button" class="button ghost" type="button" data-action="edit-task" data-id="${esc(item.id)}">更新任务记录</button><button id="add-material-button" class="button ghost" type="button" data-action="add-material" data-id="${esc(item.id)}">添加资料</button>${completion}` : ""}<button class="button ghost" type="button" data-action="important" data-id="${esc(item.id)}" aria-pressed="${Boolean(item.important)}">${item.important ? "移出重点" : "设为重点"}</button>`;
-    const tools = actionKey("task-context", open ? "继续该任务" : "基于已完成任务新建", `data-id="${esc(item.id)}"`);
-    const section = (title, text, fallback) => `<h3>${title}</h3>${text ? markdown(text) : `<p class="muted">${fallback}</p>`}`;
-    const related = (item.related || []).length ? `<h3>关联任务</h3><ul>${item.related.map(id => task(id) ? `<li><a href="${taskLink(task(id))}">${esc(task(id).title)}</a></li>` : `<li>${esc(id)}</li>`).join("")}</ul>` : "";
-    const technical = item.executor || (item.skills_used || []).length ? `<section class="task-technical-info"><h3>技术信息</h3><p class="task-technical-summary"><span>执行工具 ${esc(executorNames[item.executor] || item.executor || "未记录")} · Skill ${esc((item.skills_used || []).join("、") || "未记录")}</span></p></section>` : "";
+    const project = item.project === "independent" ? `<span>独立任务</span>` : `<a href="#project/${encodeURIComponent(item.project)}">${esc(projectName(item.project))}</a>`;
+    const manage = [open ? `<button type="button" role="menuitem" data-action="edit-task" data-id="${esc(item.id)}">更新任务记录</button><button type="button" role="menuitem" data-action="add-material" data-id="${esc(item.id)}">添加资料</button>${item.artifact_mode === "delivery" ? `<button id="promote-task-button" type="button" role="menuitem" data-action="promote" data-id="${esc(item.id)}">正式交付并完成</button>` : `<button id="complete-task-button" type="button" role="menuitem" data-action="complete" data-id="${esc(item.id)}">完成任务</button>`}` : "", `<button type="button" role="menuitem" data-action="important" data-id="${esc(item.id)}" aria-pressed="${Boolean(item.important)}">${item.important ? "移出重点" : "设为重点"}</button>`].join("");
+    const tools = `${hasMaterials ? `<button class="button ghost task-material-toggle" id="task-material-toggle" type="button" data-action="task-drawer" aria-controls="task-materials" aria-expanded="${taskUi.open}">任务资料</button>` : ""}<details class="task-manage-menu"><summary class="button ghost" aria-label="任务操作">任务操作</summary><div class="task-manage-list" role="menu">${manage}</div></details>${actionKey("task-context", open ? "核对提示词并继续任务" : "基于已完成任务新建", `data-id="${esc(item.id)}"`)}`;
+    const section = (title, text) => text ? `<h3>${title}</h3>${markdown(text)}` : "";
+    const relatedList = related.length ? `<details class="task-group-related"><summary class="task-group-related-head"><strong>相关任务</strong><span>${related.length} 项 · 展开</span></summary><div class="task-group-related-list">${related.map(t => `<a class="group-related-row ${esc(t.status)}" href="${taskLink(t)}"><span class="group-related-dot" aria-hidden="true"></span><strong>${esc(t.title)}</strong><span class="group-related-status">${esc(statusNames[t.status] || t.status)}</span><span class="group-related-arrow" aria-hidden="true">›</span></a>`).join("")}</div></details>` : "";
+    const parent = data().tasks.find(t => t.kind === "task_line" && (t.related || []).includes(item.id));
+    const technical = `<section class="task-technical-info" aria-label="技术信息"><h3>技术信息</h3><p class="task-technical-summary"><span>Skill ${esc((item.skills_used || []).join("、") || "未记录")}</span><span>执行器 ${esc(executorNames[item.executor] || item.executor || "未记录")}</span></p></section>`;
     const logs = logRows(item.logs || []);
-    const pane = hasMaterials ? `<section class="panel task-delivery-workspace" aria-label="任务资料"><section class="task-delivery-shelf"><header class="task-delivery-head"><div class="task-file-tabs" role="tablist">${[["delivery", "交付文件", deliveries.length], ["input", "输入资料", inputs.length]].map(([id, label, count]) => `<button class="${ui.taskFiles === id ? "active" : ""}" type="button" role="tab" data-action="task-files" data-id="${id}" aria-selected="${ui.taskFiles === id}">${label}<span>${count}</span></button>`).join("")}</div></header><div class="task-input-panel task-file-pane"><div class="task-input-list">${(ui.taskFiles === "input" ? inputs : deliveries).map(f => `<div class="task-input-row" data-file-id="${esc(f.id)}"${inputIds.has(f.id) && (f.taskId !== item.id || f.kind !== "input") ? ' data-input-reference="true"' : ""}><span class="task-input-icon" aria-hidden="true">${fileKind(f)}</span><div class="task-input-copy"><button type="button" class="task-input-name" data-action="file-read" data-id="${esc(f.id)}">${esc(f.name)}</button><span>${esc(kindName(f.kind))} · ${bytes(f.bytes)}${f.purpose ? ` · ${esc(f.purpose)}` : ""}</span></div></div>`).join("") || `<div class="task-preview-empty">暂无${ui.taskFiles === "input" ? "输入资料" : "交付文件"}。</div>`}</div></div></section></section>` : "";
-    main.innerHTML = `<div class="task-detail-workspace ${hasMaterials ? "has-materials" : "no-materials"}"><section class="panel task-current-pane"><header class="task-current-head"><div class="task-current-title-row">${badge(item)}<h1>${esc(item.title)}</h1><div class="task-current-heading-tools">${tools}</div></div><div class="task-current-meta">${item.project === "independent" ? `<span>独立任务</span>` : `<a href="#project/${encodeURIComponent(item.project)}">${esc(projectName(item.project))}</a>`}<span class="task-current-meta-separator">·</span><span>${item.kind === "task_line" ? "任务线" : esc(workType(item))}</span><span class="task-current-meta-separator">·</span><code class="task-current-id">ID ${esc(item.id)}</code><span class="task-current-updated">最近更新 ${esc(stamp(item))}</span></div></header><div class="task-current-actions">${actions}</div><article class="task-current-body article md">${section("任务目标", item.goal, "暂无目标。")}${section("任务描述", item.description, "暂无描述。")}${section("当前结果", item.current, "尚无结果记录。")}${item.next ? section("下一步", item.next, "") : ""}${related}${technical}<section class="task-execution-log"><h3>执行日志</h3>${logs ? `<ol class="task-log-list">${logs}</ol>` : `<p class="muted">暂无执行日志。</p>`}</section>${open ? "" : `<p class="muted">已完成任务只读。</p>`}</article></section>${pane}</div>`;
+    const inputRows = inputs.map(f => { const snapshot = f.taskId === item.id && f.kind === "input"; return `<div class="task-input-row${taskUi.preview?.id === f.id ? " previewing" : ""}"><span class="task-input-icon">↳</span><div class="task-input-copy"><button class="task-input-name" type="button" data-action="task-preview" data-id="${esc(f.id)}" title="${esc(f.relative_path)}">${esc(f.name)}</button><span>${snapshot ? "快照" : "引用"} · ${bytes(f.bytes)}${f.purpose ? ` · ${esc(f.purpose)}` : ""}</span></div><button class="button ghost" type="button" data-action="reveal" data-id="${esc(f.id)}" data-mode="reveal">Finder</button></div>`; }).join("");
+    const folderCount = (function count(node) { return Object.values(node.dirs).reduce((sum, child) => sum + 1 + count(child), 0); })(deliveryTree(deliveries));
+    const relatedRows = related.length ? `<div class="task-related-delivery-heading"><strong>关联任务交付</strong><span>${related.length} 个任务目录</span></div>${related.map(t => { const own = relatedFiles.filter(f => f.taskId === t.id), id = `related/${t.id}`, expanded = taskUi.folders.has(id); return own.length ? `<div class="task-delivery-file task-delivery-folder task-related-delivery-root${expanded ? " expanded" : ""}"><button class="task-folder-toggle" type="button" data-action="task-folder" data-id="${esc(id)}" aria-expanded="${expanded}"><span class="task-folder-caret">›</span><span class="task-folder-icon">📁</span><span class="task-folder-name">${esc(t.title)}</span><span class="task-folder-count">${own.length} 个文件</span></button><a href="${taskLink(t)}">任务</a></div><div class="task-folder-children${expanded ? " expanded" : ""}">${treeRows(deliveryTree(own), 1, id)}</div>` : `<div class="task-delivery-file task-related-delivery-root unavailable"><div class="task-folder-toggle"><span class="task-folder-caret">·</span><span class="task-folder-icon">📁</span><span class="task-folder-name">${esc(t.title)}</span><span class="task-folder-count">暂无交付</span></div><a href="${taskLink(t)}">任务</a></div>`; }).join("")}` : "";
+    const inputMode = taskUi.mode === "input";
+    const preview = taskUi.preview;
+    const pane = hasMaterials ? `<button class="task-drawer-backdrop" id="task-drawer-backdrop" type="button" data-action="task-drawer-close" aria-label="关闭任务资料"${taskUi.open ? "" : " hidden"}></button><section class="panel task-delivery-workspace${taskUi.selected.size ? " has-selection" : ""}${taskUi.open ? " is-open" : ""}" id="task-materials" data-file-mode="${taskUi.mode}"><section class="task-delivery-shelf"><header class="task-delivery-head"><div class="task-file-tabs" role="tablist" aria-label="任务文件类型">${[["delivery", "交付文件", `${deliveries.length} 个文件${folderCount ? ` · ${folderCount} 个文件夹` : ""}`], ["input", "输入资料", String(inputs.length)]].map(([id, label, count]) => `<button class="${taskUi.mode === id ? "active" : ""}" type="button" role="tab" data-action="task-files" data-id="${id}" aria-selected="${taskUi.mode === id}" tabindex="${taskUi.mode === id ? 0 : -1}">${label} <span>${count}</span></button>`).join("")}</div><div class="task-delivery-toolbar"><div class="task-delivery-folder-row"><span class="task-file-selection-status">${taskUi.selected.size ? `已选 ${taskUi.selected.size} 个文件` : ""}</span></div><div class="task-delivery-action-row"><button class="button ghost" type="button" data-action="reveal-folder" data-id="${esc(item.id)}" data-folder="input"${inputs.some(f => f.taskId === item.id && f.kind === "input") ? "" : " disabled"}>打开输入目录</button><button class="button ghost" type="button" data-action="reveal-folder" data-id="${esc(item.id)}" data-folder="delivery"${deliveries.length ? "" : " disabled"}>打开任务文件夹</button><div class="task-continue-actions"><div class="task-execution-scope" role="radiogroup" aria-label="执行范围">${[["current", "继续任务"], ["new", "所选文件新建"]].map(([id, label]) => `<button class="${taskUi.scope === id ? "active" : ""}" type="button" role="radio" data-action="task-scope" data-id="${id}" aria-checked="${taskUi.scope === id}" tabindex="${taskUi.scope === id ? 0 : -1}">${label}</button>`).join("")}</div></div><button class="task-drawer-close" type="button" data-action="task-drawer-close" aria-label="关闭任务资料">×</button></div></div></header><div class="task-delivery-files task-file-pane" role="tabpanel"${inputMode ? " hidden" : ""}>${deliveries.length ? treeRows(deliveryTree(deliveries), 0, "own") : `<div class="task-preview-empty">${item.artifact_mode === "delivery" ? "交付文件夹为空。" : "当前任务没有交付文件。"}</div>`}${relatedRows}</div><section class="task-input-panel task-file-pane" role="tabpanel"${inputMode ? "" : " hidden"}><div class="task-input-list">${inputRows || `<div class="task-input-empty">当前任务没有登记输入资料。</div>`}</div></section></section><div class="task-detail-divider" id="task-detail-divider" role="separator" aria-label="调整${inputMode ? "输入资料" : "交付文件"}区高度" aria-orientation="horizontal" aria-valuemin="130" aria-valuenow="${taskUi.split || 190}" tabindex="0"></div><section class="task-file-preview-pane"><header class="task-preview-head"><strong id="task-file-preview-title">${preview ? esc(preview.name) : inputMode ? "输入资料预览" : "交付文件预览"}</strong><div class="task-preview-actions">${preview ? fileActions(preview) : ""}</div></header><div class="task-file-preview" id="task-file-preview">${preview ? previewBody(preview) : `<div class="task-preview-empty">${inputMode ? "选择上方输入资料后在这里预览。" : "选择上方交付文件后在这里预览。"}</div>`}</div></section></section>` : "";
+    main.innerHTML = `<div class="task-detail-workspace ${hasMaterials ? "has-materials" : "no-materials"}"><section class="panel task-current-pane"><header class="task-current-head"><div class="task-current-title-row">${badge(item)}<h1>${esc(item.title)}</h1><div class="task-current-heading-tools">${tools}</div></div><div class="task-current-meta">${project}<span class="task-current-meta-separator">·</span><code class="task-current-id" title="${esc(item.id)}">ID ${esc(item.id)}</code><span class="task-current-meta-separator">·</span><span class="task-current-updated">最近更新 ${esc(stamp(item))}</span></div></header>${parent ? `<div class="task-parent-group-return"><a class="button ghost task-parent-group-link" aria-label="返回任务主线" href="${taskLink(parent)}"><span aria-hidden="true">←</span> 返回任务主线 · ${esc(parent.title)}</a></div>` : ""}<article class="task-current-body article md">${section("任务目标", item.goal)}${section("任务描述", item.description)}${section("当前结果", item.current)}${section("下一步", item.next)}${technical}<section class="task-execution-log" aria-label="执行日志"><h3>执行日志</h3>${logs ? `<ol class="task-log-list">${logs}</ol>` : `<p class="muted">暂无执行日志。</p>`}</section></article>${relatedList}</section>${pane}</div>`;
+    document.body.classList.toggle("task-drawer-open", taskUi.open);
+    // Inline style attributes are blocked by the page's CSP; set indentation through the CSSOM.
+    main.querySelectorAll("[data-depth]").forEach(node => { node.style.paddingLeft = `${5 + Number(node.dataset.depth) * 14}px`; });
+    bindTaskDivider();
+    if (!preview && !inputMode && deliveries.length) {
+      const latest = [...deliveries].sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)))[0];
+      showTaskFile(latest.id).catch(() => {});
+    }
+  }
+
+  async function showTaskFile(id) {
+    const item = file(id);
+    if (!item) throw new Error("该文件已不在当前工作区，请刷新页面。");
+    const node = document.getElementById("task-file-preview");
+    if (node) node.innerHTML = `<div class="task-preview-empty">正在加载…</div>`;
+    const result = await api(`api/file?id=${encodeURIComponent(id)}`);
+    if (state.route !== "task" || taskUi.taskId !== state.id) return;
+    taskUi.preview = { ...item, ...result };
+    const pane = document.getElementById("task-file-preview");
+    if (!pane) return;
+    pane.innerHTML = previewBody(taskUi.preview);
+    document.getElementById("task-file-preview-title").textContent = item.name;
+    pane.closest(".task-file-preview-pane").querySelector(".task-preview-actions").innerHTML = fileActions(taskUi.preview);
+    main.querySelectorAll("#task-materials [data-action=task-preview]").forEach(button => button.closest(".task-delivery-file,.task-input-row")?.classList.toggle("previewing", button.dataset.id === id));
+  }
+
+  function setTaskDrawer(open) {
+    const pane = document.getElementById("task-materials");
+    if (!pane) return;
+    taskUi.open = open && matchMedia("(max-width:1180px)").matches;
+    pane.classList.toggle("is-open", taskUi.open);
+    document.getElementById("task-drawer-backdrop").hidden = !taskUi.open;
+    document.body.classList.toggle("task-drawer-open", taskUi.open);
+    document.getElementById("task-material-toggle")?.setAttribute("aria-expanded", String(taskUi.open));
+    (taskUi.open ? pane.querySelector(".task-drawer-close") : document.getElementById("task-material-toggle"))?.focus();
+  }
+
+  function bindTaskDivider() {
+    const divider = document.getElementById("task-detail-divider"), pane = document.getElementById("task-materials");
+    if (!divider || !pane) return;
+    const setTop = value => {
+      const rect = pane.getBoundingClientRect(), max = Math.max(130, Math.floor(rect.height * .5)), top = Math.max(130, Math.min(max, value));
+      taskUi.split = Math.round(top);
+      pane.style.gridTemplateRows = `${taskUi.split}px 7px minmax(0,1fr)`;
+      divider.setAttribute("aria-valuemax", String(max)); divider.setAttribute("aria-valuenow", String(taskUi.split));
+    };
+    if (taskUi.split) pane.style.gridTemplateRows = `${taskUi.split}px 7px minmax(0,1fr)`;
+    else if (taskUi.mode === "delivery") {
+      const head = pane.querySelector(".task-delivery-head"), list = pane.querySelector(".task-delivery-files");
+      const cap = Math.floor(pane.getBoundingClientRect().height * .4);
+      if (cap > 0) { setTop(Math.min(cap, (head?.offsetHeight || 64) + (list?.scrollHeight || 0) + 4)); taskUi.split = 0; }
+    }
+    divider.addEventListener("pointerdown", event => divider.setPointerCapture(event.pointerId));
+    divider.addEventListener("pointermove", event => { if (divider.hasPointerCapture(event.pointerId)) setTop(event.clientY - pane.getBoundingClientRect().top); });
+    divider.addEventListener("pointerup", event => { if (divider.hasPointerCapture(event.pointerId)) divider.releasePointerCapture(event.pointerId); });
+    divider.addEventListener("keydown", event => {
+      const current = Number(divider.getAttribute("aria-valuenow")) || 190;
+      const next = { ArrowUp: current - 20, ArrowDown: current + 20, Home: 130, End: 10000 }[event.key];
+      if (next === undefined) return;
+      event.preventDefault(); setTop(next);
+    });
   }
 
   /* ---------- 资料浏览 ---------- */
@@ -517,14 +703,15 @@ const app = (() => {
 
   function filePreviewHtml(item) {
     const source = task(item.taskId);
-    const body = typeof item.text === "string" ? (/\.(md|markdown)$/i.test(item.name) ? `<article class="article md">${markdown(item.text)}</article>` : `<pre class="library-text-preview">${esc(item.text)}</pre>`) : `<div class="library-file-info"><h3>${esc(item.name)}</h3><div class="library-file-meta"><span>类型</span><span>${esc(kindName(item.kind))}</span><span>大小</span><span>${bytes(item.bytes)}</span></div><p class="muted">此文件不提供文本预览，请下载后使用对应应用打开。</p></div>`;
-    return `<div class="library-source-strip"><span><strong>${esc(kindName(item.kind))}</strong> ／ ${esc(projectName(item.project))}${source ? ` ／ 关联任务：${esc(source.title)}` : ""}</span>${source ? `<a class="button ghost" href="${taskLink(source)}">查看任务</a>` : ""}</div><div class="library-preview-body library-full-preview">${body}<div class="library-file-actions"><a class="button ghost" href="api/raw?id=${encodeURIComponent(item.id)}" download>下载</a></div></div>`;
+    return `<div class="library-source-strip"><span><strong>${esc(kindName(item.kind))}</strong> ／ ${esc(projectName(item.project))}${source ? ` ／ 关联任务：${esc(source.title)}` : ""}</span>${source ? `<a class="button ghost" href="${taskLink(source)}">查看任务</a>` : ""}</div><div class="library-preview-body library-full-preview">${previewBody(item)}</div>`;
   }
+
+  const libraryActions = item => `<div class="library-preview-head-actions"><div class="library-preview-toolbar-actions" aria-label="文件操作"><button class="button ghost" type="button" data-action="reveal" data-id="${esc(item.id)}" data-mode="reveal">Finder 中显示</button><button class="button ghost" type="button" data-action="reveal" data-id="${esc(item.id)}" data-mode="open">系统应用打开</button></div></div>`;
 
   function showPreview(key, item) {
     const panel = document.getElementById(`${key}-file-preview`);
     if (!panel) return;
-    panel.innerHTML = `<header class="library-column-head"><div class="library-preview-title-block"><h2>${esc(item.name)}</h2><span class="meta">${esc(kindName(item.kind))} · ${bytes(item.bytes)}</span></div></header>${filePreviewHtml(item)}`;
+    panel.innerHTML = `<header class="library-column-head"><div class="library-preview-title-block"><h2>${esc(item.name)}</h2><span class="meta">${esc(kindName(item.kind))} · ${esc(projectName(item.project))}</span></div>${libraryActions(item)}</header>${filePreviewHtml(item)}`;
   }
 
   async function readFile(id) {
@@ -536,7 +723,7 @@ const app = (() => {
     const panel = document.getElementById(`${key}-file-preview`);
     main.querySelectorAll(".library-material-row").forEach(row => row.classList.toggle("previewing", row.dataset.fileId === id));
     if (panel && window.innerWidth > 1180) showPreview(key, state.preview);
-    else openDialog(item.name, filePreviewHtml(state.preview), "drawer");
+    else openDialog(item.name, libraryActions(state.preview) + filePreviewHtml(state.preview), "drawer");
   }
 
   /* ---------- 任务检视 ---------- */
@@ -544,7 +731,7 @@ const app = (() => {
     const f = filters.review, types = [...new Set(data().tasks.map(t => t.work_type))];
     const activeFilters = [f.project, f.type, f.status].filter(Boolean).length;
     main.className = "shell app-main organization-page paper-management-page";
-    main.innerHTML = `<header class="review-page-head"><div class="review-page-heading"><h1>任务检视</h1><p>${data().tasks.length} 项任务 · ${data().tasks.filter(t => t.status === "active").length} 项进行中 · ${data().tasks.filter(t => t.important).length} 项当前重点</p></div><button id="save-report-button" class="button ghost" type="button" data-action="new-report">保存整理报告</button></header><div class="primary-view-panel"><div class="organization-task-workspace"><section class="panel selected-task-organizer"><div class="review-task-head"><div><h2>任务列表</h2><span id="review-count">0 项</span></div></div><div class="organize-task-form"><div class="organize-task-search"><div class="search-wrap"><span class="search-icon" aria-hidden="true">⌕</span><input id="review-search" type="search" data-filter="review" data-field="query" aria-label="搜索任务" placeholder="搜索任务名称、目标或日志" value="${esc(f.query)}"></div></div><div class="organize-task-filters"><button class="button ghost review-filter-toggle" type="button" data-action="review-filters" aria-expanded="${ui.reviewFilters}">筛选<span>${activeFilters}</span></button><div class="review-filter-fields"${ui.reviewFilters ? "" : " hidden"}><select data-filter="review" data-field="project" aria-label="项目">${projectOptions(f.project)}</select><select data-filter="review" data-field="type" aria-label="任务类型">${option("", "全部任务类型", f.type)}${types.map(type => option(type, workNames[type] || type, f.type)).join("")}</select><select data-filter="review" data-field="status" aria-label="任务状态">${option("", "全部任务状态", f.status)}${Object.entries(statusNames).map(([value, name]) => option(value, name, f.status)).join("")}</select><button class="button ghost review-filter-reset" type="button" data-action="reset-filter" data-id="review">重置筛选</button></div><select class="review-sort-control" data-filter="review" data-field="sort" aria-label="排序">${option("updated", "最近更新优先", f.sort)}${option("title", "按名称", f.sort)}</select></div><div id="review-task-list" class="organize-task-list"></div><div class="organize-task-footer"><span id="review-selection-count" class="organize-task-count">未选择任务</span><div class="organize-task-footer-actions"><button class="button ghost" type="button" data-action="clear-review">清空选择</button>${actionKey("review-context", "准备所选任务整理上下文", 'id="review-context-button"')}</div></div></div></section><section class="panel organization-task-preview review-inspector"><div class="review-inspector-tabs"><strong>任务卡</strong></div><div id="review-task-preview"></div></section></div></div><section class="review-organization-section"><div class="organization-report-workspace"><section class="panel organization-report-list-panel"><div class="organization-card-head"><div><h2>历史整理报告</h2><p>查看历次建议、确认结果与记录。</p></div><div class="organization-report-tools"><span class="mode-mark">${data().reports.length} 份</span></div></div><div class="organization-report-filters">${[["", "全部"], ["weekly", "按周"], ["selected", "按任务"]].map(([value, name]) => `<button class="organization-report-filter${ui.reportFilter === value ? " active" : ""}" type="button" data-action="report-filter" data-id="${value}">${name}</button>`).join("")}</div><div class="organization-report-list">${data().reports.filter(r => !ui.reportFilter || r.mode === ui.reportFilter).map(r => `<button class="organization-report-item${ui.reviewReport === r.id ? " active" : ""}" type="button" data-action="report-read" data-id="${esc(r.id)}"><span><span class="organization-report-title">${esc(r.title)}</span><span class="organization-report-meta">${r.mode === "weekly" ? "按周整理" : "按任务整理"} · ${esc(r.date)}</span></span></button>`).join("") || `<div class="library-empty">还没有保存的整理报告。</div>`}</div></section><section class="panel organization-report-preview"><div class="review-inspector-tabs"><strong>整理报告</strong></div><div id="review-report-preview"></div></section></div></section>`;
+    main.innerHTML = `<header class="review-page-head"><div class="review-page-heading"><h1>任务检视</h1><p>${data().tasks.length} 项任务 · ${data().tasks.filter(t => t.status === "active").length} 项进行中 · ${data().tasks.filter(t => t.important).length} 项当前重点</p></div><button id="save-report-button" class="button ghost" type="button" data-action="new-report">保存整理报告</button></header><div class="primary-view-panel"><div class="organization-task-workspace"><section class="panel selected-task-organizer"><div class="review-task-head"><div><h2>任务列表</h2><span id="review-count">0 项</span></div></div><div class="organize-task-form"><div class="organize-task-search"><div class="search-wrap"><span class="search-icon" aria-hidden="true">⌕</span><input id="review-search" type="search" data-filter="review" data-field="query" aria-label="搜索任务" placeholder="搜索任务名称、目标或日志" value="${esc(f.query)}"></div></div><div class="organize-task-filters"><button class="button ghost review-filter-toggle${activeFilters ? " active" : ""}" type="button" data-action="review-filters" aria-expanded="${ui.reviewFilters}" aria-controls="review-filter-fields" aria-label="筛选任务">筛选 <span>${activeFilters}</span></button><div class="review-filter-fields${ui.reviewFilters ? " is-open" : ""}" id="review-filter-fields"><select data-filter="review" data-field="project" aria-label="项目">${projectOptions(f.project)}</select><select data-filter="review" data-field="type" aria-label="任务类型">${option("", "全部任务类型", f.type)}${types.map(type => option(type, workNames[type] || type, f.type)).join("")}</select><select data-filter="review" data-field="status" aria-label="任务状态">${option("", "全部任务状态", f.status)}${Object.entries(statusNames).map(([value, name]) => option(value, name, f.status)).join("")}</select><button class="button ghost review-filter-reset" type="button" data-action="reset-filter" data-id="review">重置筛选</button></div><select class="review-sort-control" data-filter="review" data-field="sort" aria-label="排序">${option("updated", "最近更新优先", f.sort)}${option("title", "按名称", f.sort)}</select></div><div id="review-task-list" class="organize-task-list"></div><div class="organize-task-footer"><span id="review-selection-count" class="organize-task-count">未选择任务</span><div class="organize-task-footer-actions"><button class="button ghost" type="button" data-action="clear-review">清空选择</button>${actionKey("review-context", "准备所选任务整理上下文", 'id="review-context-button"')}</div></div></div></section><section class="panel organization-task-preview review-inspector"><div class="review-inspector-tabs"><strong>任务卡</strong></div><div id="review-task-preview"></div></section></div></div><section class="review-organization-section"><div class="organization-report-workspace"><section class="panel organization-report-list-panel"><div class="organization-card-head"><div><h2>历史整理报告</h2><p>查看历次建议、确认结果与记录。</p></div><div class="organization-report-tools"><span class="mode-mark">${data().reports.length} 份</span></div></div><div class="organization-report-filters">${[["", "全部"], ["weekly", "按周"], ["selected", "按任务"]].map(([value, name]) => `<button class="organization-report-filter${ui.reportFilter === value ? " active" : ""}" type="button" data-action="report-filter" data-id="${value}">${name}</button>`).join("")}</div><div class="organization-report-list">${data().reports.filter(r => !ui.reportFilter || r.mode === ui.reportFilter).map(r => `<button class="organization-report-item${ui.reviewReport === r.id ? " active" : ""}" type="button" data-action="report-read" data-id="${esc(r.id)}"><span><span class="organization-report-title">${esc(r.title)}</span><span class="organization-report-meta">${r.mode === "weekly" ? "按周整理" : "按任务整理"} · ${esc(r.date)}</span></span></button>`).join("") || `<div class="library-empty">还没有保存的整理报告。</div>`}</div></section><section class="panel organization-report-preview"><div class="review-inspector-tabs"><strong>整理报告</strong></div><div id="review-report-preview"></div></section></div></section>`;
     renderReviewList();
     renderReviewPreview();
     renderReportPreview();
@@ -789,8 +976,10 @@ const app = (() => {
 
   async function submit(form) {
     if (form.dataset.form === "home-command") {
-      const request = document.getElementById("context-request").value.trim();
-      if (/^fd\s/.test(request)) { notice("fd 用于检索：从下方结果选择任务或资料，然后写下这次的要求。"); return; }
+      const input = document.getElementById("context-request"), request = input.value.trim();
+      // As in the full workbench: nothing opens until the request says what to do.
+      if (!request) { input.focus(); notice("请先描述本轮要求", true); return; }
+      if (/^fd(\s|$)/.test(request)) { notice("fd 用于检索：从下方结果选择任务或资料，然后写下这次的要求。"); return; }
       openConfirm({ request, relation: composer.task ? (task(composer.task)?.status === "completed" ? "based" : "continue") : "new", taskId: composer.task, fileIds: composer.files, attachments: composer.attachments });
       return;
     }
@@ -831,7 +1020,7 @@ const app = (() => {
     const id = button.dataset.id;
     switch (button.dataset.action) {
       case "close-dialog": closeDialog(); return;
-      case "open-settings": closeDialog(); go("settings"); return;
+      case "open-settings": closeDialog(); closeConfirm(); go("settings"); return;
       case "settings-reload": await readSettings(); return;
       case "scroll-to": document.getElementById(id)?.scrollIntoView({ block: "start" }); return;
       case "favorite": toggleFavorite(id); return;
@@ -859,7 +1048,11 @@ const app = (() => {
       case "project-category": ui.projectCategory = id; renderProjects(); return;
       case "project-tab": filters.project.kind = id; filters.project.query = ""; filters.project.subtype = ""; ui.file = ""; renderProject(); return;
       case "project-task-filter": filters.project.task = id; renderProjectScene(); return;
-      case "task-files": ui.taskFiles = id; renderTask(); return;
+      case "task-files": taskUi.mode = id; taskUi.preview = null; taskUi.split = 0; renderTask(); main.querySelector(`[data-action=task-files][data-id="${id}"]`)?.focus(); return;
+      case "task-folder": taskUi.folders.has(id) ? taskUi.folders.delete(id) : taskUi.folders.add(id); renderTask(); main.querySelector(`[data-action=task-folder][data-id="${CSS.escape(id)}"]`)?.focus(); return;
+      case "task-scope": taskUi.scope = id; renderTask(); main.querySelector(`[data-action=task-scope][data-id="${id}"]`)?.focus(); return;
+      case "task-drawer": setTaskDrawer(!taskUi.open); return;
+      case "task-drawer-close": setTaskDrawer(false); return;
       case "library-tab": filters.library.kind = id; filters.library.subtype = ""; ui.file = ""; renderLibrary(); return;
       case "reset-filter": filters[id] = { ...filters[id], query: "", project: "", type: "", status: "" }; renderRoute(); return;
       case "review-filters": ui.reviewFilters = !ui.reviewFilters; renderReview(); return;
@@ -885,18 +1078,34 @@ const app = (() => {
       case "composer-remove-file": composer.files = composer.files.filter(value => value !== id); renderComposer(); return;
       case "composer-remove-attachment": composer.attachments.splice(Number(id), 1); renderComposer(); return;
       case "task-context": {
-        const t = task(id), done = t.status === "completed";
-        openConfirm({ relation: done ? "based" : "continue", taskId: id, request: done ? `基于已完成任务准备新工作：${t.title}` : t.next || `继续推进：${t.title}` }); return;
+        const t = task(id), based = t.status === "completed" || (taskUi.taskId === id && taskUi.selected.size && taskUi.scope === "new");
+        const fileIds = taskUi.taskId === id ? [...taskUi.selected] : [];
+        setTaskDrawer(false);
+        openConfirm({ page: "task", relation: based ? "based" : "continue", taskId: id, fileIds, request: based ? `基于${t.status === "completed" ? "已完成任务" : "所选文件"}准备新工作：${t.title}` : t.next || `继续推进：${t.title}` }); return;
       }
-      case "project-context": openConfirm({ request: `${project(id).kind === "system" ? "系统" : "项目"}：${projectName(id)}\n当前重点：${project(id).focus || "暂无"}\n\n本次要求：` }); return;
-      case "files-context": openConfirm({ fileIds: [...ui.library], request: "请基于所选资料完成：" }); return;
+      case "project-context": openConfirm({ page: "project", projectId: id, request: `在「${projectName(id)}」中开始一项新工作：先读取${project(id).kind === "system" ? "系统" : "项目"}说明，等待我补充具体要求。` }); return;
+      case "files-context": openConfirm({ page: "library", fileIds: [...ui.library], request: "请先核对所选资料，再按我的要求处理：" }); return;
       case "new-report": newReport(); return;
+      case "copy-review":
+        try { await navigator.clipboard.writeText(state.reviewText || ""); notice("提示词已复制。请在 AI 工具里粘贴并确认发送。"); }
+        catch { notice("浏览器没能写入剪贴板，请选中上方文字手动复制。", true); }
+        return;
+      case "copy-entry":
+        try { await navigator.clipboard.writeText(id); notice("已复制。"); } catch { notice("浏览器无法写入剪贴板，请手动选择复制。", true); }
+        return;
+      case "confirm-close": closeConfirm(); return;
+      case "confirm-reset": {
+        const input = document.getElementById("confirm-request");
+        confirm.request = input.value = confirm.defaultTask;
+        document.getElementById("confirm-count").textContent = `${input.value.length} / 4000`;
+        syncConfirmButtons(); input.focus(); return;
+      }
       case "copy-context": {
         await state.contextPromise;
-        const text = state.preview?.text;
-        if (!text) { notice("上下文还没有生成，请先写下要求并选择任务路由。", true); return; }
-        try { await navigator.clipboard.writeText(text); notice("提示词已复制。请在外部工具中粘贴并确认发送。"); }
-        catch { selectOutput(); notice("浏览器无法写入剪贴板，已选中提示词，请手动复制。", true); }
+        const text = fullPrompt();
+        if (!text) { confirmFeedback("提示词还没有生成，或任务为空。", true); return; }
+        try { await navigator.clipboard.writeText(text); confirmFeedback("提示词已复制。请在 AI 工具里粘贴并确认发送。"); }
+        catch { selectOutput(); confirmFeedback("浏览器没能写入剪贴板，已选中完整提示词，请按 ⌘C 手动复制。", true); }
         return;
       }
     }
@@ -904,10 +1113,14 @@ const app = (() => {
     try {
       switch (button.dataset.action) {
         case "file-read": await readFile(id); break;
+        case "task-preview": await showTaskFile(id); break;
+        case "reveal": { const opened = await api("api/reveal", { id, mode: button.dataset.mode }); notice(button.dataset.mode === "open" ? `已用系统应用打开 ${opened.opened}。` : `已在 Finder 中显示 ${opened.opened}。`); break; }
+        case "reveal-folder": await api("api/reveal", { task_id: id, folder: button.dataset.folder }); notice("已打开文件夹。"); break;
+        case "reveal-location": await api("api/reveal", { project: id, location: button.dataset.location }); notice("已打开目录。"); break;
         case "review-context": {
           const result = await api("api/review/context", { task_ids: [...ui.review] });
-          openDialog("整理上下文", `<div class="home-prompt-review"><div id="context-output" class="home-prompt-body article md" tabindex="0">${markdown(result.text)}</div></div><div class="form-actions"><button id="copy-context-button" class="button" type="button" data-action="copy-context">复制提示词</button></div>`, "home-confirm-dialog");
-          state.preview = { ...(state.preview || {}), text: result.text };
+          openDialog("整理上下文", `<div class="home-prompt-review"><div id="context-output" class="home-prompt-body article md" tabindex="0">${markdown(result.text)}</div></div><div class="form-actions"><button id="copy-review-button" class="button" type="button" data-action="copy-review">复制提示词</button></div>`);
+          state.reviewText = result.text;
           break;
         }
         case "important": await mutate(`api/tasks/${encodeURIComponent(id)}/important`, { important: !task(id).important, revision: data().revision }); notice("重点状态已保存。任务内容与生命周期未改变。"); break;
@@ -921,21 +1134,26 @@ const app = (() => {
         case "save-software": await softwareRequest("save"); break;
         case "copy-open-context": {
           await state.contextPromise;
-          const preview = state.preview;
-          if (!preview?.environment?.ready) throw new Error("请先在设置页保存有效的本机环境。");
-          if (!preview.text) throw new Error("上下文还没有生成。");
-          try { await navigator.clipboard.writeText(preview.text); }
-          catch { selectOutput(); notice("无法复制，因此没有打开软件。请手工复制并打开客户端。", true); break; }
+          const environment = state.preview?.environment, text = fullPrompt();
+          if (!environment?.ready) { confirmFeedback("还没有可用的执行软件，请先到设置页配置。", true); break; }
+          if (!text) { confirmFeedback("提示词还没有生成，或任务为空。", true); break; }
+          // Two separate results, each reported inside this dialog: copying, then opening.
+          try { await navigator.clipboard.writeText(text); }
+          catch { selectOutput(); confirmFeedback("① 复制失败：浏览器没能写入剪贴板，因此没有打开软件。已选中完整提示词，请手动复制后自行打开。", true); break; }
+          confirmFeedback("① 已复制提示词；② 正在打开软件…");
           try {
-            const opened = await api("api/executors/open", { executor_id: preview.environment.default_executor, expected_revision: preview.environment.revision, confirmation: true });
+            const opened = await api("api/executors/open", { executor_id: environment.default_executor, expected_revision: environment.revision, confirmation: true });
+            confirmFeedback(`① 已复制提示词；② 已打开 ${opened.label}。请在软件里粘贴并确认发送。`);
             notice(`已复制并打开 ${opened.label}。请手工粘贴、发送；没有调用模型。`);
-          } catch (error) { notice(`提示词已复制，但软件没有打开：${error.message}`, true); }
+            setTimeout(closeConfirm, 1600);
+          } catch (error) { confirmFeedback(`① 已复制提示词；② 打开失败：${error.message}`, true); }
           break;
         }
       }
     } finally {
       delete button.dataset.busy; button.removeAttribute("aria-busy");
-      if (button.isConnected) button.disabled = button.id === "copy-open-context-button" ? !state.preview?.environment?.ready || !state.preview?.text : false;
+      if (button.isConnected) button.disabled = false;
+      if (button.id === "copy-open-context-button") syncConfirmButtons();
     }
   }
 
@@ -944,6 +1162,7 @@ const app = (() => {
     const navigation = event.target.closest('.app-sidebar a[href^="#"]');
     if (navigation) { setMenu(false); if (navigation.hash === location.hash) { main.focus({ preventScroll: true }); window.scrollTo(0, 0); } }
     const control = event.target.closest("[data-action]");
+    main.querySelectorAll("details.task-manage-menu[open]").forEach(menu => { if (!menu.contains(event.target) || control) menu.open = false; });
     if (control && (control.tagName === "BUTTON" || control.tagName === "A")) {
       if (control.tagName === "A") event.preventDefault();
       action(control).catch(error => notice(error.message, true));
@@ -960,7 +1179,7 @@ const app = (() => {
       softwareChanged(); return;
     }
     if (control.id === "context-request") { renderComposerResults(); return; }
-    if (control.id === "confirm-request") { confirm.request = control.value; document.getElementById("confirm-count").textContent = `${control.value.length} / 4000`; scheduleContext(); return; }
+    if (control.id === "confirm-request") { confirm.request = control.value; document.getElementById("confirm-count").textContent = `${control.value.length} / 4000`; syncConfirmButtons(); return; }
     if (control.dataset.filter) {
       const key = control.dataset.filter; filters[key][control.dataset.field] = control.value;
       if (key === "home" || key === "review") renderTaskResults(key);
@@ -976,8 +1195,7 @@ const app = (() => {
       software.entries.find(entry => entry.id === control.closest("[data-software-id]").dataset.softwareId).kind = control.value;
       softwareChanged(); return;
     }
-    if (control.name === "confirm-route") { confirm.relation = control.value; document.getElementById("confirm-task-field").hidden = control.value === "new"; refreshContext(); return; }
-    if (control.id === "confirm-task") { confirm.taskId = control.value; refreshContext(); return; }
+    if (control.name === "confirm-route") { confirm.relation = control.value; document.getElementById("confirm-route-help").textContent = routeHelp[control.value]; refreshContext(); return; }
     if (control.id === "material-kind") {
       const reference = control.value === "reference";
       document.getElementById("material-text-fields").disabled = reference;
@@ -988,6 +1206,13 @@ const app = (() => {
       document.getElementById("material-purpose").required = reference;
     }
     if (control.dataset.selectTask) { control.checked ? ui.review.add(control.dataset.selectTask) : ui.review.delete(control.dataset.selectTask); renderReviewSelection(); }
+    else if (control.dataset.taskFileCheck) {
+      control.checked ? taskUi.selected.add(control.dataset.taskFileCheck) : taskUi.selected.delete(control.dataset.taskFileCheck);
+      if (!taskUi.selected.size) taskUi.scope = "current";
+      const pane = document.getElementById("task-materials");
+      pane.classList.toggle("has-selection", taskUi.selected.size > 0);
+      pane.querySelector(".task-file-selection-status").textContent = taskUi.selected.size ? `已选 ${taskUi.selected.size} 个文件` : "";
+    }
     else if (control.dataset.selectFile) { control.checked ? ui.library.add(control.dataset.selectFile) : ui.library.delete(control.dataset.selectFile); control.closest(".library-material-row")?.classList.toggle("selected", control.checked); renderFileSelection(); }
   });
   document.addEventListener("keydown", event => {
@@ -1011,6 +1236,18 @@ const app = (() => {
   window.addEventListener("hashchange", route);
   document.addEventListener("keydown", event => { if (event.key === "Escape" && event.target.closest?.("#software-candidates")) { event.preventDefault(); closeFoundSoftware(); document.getElementById("find-software")?.focus(); } });
   window.addEventListener("keydown", event => { if (event.key === "Escape" && !dialog.open && sidebar.classList.contains("mobile-open")) { setMenu(false); document.getElementById("menu-toggle").focus(); } });
+  window.addEventListener("keydown", event => { if (event.key === "Escape" && !dialog.open && taskUi.open) setTaskDrawer(false); });
+  // The task header clips overflow, so the actions menu is placed against the viewport.
+  document.addEventListener("toggle", event => {
+    const menu = event.target;
+    if (!menu.classList?.contains("task-manage-menu") || !menu.open) return;
+    const rect = menu.querySelector("summary").getBoundingClientRect(), list = menu.querySelector(".task-manage-list");
+    Object.assign(list.style, { position: "fixed", top: `${rect.bottom + 6}px`, right: `${Math.max(8, innerWidth - rect.right)}px` });
+    list.querySelector("button")?.focus();
+  }, true);
+  window.addEventListener("keydown", event => { if (event.key === "Escape") main.querySelectorAll("details.task-manage-menu[open]").forEach(menu => { menu.open = false; menu.querySelector("summary").focus(); }); });
+  window.addEventListener("scroll", () => main.querySelectorAll("details.task-manage-menu[open]").forEach(menu => { menu.open = false; }), true);
+  window.addEventListener("resize", () => { if (taskUi.open && !matchMedia("(max-width:1180px)").matches) setTaskDrawer(false); });
 
   route();
   loadState().catch(error => {

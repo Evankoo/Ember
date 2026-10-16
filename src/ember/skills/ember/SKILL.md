@@ -1,6 +1,6 @@
 ---
 name: ember
-version: 3.0.0
+version: 3.1.0
 description: 本机余烬的日常入口，在任何目录都可使用。当用户说“接着上次”“继续之前的任务或方案”、问之前和 AI 定过什么，或开始一项多步骤、之后还要继续的工作时使用：找到本机余烬工作区和当前目录对应的项目，续接或建立任务卡，记录目标、资料、结果与下一步，并验证结果。普通问答和一次性只读检索不建卡；首次安装读取发行包或程序自带的 ember-init；完成后本库可移除该一次性向导。
 triggers: [接着上次, 继续之前的任务, 之前的方案, 之前和 AI 定过什么, 记到余烬, 继续余烬任务, 建立任务, 查看已有任务或资料, 登记资料, 正式交付]
 tools: [read_file, terminal, browser]
@@ -13,7 +13,7 @@ writes_pages: false
 ## Contract
 
 - 确认用户指定或本机登记的工作区与已有授权，不从旧路径、外部材料或其他系统取得额外权限。
-- 任务卡始终写入余烬工作区，不在用户当前的项目目录建卡；当前目录的源码与资料留在原位，在任务中注明位置。
+- 任务卡始终写入余烬文档库，不在用户当前的项目目录建卡；当前目录的源码与资料留在原位，在任务中注明位置。
 - 系统级 `AGENTS.md` 是政策正本；注册表、项目说明、任务卡与实际文件各有职责，不建立第二套规范。
 - 先判断是否需要任务卡；同一目标继续原任务，换执行器或调用其他 Skill 不另建业务任务。
 - 独立目标、验收结果或后续生命周期的维护工作使用新卡，保留原发布记录，不把原发布卡当作永久容器。
@@ -31,10 +31,10 @@ writes_pages: false
 
 ## References
 
-- 本机登记 `~/.config/ember/workspace.json`（`workspace`、`python`），由初始化或 `ember use` 写入。
+- 本机登记 `~/.config/ember/workspace.json`（`workspace` 为系统目录，`documents` 为文档库，`python`），由初始化或 `ember use` 写入。默认系统目录 `~/Ember`、文档库 `~/Ember文档`。
 - 项目工作目录登记在 `config/projects.json` 的 `locations`，用 `which-project` 查询、`project-location` 维护。
-- 当前工作区 `AGENTS.md`、`SOUL.md`、`MEMORY.md`、`RESOLVER.md` 与 `skills/RESOLVER.md`。
-- `config/projects.json` 与已选项目的 `projects/<id>.md`，以及原任务卡；说明由本工作区维护，不依赖 EBrain。
+- 系统目录的 `AGENTS.md`、`SOUL.md`、`MEMORY.md`、`RESOLVER.md` 与 `skills/RESOLVER.md`。
+- 系统目录 `config/projects.json`、文档库中已选项目的 `项目/<id>/项目看板.md`，以及原任务卡；说明由余烬维护，不依赖 EBrain。
 - `templates/task-card.md` 只落实创建格式；`skills/manifest.json` 登记实际可用 Skill。
 - 安装版本的 `Workspace` / HTTP 接口约定见余烬仓库 `docs/api.md`；使用受控方法，不绕过检查直接改台账。
 - 本机软件的查找、保存与人工执行边界见工作区 `AGENTS.md`；用户配置不属于工作区文件，也不复制客户端认证配置。
@@ -42,10 +42,10 @@ writes_pages: false
 
 ## Phases
 
-1. **找到工作区。** 当前目录含 `AGENTS.md` 与 `.agents/skills/ember/` 时就是工作区；否则读取本机登记 `~/.config/ember/workspace.json`，用其中的 `workspace` 作为数据根、`python` 运行命令（`<python> -m ember check --workspace <workspace>`；`ember` 不一定在 PATH 中）。文件不存在说明尚未登记：请用户运行初始化或 `ember use <工作区>`，不猜路径；文件不可读、路径失效或检查失败时明确报告，不把不可用来源说成没有结果。然后读取上述系统入口。
-2. **对应项目。** 在工作区以外的目录协作时，运行 `<python> -m ember which-project --dir <当前目录>`：返回项目就以它为归属，优先继续该项目的原任务；返回空时向用户确认归属或使用 `independent`，不按目录名或内容猜项目。用户确认某目录属于某项目后，可按 `ember-project` 登记工作目录，以后自动对应。
+1. **找到系统目录与文档库。** 当前目录含 `AGENTS.md` 与 `.agents/skills/ember/` 时就是系统目录；否则读取本机登记 `~/.config/ember/workspace.json`，用其中的 `workspace` 作为系统目录、`python` 运行命令（`<python> -m ember check --workspace <workspace>`；`ember` 不一定在 PATH 中）。文档库位置以系统目录 `config/workspace.json` 的 `documents` 为准，任务卡与资料的相对位置都相对文档库。文件不存在说明尚未登记：请用户运行初始化或 `ember use <系统目录>`，不猜路径；旧版单目录工作区会被 check 拒绝，按提示用 `ember migrate-layout` 复制迁移后再继续；文件不可读、路径失效或检查失败时明确报告，不把不可用来源说成没有结果。然后读取上述系统入口。
+2. **对应项目。** 在系统目录与文档库以外的目录协作时，运行 `<python> -m ember which-project --dir <当前目录>`：返回项目就以它为归属，优先继续该项目的原任务；返回空时向用户确认归属或使用 `independent`，不按目录名或内容猜项目。用户确认某目录属于某项目后，可按 `ember-project` 登记工作目录，以后自动对应。
 3. **判断是否跟踪。** 解释、浏览和没有独立交付或状态修改的普通只读检索可直接回答。文件处理、独立成果、多步持续工作或状态修改使用任务卡；同一目标优先继续原任务，独立目标或生命周期才新建。归属使用确认的注册 ID 或 `independent`，不猜项目。
-4. **读取上下文并校验。** 读取选定项目说明和原任务的目标、要求、输入、当前结果、下一步与确认记录。项目说明未写明的事实保留为缺口。执行受跟踪操作前运行 `ember check --workspace <工作区>`，失败不进入下游生产。只读导出的上下文不能被描述为已经执行。
+4. **读取上下文并校验。** 读取选定项目说明和原任务的目标、要求、输入、当前结果、下一步与确认记录。项目说明未写明的事实保留为缺口。执行受跟踪操作前运行 `ember check --workspace <系统目录>`，失败不进入下游生产。只读导出的上下文不能被描述为已经执行。
 5. **登记并执行最小流程。** 通过 `create_task` / `update_task` 登记真实 `executor` 与实际调用的 `skills_used`；续接追加 Skill 历史而不丢旧值。调用其他 Skill 前读取其契约并遵守自身门禁，结果回到原任务。执行器是工具或执行界面，不是猜测的模型；登记元数据不会启动执行器。保持用户手动设置的异常状态，不因缺材料或失败自动改成 `waiting_user` / `blocked`。
 6. **分开输入与交付。** 稳定资料优先 `add_reference`，新文字输入使用 `add_material(kind=input)`，真实草稿使用 `add_material(kind=draft)`。同名拒绝覆盖，已引用文件不复制；没有成果文件就不建占位交付。记录当前结果、真实下一步及最新在前的执行日志，不把进展写进稳定目标或任务描述。
 7. **保持人工确认边界。** 准备并核对上下文后，用户可单独复制，或明确确认复制并打开已保存默认软件；Agent 不替用户生成打开确认，不自动提交提示词，软件打开不代表执行成功。检视报告只记录建议，任务线须有明确关联授权。仅在用户明确确认后调用 `promote_task` 或无文件成果的 `complete_task`；批准报告不等于批准结构变化或完成。开源版不执行归档、合并拆分，也不重开或覆盖正式交付。
