@@ -375,11 +375,17 @@ body.drawer-open{overflow:hidden}
 .execution-confirm-foot{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:12px 22px 14px;border-top:1px solid var(--line-soft);background:var(--surface)}
 .home-confirm-dialog[open]{grid-template-rows:auto minmax(0,1fr) auto}.home-confirm-body{padding-bottom:14px}
 .execution-confirm-foot>.button{min-height:34px}
-.execution-confirm-runner{display:flex;align-items:center;gap:8px;min-width:0;margin-left:8px;padding-left:12px;border-left:1px solid var(--line)}
+.execution-confirm-runner{display:flex;align-items:center;gap:6px;min-width:0;margin-left:6px;padding-left:10px;border-left:1px solid var(--line)}
 .execution-confirm-runner-name{max-width:240px;overflow:hidden;color:var(--secondary);font-size:12px;font-weight:650;text-overflow:ellipsis;white-space:nowrap}
 .execution-confirm-runner-name[data-state="missing"]{color:var(--muted);font-weight:500}
 .execution-confirm-configure{min-height:30px;padding:4px 10px;font-size:11px}.execution-confirm-configure[hidden]{display:none}
 .execution-confirm-runner .button{flex:none}
+.execution-confirm-runner .gstudio-execute-key{width:36px;min-width:36px;height:34px;min-height:34px;padding:0;border-radius:8px}
+.execution-confirm-runner .gstudio-execute-key svg{width:20px;height:20px}
+.task-folder-disabled{display:inline-flex;align-items:center;flex-wrap:wrap;gap:6px;min-width:0}
+.task-folder-disabled .button:disabled{opacity:.4;cursor:not-allowed}
+.task-folder-disabled>small{color:var(--muted);font-size:10px;line-height:1.4;white-space:nowrap}
 .execution-confirm-prompt,.execution-task-editor textarea{font:12px/1.65 var(--font-ui)}
 .archive-runner{margin:0;padding:10px 0;border-left:0}
 @media(max-width:520px){.execution-confirm-foot{flex-wrap:wrap;gap:8px;padding:10px 13px 12px}.execution-confirm-foot>.button{flex:1}.execution-confirm-runner{flex:1 0 100%;order:-1;justify-content:flex-end;margin:0;padding:0;border-left:0}}
+@media(max-width:520px){.execution-confirm-runner .gstudio-execute-key{width:40px;min-width:40px;height:40px;min-height:40px}}

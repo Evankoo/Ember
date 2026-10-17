@@ -51,14 +51,6 @@ fieldset{margin:0;padding:0;border:0;min-width:0}
 .executor-discovery-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.executor-discovery-head small{color:var(--muted);font-size:11px;line-height:1.6}.executor-discovery-head .button{flex:none;padding:3px 8px;font-size:11px}
 .executor-default-field select{transition:box-shadow .2s,border-color .2s}.executor-default-field.is-chosen select{border-color:var(--ink);box-shadow:0 0 0 3px rgba(17,24,39,.12)}.executor-default-field.needs-choice select{border-color:var(--danger);box-shadow:0 0 0 3px rgba(239,68,68,.15)}
 
-/* Task actions the open-source edition performs in the page (the full workbench routes them through AI). */
-.task-manage-menu{position:relative}
-.task-manage-menu>summary{list-style:none;cursor:pointer;white-space:nowrap}
-.task-manage-menu>summary::-webkit-details-marker{display:none}
-.task-manage-list{position:fixed;z-index:90;display:grid;min-width:150px;padding:5px;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:0 14px 40px rgba(15,23,42,.14)}
-.task-manage-list button{padding:7px 10px;border:0;border-radius:7px;background:transparent;color:var(--ink);font:inherit;font-size:12px;text-align:left;white-space:nowrap;cursor:pointer}
-.task-manage-list button:hover,.task-manage-list button:focus-visible{background:var(--line-soft)}
-
 /* Copy and open report their own results inside the confirmation, never behind it. */
 .execution-confirm-feedback{flex:1 1 auto;min-width:0;margin:0;color:var(--secondary);font-size:11px;line-height:1.5}
 .execution-confirm-feedback.error{color:var(--danger)}

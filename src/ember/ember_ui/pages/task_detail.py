@@ -14,7 +14,7 @@ builds the dictionary from its own data. Keys (optional ones may be omitted):
   related          task line members: [{task_id, title, href, status, status_label}] or {task_id, missing: True}
   heading_tools_html  edition controls placed before the continue action
   continue         control (see control()) whose form submits the continue action
-  folder_control   the task folder control, shown in the heading when there are no materials
+  folder_control   the delivery folder control, shown in the heading when there are no materials
   materials        {delivery, attrs: [(name, value)], input_count, folder_controls: [control],
                     inputs: [{name, preview, meta, control}]}; omitted when the task has no materials
 """
@@ -41,7 +41,7 @@ def _attrs(pairs) -> str:
 def control(spec: dict) -> str:
     """A button, or a posting form around it when the edition acts through forms.
 
-    spec: {label, class ("button ghost"), disabled, attrs: [(name, value)],
+    spec: {label, class ("button ghost"), disabled, disabled_reason, attrs: [(name, value)],
            form: {action (None: no action), hidden: [(name, value)], attrs: [(name, value)]},
            confirm_label: render the AI execution key instead of a text button}
     """
@@ -52,11 +52,14 @@ def control(spec: dict) -> str:
         button = execution_confirm_button(spec["confirm_label"])
     else:
         button = f'<button class="{_esc(css)}" type="{"submit" if form else "button"}"{_attrs(spec.get("attrs"))}{disabled}>{_esc(spec["label"])}</button>'
-    if not form:
-        return button
-    action = f' method="post" action="{_esc(form["action"])}"' if form.get("action") else ""
-    hidden = "".join(f'<input type="hidden" name="{_esc(name)}" value="{_esc(value)}">' for name, value in form.get("hidden", ()))
-    return f'<form class="action-form"{action}{_attrs(form.get("attrs"))}>{hidden}{button}</form>'
+    if form:
+        action = f' method="post" action="{_esc(form["action"])}"' if form.get("action") else ""
+        hidden = "".join(f'<input type="hidden" name="{_esc(name)}" value="{_esc(value)}">' for name, value in form.get("hidden", ()))
+        button = f'<form class="action-form"{action}{_attrs(form.get("attrs"))}>{hidden}{button}</form>'
+    reason = spec.get("disabled_reason") if spec.get("disabled") else ""
+    if reason:
+        return f'<span class="task-folder-disabled" title="{_esc(reason)}">{button}<small>{_esc(reason)}</small></span>'
+    return button
 
 
 def split_log_text(text: str) -> tuple[str, str]:

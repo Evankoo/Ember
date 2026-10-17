@@ -94,16 +94,6 @@
       "reason": "开源版独有：检查更新按钮"
     },
     {
-      "id": "*:only-core:.task-current-heading-tools > .task-manage-menu",
-      "status": "intentional",
-      "reason": "开源版独有：任务操作菜单（完整版由 AI 走流程完成这些操作）"
-    },
-    {
-      "id": "*:only-core:.task-manage-menu > *",
-      "status": "intentional",
-      "reason": "开源版独有：任务操作菜单内容"
-    },
-    {
       "id": "*:only-core:.project-hero-actions > .button.ghost",
       "status": "intentional",
       "reason": "开源版独有：项目页“新建任务”"

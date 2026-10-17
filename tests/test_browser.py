@@ -105,8 +105,8 @@ class SettingsBrowserTests(unittest.TestCase):
         expect(self.page.locator(".task-technical-summary")).to_contain_text("执行器 人工")
         expect(self.page.locator(".task-delivery-file .task-file-kind").first).to_have_text("MD")
         expect(self.page.locator(".task-file-preview .article h1, .task-file-preview .article h2").first).to_be_visible()
-        self.page.locator(".task-manage-menu summary").click()
-        expect(self.page.locator('[data-action="edit-task"]')).to_be_visible()
+        expect(self.page.locator(".task-manage-menu")).to_have_count(0)
+        expect(self.page.get_by_role("button", name="打开交付文件夹", exact=True)).to_be_enabled()
         self.page.set_viewport_size({"width": 390, "height": 900})
         self.assertTrue(self.page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1"))
         self.assert_untouched()
@@ -130,6 +130,41 @@ class SettingsBrowserTests(unittest.TestCase):
         expect(self.page.locator('input[name="route_mode"][value="continue"]')).to_be_disabled()
         self.page.locator("#homeConfirmBack").click()
         self.assertFalse(self.page.locator("#homeConfirmDialog").evaluate("node => node.open"))
+        self.assert_untouched()
+
+    def test_delivery_folder_button_is_explicit_and_empty_tasks_explain_why_disabled(self):
+        for width in (1440, 1000, 390):
+            self.page.set_viewport_size({"width": width, "height": 900})
+            self.page.goto(self.base + "/#task/activity-review")
+            button = self.page.get_by_role("button", name="打开交付文件夹", exact=True)
+            expect(button).to_be_disabled()
+            expect(self.page.locator(".task-folder-disabled small")).to_have_text("尚无交付文件夹")
+            self.assertLess(float(button.evaluate("e => getComputedStyle(e).opacity")), 1)
+            self.assertFalse(any(url.endswith("/api/reveal") for url, _ in self.posts))
+            self.assertTrue(self.page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1"))
+        self.page.set_viewport_size({"width": 1440, "height": 900})
+        self.page.goto(self.base + "/#task/autumn-plan")
+        with patch("ember.server.subprocess.run") as run:
+            run.return_value.returncode = 0
+            self.page.get_by_role("button", name="打开交付文件夹", exact=True).click()
+            expect(self.page.locator(".toast.show")).to_have_text("已打开文件夹。")
+            self.assertEqual(Path(run.call_args.args[0][-1]), self.workspace.docs / "交付/草稿/autumn-plan")
+        self.assert_untouched()
+
+    def test_confirmation_execution_key_stays_compact_beside_the_executor_name(self):
+        self.save_fixture()
+        self.page.goto(self.base + "/#home")
+        self.page.locator("#homeCommandInput").fill("检查按钮比例")
+        self.page.locator("#homeConfirmOpen").click()
+        self.page.locator("#homePromptState.ready").wait_for()
+        for width in (1440, 1000, 390):
+            self.page.set_viewport_size({"width": width, "height": 900})
+            size = self.page.locator("#homeDispatchConfirm").bounding_box()
+            self.assertLessEqual(size["width"], 40)
+            self.assertLessEqual(size["height"], 40)
+            expect(self.page.locator("#homeConfirmExecutor")).to_be_visible()
+            self.assertTrue(self.page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1"))
+        self.assertFalse(any(url.endswith("/api/executors/open") for url, _ in self.posts))
         self.assert_untouched()
 
     def test_task_page_previews_files_and_opens_the_drawer_when_narrow(self):

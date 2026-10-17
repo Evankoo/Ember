@@ -659,7 +659,6 @@ const app = (() => {
     const navigation = event.target.closest('.app-sidebar a[href^="#"]');
     if (navigation) { setMenu(false); if (navigation.hash === location.hash) { main.focus({ preventScroll: true }); window.scrollTo(0, 0); } }
     const control = event.target.closest("[data-action]");
-    main.querySelectorAll("details.task-manage-menu[open]").forEach(menu => { if (!menu.contains(event.target) || control) menu.open = false; });
     if (control && (control.tagName === "BUTTON" || control.tagName === "A")) {
       if (control.tagName === "A") event.preventDefault();
       action(control).catch(error => notice(error.message, true));
@@ -689,16 +688,6 @@ const app = (() => {
     const copied = await window.GStudioUI.copyPrompt(button.dataset.projectEntryCopy);
     notice(copied ? "入口已复制" : "复制失败，请选择路径或网址手动复制", !copied);
   });
-  // The task header clips overflow, so the actions menu is placed against the viewport.
-  document.addEventListener("toggle", event => {
-    const menu = event.target;
-    if (!menu.classList?.contains("task-manage-menu") || !menu.open) return;
-    const rect = menu.querySelector("summary").getBoundingClientRect(), list = menu.querySelector(".task-manage-list");
-    Object.assign(list.style, { position: "fixed", top: `${rect.bottom + 6}px`, right: `${Math.max(8, innerWidth - rect.right)}px` });
-    list.querySelector("button")?.focus();
-  }, true);
-  window.addEventListener("keydown", event => { if (event.key === "Escape") main.querySelectorAll("details.task-manage-menu[open]").forEach(menu => { menu.open = false; menu.querySelector("summary").focus(); }); });
-  window.addEventListener("scroll", () => main.querySelectorAll("details.task-manage-menu[open]").forEach(menu => { menu.open = false; }), true);
 
   route();
   loadState().catch(error => {

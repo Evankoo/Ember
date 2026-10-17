@@ -49,8 +49,21 @@ class TaskPageTests(unittest.TestCase):
         self.assertEqual(sum(1 for row in page["materials"]["inputs"] if row["meta"].startswith("快照")), 2)
         self.assertEqual(page["parent"]["href"], "#task/chenyu-line")
         self.assertTrue(page["body_html"].startswith('<h3 id="%E4%BB%BB%E5%8A%A1%E7%9B%AE%E6%A0%87">任务目标</h3>'))
-        self.assertIn('data-action="promote"', page["heading_tools_html"])
+        self.assertNotIn('task-manage-menu', render_task(self.snapshot, "autumn-plan"))
+        self.assertNotIn('data-action="promote"', render_task(self.snapshot, "autumn-plan"))
         self.assertIsNone(task_page(self.snapshot, "missing"))
+
+    def test_delivery_button_targets_delivery_and_explains_an_empty_task(self):
+        page = task_page(self.snapshot, "autumn-plan")
+        self.assertEqual(page["folder_control"]["label"], "打开交付文件夹")
+        self.assertIn(("data-folder", "delivery"), page["folder_control"]["attrs"])
+        self.assertFalse(page["folder_control"]["disabled"])
+        empty = {**self.task("autumn-plan"), "inputs": [], "outputs": [], "artifact_mode": "none"}
+        snapshot = {**self.snapshot, "tasks": [empty]}
+        html = render_task(snapshot, empty["id"])
+        self.assertIn('disabled>打开交付文件夹</button>', html)
+        self.assertIn('<small>尚无交付文件夹</small>', html)
+        self.assertNotIn('task-manage-menu', html)
 
     def test_task_line_lists_members_and_no_script_or_style(self):
         html = render_task(self.snapshot, "chenyu-line")

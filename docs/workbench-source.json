@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "source_commit": "cb0f487cc89a4eb8d60b8c636665fdefd3cfddd6",
+  "source_commit": "37cafeec8d0119a1a6ba735ead8449ae3142ffcc",
   "source_dir": "ui/ember_ui",
   "files": {
     "README.md": "aadd5937e292aef18f311a010dccdeb60a8064e6443c6a11f6287fd03732127f",
@@ -16,7 +16,7 @@
     "pages/settings.py": "646201c8e6a187f53be6a46d62cbc5dc1eda08e6d6e4181499a53e2daa63c344",
     "pages/shell.py": "ed8c744174afd0e9dff48108f1de7c1a05eca6c0235c50cefce65f0dace23228",
     "pages/system.py": "889afe0ca29932aae4814229cc99880833b5948b4936d046d4110d94898d1ca0",
-    "pages/task_detail.py": "64a22b76311a6ba5b9052690ac39ec1b9a8a696ffc2cb40bf1bca7985dbf4bdc",
+    "pages/task_detail.py": "a3b8a02578f29ca439b941712bb2dbeb7ed0d110c8b2b7306bd3cd9f6ef8f6ce",
     "static/ember-ui.js": "451949fd7e7f0ae3c042fe182876ae2e90a2a4ee3ef2d4a1a98cd42e623ec1e4",
     "static/execution-confirm.js": "82b7dbf47deed067690aa2e0bb12badec8135b37c217c562ed1e40eae55187a5",
     "static/executor-settings.css": "4c7d18b536c7fa62cde0200a5b18b79d58dc204f0ce6725af11da7fcd8920e34",
@@ -37,7 +37,7 @@
     "static/task-detail.css": "84a717332fd541161172382bc3f665cb4109e6a9910fe7a58053d1042413dcf2",
     "static/task-detail.js": "142a6ce2633257f1b551f922de6c97c01359f072fd95addc30bc423eda3b8c72",
     "static/task-overview.js": "f6f16b69fc3839849f11ffc51f18c5ec168b78f459f81eeca6a4b6019a7f6412",
-    "static/workbench.css": "6630c14f28bcd4a3845249255aee04fe39e06b8eb3fa850bd72a767e52c99698"
+    "static/workbench.css": "ef0880c5e120bda7e767dba04b93ff8ade92c6806abea30ae427b0c9902b397a"
   },
   "page_styles_sha256": "6098b71e85014d1c05449df92f5b5d0f630caeb0e598fcf799edf41bc872c4e8"
 }

@@ -2,7 +2,7 @@
 
 Each function reads this local workspace's snapshot and returns the dictionary a template takes;
 the template, not this module, decides the markup. Controls that act on the workspace are plain
-buttons handled by app.js; only the 任务操作 menu is open-source-only markup.
+buttons handled by app.js; task mutations follow the daily Skill workflow.
 """
 from __future__ import annotations
 
@@ -39,22 +39,6 @@ def _button(label: str, *attrs: tuple[str, str], disabled: bool = False) -> dict
     return {"label": label, "attrs": list(attrs), "disabled": disabled}
 
 
-def _manage_menu(task: dict) -> str:
-    """Open-source-only: changes the full workbench leaves to the AI workflow."""
-    ident = html.escape(task["id"], quote=True)
-    items = []
-    if task["status"] != "completed":
-        items.append(f'<button type="button" role="menuitem" data-action="edit-task" data-id="{ident}">更新任务记录</button>'
-                     f'<button type="button" role="menuitem" data-action="add-material" data-id="{ident}">添加资料</button>')
-        items.append(f'<button id="promote-task-button" type="button" role="menuitem" data-action="promote" data-id="{ident}">正式交付并完成</button>'
-                     if task.get("artifact_mode") == "delivery" else
-                     f'<button id="complete-task-button" type="button" role="menuitem" data-action="complete" data-id="{ident}">完成任务</button>')
-    important = bool(task.get("important"))
-    items.append(f'<button type="button" role="menuitem" data-action="important" data-id="{ident}" aria-pressed="{str(important).lower()}">{"移出重点" if important else "设为重点"}</button>')
-    return (f'<details class="task-manage-menu"><summary class="button ghost" aria-label="任务操作">任务操作</summary>'
-            f'<div class="task-manage-list" role="menu">{"".join(items)}</div></details>')
-
-
 def _log_entries(task: dict) -> list[tuple[str, str]]:
     entries = []
     for log in task.get("logs") or []:
@@ -88,7 +72,8 @@ def task_page(snapshot: dict, task_id: str) -> dict | None:
     parent = next((item for item in snapshot["tasks"] if item.get("kind") == "task_line" and task_id in (item.get("related") or [])), None)
     body = _body_markdown(task)
     ident = task["id"]
-    task_folder = _button("打开任务文件夹", ("data-action", "reveal-folder"), ("data-id", ident), ("data-folder", "delivery"), disabled=not outputs)
+    task_folder = {**_button("打开交付文件夹", ("data-action", "reveal-folder"), ("data-id", ident), ("data-folder", "delivery"), disabled=not outputs),
+                   "disabled_reason": "尚无交付文件夹"}
     has_input_snapshot = any(item["taskId"] == ident and item["kind"] == "input" for item in inputs)
     input_folder = _button("打开输入目录", ("data-action", "reveal-folder"), ("data-id", ident), ("data-folder", "input"), disabled=not has_input_snapshot)
     open_task = task["status"] != "completed"
@@ -107,7 +92,6 @@ def task_page(snapshot: dict, task_id: str) -> dict | None:
         "log": {"entries": logs, "machine_prefixes": MACHINE_LOG_KINDS} if logs else None,
         "related": [{"task_id": item["id"], "title": item["title"], "href": task_href(item["id"]), "status": item["status"],
                      "status_label": STATUS_NAMES.get(item["status"], item["status"])} for item in related_tasks] if task.get("kind") == "task_line" else None,
-        "heading_tools_html": _manage_menu(task),
         "continue": {"confirm_label": "核对提示词并继续任务" if open_task else "基于已完成任务新建", "form": {
             "hidden": [("task_id", ident)],
             "attrs": [("data-task-continue-form", None), ("data-execution-confirm", None),
