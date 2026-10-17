@@ -33,8 +33,6 @@ const app = (() => {
   const taskLink = item => `#task/${encodeURIComponent(item.id)}`;
   const formError = form => form.querySelector(".form-error");
   const bytes = n => n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n >= 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n || 0} B`;
-  const stamp = item => String(item.updated_at || item.date || "").slice(0, 16);
-  const days = value => (Date.now() - Date.parse(String(value || "").replace(" ", "T").replace(/\+08:00$/, "+08:00"))) / 86400000;
   const workType = item => item.kind === "task_line" ? "任务线" : workNames[item.work_type] || item.work_type;
   const categories = () => [...new Set(data().projects.map(p => p.category).filter(Boolean))];
   const categoryClass = name => categoryClasses[Math.max(0, categories().indexOf(name)) % categoryClasses.length];
@@ -278,44 +276,26 @@ const app = (() => {
   }
 
   /* ---------- 项目视图 ---------- */
-  const recentCompleted = (items, limit = 30) => items.filter(t => t.status === "completed" && days(t.updated_at || t.date) <= limit);
+  /* Rendered on the server with the full workbench's template (ember_ui/pages/projects.py); the category
+     filter and task drag are ember_ui/projects.js. Dragging a task into or out of 当前重要事项 saves the
+     task's importance; this edition keeps no project order, so cards are not reordered. */
+  const projectsHooks = {
+    setPriority: ({ taskId, important }) => mutate(`api/tasks/${encodeURIComponent(taskId)}/important`, { important, revision: data().revision }),
+    saveOrder: null,
+    saved: () => notice("重点状态已保存。任务内容与生命周期未改变。"),
+    category: { read: () => ui.projectCategory, write: key => { ui.projectCategory = key; } },
+    notify: (message, type) => notice(message, type === "error"),
+  };
 
-  function projectHealth(items) {
-    const active = items.filter(t => t.status === "active");
-    if (items.some(t => t.status === "blocked")) return ["attention", "需要关注", "有受阻任务"];
-    if (items.some(t => t.status === "waiting_user")) return ["waiting", "等待确认", "有任务等待确认"];
-    if (active.length && active.filter(t => days(t.updated_at || t.date) > 21).length * 2 > active.length) return ["stalled", "推进放缓", "过半进行中任务超过 21 天未更新"];
-    if (active.length) return ["normal", "正常推进", "有近期更新"];
-    return ["normal", "暂无进行中", "当前没有进行中的任务"];
-  }
-
-  function projectCard(p) {
-    const id = p.id, items = data().tasks.filter(t => (t.project || "independent") === id);
-    const important = items.filter(t => t.important), importantIds = new Set(important.map(t => t.id));
-    const active = items.filter(t => t.status === "active" && !importantIds.has(t.id));
-    const recent = recentCompleted(items).filter(t => !importantIds.has(t.id));
-    const [cls, label, reason] = projectHealth(items);
-    const latest = items.map(t => stamp(t)).sort().pop() || "暂无";
-    const entry = t => `<div class="project-view-task-wrap"><a class="project-view-task" href="${taskLink(t)}" data-task-id="${esc(t.id)}"><span class="project-task-name">${esc(t.title)}${t.kind === "task_line" ? `<span class="task-group-tag">任务线</span>` : ""}</span><span class="project-task-state ${t.status === "completed" ? "completed" : "active"}">${t.status === "completed" ? "近30天完成" : esc(statusNames[t.status] || t.status)}</span></a></div>`;
-    const column = (key, title, rows) => `<div class="project-view-column" data-board-column="${key}"><div class="project-view-column-head">${title} (${rows.length})</div><div class="project-view-column-body">${rows.map(entry).join("") || `<span class="project-view-task empty">暂无</span>`}</div></div>`;
-    const board = `<div class="project-view-board">${column("important", "当前重要事项", important)}${column("active", "进行中", active)}${column("completed", "近 30 天完成", recent)}</div>`;
-    const review = `<a class="button ghost" href="#review" data-action="review-project" data-id="${esc(id)}">任务整理</a>`;
-    if (id === "independent") return `<article class="project-view-card independent-task-overview" data-project-card="independent" aria-labelledby="independent-task-title"><div class="project-info"><div class="card-head"><h2 id="independent-task-title"><a href="#review" data-action="review-project" data-id="independent">独立任务</a></h2><span class="independent-scope-badge">非项目</span></div><div class="project-focus"><div class="focus-label">当前主线</div><div class="focus-text">尚未形成任务主线</div></div><div class="project-metrics"><div class="project-recent-stats"><div><b>${items.filter(t => t.status === "active").length}</b> 进行中 · <b>${recentCompleted(items).length}</b> 近 30 天完成</div></div><div class="project-center-meta"><span>独立任务可整理，并逐步形成项目。</span></div></div><div class="card-actions"><a class="button primary" href="#review" data-action="review-project" data-id="independent">查看独立任务</a>${review}</div></div>${board}</article>`;
-    return `<article class="project-view-card" data-project-card="${esc(id)}"><div class="project-info"><div class="card-head"><h2><a href="#project/${encodeURIComponent(id)}">${esc(p.name)}</a></h2><span class="project-status ${cls}">${label}</span></div><div class="project-focus"><div class="focus-label">当前主线</div><div class="focus-text">${esc(p.focus || "暂无明确推进主线")}</div></div><div class="project-metrics"><div class="project-recent-stats"><div><b>${items.filter(t => t.status === "active").length}</b> 进行中 · <b>${recentCompleted(items, 7).length}</b> 近 7 天完成</div><div>最近更新 ${esc(latest)}</div></div><div class="project-center-meta"><span>状态说明：${esc(reason)}</span></div></div><div class="card-actions"><a class="button primary" href="#project/${encodeURIComponent(id)}">进入项目</a>${review}</div></div>${board}</article>`;
-  }
-
-  function renderProjects() {
-    const independent = { id: "independent", name: "独立任务", focus: "" };
-    const cats = categories(), uncategorized = data().projects.filter(p => !p.category);
-    const tabs = [["", "全部", data().projects.length + 1], ...cats.map(name => [name, name, data().projects.filter(p => p.category === name).length]), ...(cats.length && uncategorized.length ? [["__none", "未分类", uncategorized.length]] : []), ["__independent", "独立任务", 1]];
-    if (!tabs.some(([value]) => value === ui.projectCategory)) ui.projectCategory = "";
-    const selected = ui.projectCategory;
-    const visible = selected === "__independent" ? [] : data().projects.filter(p => !selected || (selected === "__none" ? !p.category : p.category === selected));
-    const showIndependent = !selected || selected === "__independent";
-    const activeCount = data().tasks.filter(t => t.status === "active").length;
-    const attention = data().projects.filter(p => projectHealth(data().tasks.filter(t => t.project === p.id))[0] !== "normal").length;
+  async function renderProjects() {
     main.className = "shell app-main project-view-page paper-management-page";
-    main.innerHTML = `<header class="project-view-page-head"><h1>项目视图</h1><p>${data().projects.length} 个项目 · ${activeCount} 项进行中 · ${attention} 个需要关注</p><button id="new-project-button" class="button ghost" type="button" data-action="new-project">新建项目</button></header><nav class="chips project-category-filters" aria-label="项目分类">${tabs.map(([value, name, count]) => `<button class="chip${selected === value ? " active" : ""}" type="button" data-action="project-category" data-id="${esc(value)}" aria-pressed="${selected === value}">${esc(name)}<small>${count}</small></button>`).join("")}</nav><section class="project-view-grid">${visible.map(projectCard).join("")}${showIndependent ? projectCard(independent) : ""}${!visible.length && !showIndependent ? `<p class="library-empty">该分类尚未登记项目。</p>` : ""}</section>`;
+    let page;
+    try { page = await api("api/pages/projects"); }
+    catch (error) { if (state.route === "projects") main.innerHTML = `<section class="panel load-error"><h1>项目视图读取失败</h1><p class="form-error">${esc(error.message)}</p></section>`; return; }
+    if (state.route !== "projects") return;
+    state.projects?.destroy();
+    main.innerHTML = page.html;
+    state.projects = window.EmberProjects.mount(main, projectsHooks);
   }
 
   /* ---------- 项目页 ---------- */
@@ -665,8 +645,8 @@ const app = (() => {
   }
 
   function renderRoute() {
-    pageStyle({ task: "task", settings: "settings" }[state.route] || "");
-    for (const key of ["taskMaterials", "home", "overview", "review", "library"]) { state[key]?.destroy(); state[key] = null; }
+    pageStyle({ task: "task", settings: "settings", projects: "projects" }[state.route] || "");
+    for (const key of ["taskMaterials", "home", "overview", "review", "library", "projects"]) { state[key]?.destroy(); state[key] = null; }
     document.body.classList.toggle("paper-management-shell", state.route !== "home");
     const renders = { home: renderHome, projects: renderProjects, project: renderProject, task: renderTask, library: renderLibrary, review: renderReview, settings: renderSettings };
     const render = renders[state.route];
@@ -777,7 +757,6 @@ const app = (() => {
       case "add-material": addMaterial(id); return;
       case "promote": promote(id); return;
       case "complete": completeTask(id); return;
-      case "project-category": ui.projectCategory = id; renderProjects(); return;
       // The full workbench opens 任务检视 filtered by ?project=; review.js reads it from the address.
       case "review-project": history.pushState(null, "", `${location.pathname}?project=${encodeURIComponent(id)}#review`); route(); return;
       case "new-report": newReport(); return;

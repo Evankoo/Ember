@@ -249,6 +249,26 @@ class SettingsBrowserTests(unittest.TestCase):
         self.assertFalse(self.page.evaluate("Boolean(window.bad)"))
         self.assert_untouched()
 
+    def test_projects_view_filters_and_drags_a_task_into_important(self):
+        self.page.goto(self.base + "/#projects")
+        cards = self.page.locator(".project-view-grid [data-project-card]:not(.hidden)")
+        expect(cards).to_have_count(3)
+        self.assertEqual(self.page.locator('.project-view-grid[data-card-sort="off"]').count(), 1)
+        self.page.locator('[data-project-category-filter="c:工作室运营"]').click()
+        expect(cards).to_have_count(1)
+        expect(cards).to_have_attribute("data-project-card", "studio")
+        self.page.goto(self.base + "/#review")
+        self.page.goto(self.base + "/#projects")
+        expect(cards).to_have_count(1)
+        self.page.locator('[data-project-category-filter="all"]').click()
+        expect(cards).to_have_count(3)
+        self.addCleanup(lambda: self.workspace.set_important("autumn-assets", {"important": False, "revision": self.workspace.snapshot()["revision"]}))
+        self.page.drag_and_drop('[data-project="chenyu"][data-board-column="active"] [data-task-id="autumn-assets"]',
+                                '[data-project="chenyu"][data-board-column="important"]')
+        expect(self.page.locator('[data-project="chenyu"][data-board-column="important"] [data-task-id="autumn-assets"]')).to_be_visible()
+        self.assertTrue(any(url.endswith("/api/tasks/autumn-assets/important") and body["important"] is True for url, body in self.posts))
+        self.assertEqual(self.errors, [])
+
     def test_project_task_list_filters_without_losing_search_focus(self):
         self.page.goto(self.base + "/#project/chenyu")
         rows = self.page.locator(".project-task-row:visible")

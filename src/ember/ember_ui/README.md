@@ -18,6 +18,8 @@ own export tool and never edits it there.
   全部任务 browser (`window.EmberTaskOverview.mount`).
 - `static/project.css`, `static/project.js`: the project workspace layout, its
   tabs and task filters (`window.EmberProject.mount`).
+- `static/projects.css`, `static/projects.js`: the 项目视图 category filter, task
+  drag into and out of 当前重要事项, and card reordering (`window.EmberProjects.mount`).
 - `static/system.css`, `static/system.js`: the system workspace layout and its
   task search (`window.EmberSystem.mount`).
 - `static/review.js`: 任务检视 search, filters, selection and previews
@@ -28,10 +30,10 @@ own export tool and never edits it there.
   Skills filters (`window.EmberSettings.mount`).
 - `markdown.py`, `marks.py`: the Markdown subset and the flame mark both
   editions render.
-- `pages/task_detail.py`, `pages/home.py`, `pages/project.py`, `pages/system.py`,
-  `pages/review.py`, `pages/library.py`, `pages/settings.py`: the task detail, home,
-  project workspace, system workspace, 任务检视, 资料浏览 and 设置 (shell and Skills)
-  page templates. It takes one page
+- `pages/task_detail.py`, `pages/home.py`, `pages/projects.py`, `pages/project.py`,
+  `pages/system.py`, `pages/review.py`, `pages/library.py`, `pages/settings.py`: the
+  task detail, home, 项目视图, project workspace, system workspace, 任务检视, 资料浏览
+  and 设置 (shell and Skills) page templates. It takes one page
   dictionary (documented in the module) and returns markup only; each edition
   builds the dictionary from its own data and wraps the result.
 

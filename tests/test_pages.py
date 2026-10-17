@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ember.pages import report_preview, review_page_data, review_search, card_sections, file_preview, home_page_data, home_search, project_page, render_home, render_project, render_task, task_page, task_preview
+from ember.pages import projects_page_data, render_projects, report_preview, review_page_data, review_search, card_sections, file_preview, home_page_data, home_search, project_page, render_home, render_project, render_task, task_page, task_preview
 from ember.store import Workspace
 
 
@@ -123,6 +123,24 @@ class ProjectPageTests(TaskPageTests):
         for forbidden in ("<script", "<style", " style="):
             self.assertNotIn(forbidden, markup)
 
+
+    def test_projects_view_data_and_markup(self):
+        page = projects_page_data(self.snapshot)
+        self.assertEqual([card["slug"] for card in page["cards"]][-1], "independent")
+        self.assertEqual(page["filters"][0][0], "all")
+        self.assertEqual(page["filters"][-1], ("independent", "独立任务", 1))
+        chenyu = next(card for card in page["cards"] if card["slug"] == "chenyu")
+        self.assertTrue(chenyu["category"].startswith("c:"))
+        important = {row["task_id"] for row in chenyu["columns"][0]["rows"]}
+        self.assertEqual(important, {item["id"] for item in self.snapshot["tasks"] if item["project"] == "chenyu" and item.get("important")})
+        self.assertFalse(important & {row["task_id"] for column in chenyu["columns"][1:] for row in column["rows"]})
+        markup = render_projects(self.snapshot)
+        self.assertIn('data-action="new-project"', markup)
+        self.assertIn('data-project-card="chenyu"', markup)
+        self.assertIn('data-independent-task-overview', markup)
+        self.assertIn('data-action="review-project" data-id="independent"', markup)
+        for forbidden in ("<script", "<style", " style="):
+            self.assertNotIn(forbidden, markup)
 
 
 class ReviewPageTests(TaskPageTests):

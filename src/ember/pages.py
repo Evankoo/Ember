@@ -13,7 +13,7 @@ from urllib.parse import quote
 from .ember_ui.markdown import markdown_to_html
 from datetime import datetime
 
-from .ember_ui.pages import home, library as library_template, project as project_template, review as review_template, settings as settings_template, system as system_template, task_detail
+from .ember_ui.pages import home, library as library_template, project as project_template, projects as projects_template, review as review_template, settings as settings_template, system as system_template, task_detail
 
 STATUS_NAMES = {"active": "进行中", "waiting_user": "待确认", "blocked": "受阻", "completed": "已完成"}
 EXECUTOR_NAMES = {"codex": "Codex", "opencode": "OpenCode", "claude-code": "Claude Code", "workbuddy": "WorkBuddy",
@@ -359,6 +359,77 @@ def render_project(snapshot: dict, project_id: str) -> dict | None:
     if project.get("kind") == "system":
         return {"kind": "system", "html": system_template.render(system_page(snapshot, project_id))}
     return {"kind": "project", "html": project_template.render(project_page(snapshot, project_id))}
+
+
+def _days_ago(task: dict, now: float) -> float:
+    stamp = _epoch(task.get("updated_at") or task.get("date") or "")
+    return (now - stamp) / 86400 if stamp else float("inf")
+
+
+def _project_health(tasks: list[dict], now: float) -> tuple[str, str, str]:
+    active = [task for task in tasks if task["status"] == "active"]
+    if any(task["status"] == "blocked" for task in tasks):
+        return "attention", "需要关注", "有受阻任务"
+    if any(task["status"] == "waiting_user" for task in tasks):
+        return "waiting", "等待确认", "有任务等待确认"
+    if active and sum(_days_ago(task, now) > 21 for task in active) * 2 > len(active):
+        return "stalled", "推进放缓", "过半进行中任务超过 21 天未更新"
+    return ("normal", "正常推进", "有近期更新") if active else ("normal", "暂无进行中", "当前没有进行中的任务")
+
+
+def projects_page_data(snapshot: dict) -> dict:
+    """项目视图: one card per project plus independent tasks, each with a three-column board."""
+    now = datetime.now().timestamp()
+    projects, tasks = snapshot["projects"], snapshot["tasks"]
+    newest = lambda task: str(task.get("updated_at") or task.get("date") or "")  # noqa: E731
+    recent = lambda items, days: [task for task in items if task["status"] == "completed" and _days_ago(task, now) <= days]  # noqa: E731
+    row = lambda task: {"task_id": task["id"], "title": task["title"], "href": task_href(task["id"]), "task_line": task.get("kind") == "task_line",  # noqa: E731
+                        "return_column": task["status"] if task["status"] in ("active", "completed") else ""}
+
+    def board(items):
+        important = [task for task in items if task.get("important")]
+        rest = [task for task in sorted(items, key=newest, reverse=True) if not task.get("important")]
+        return [{"key": "important", "label": "当前重要事项", "empty": "拖动任务到这里", "rows": [row(task) for task in important]},
+                {"key": "active", "label": "进行中", "empty": "无进行中任务", "rows": [row(task) for task in rest if task["status"] == "active"]},
+                {"key": "completed", "label": "近 30 天完成", "empty": "近 30 天无完成", "rows": [row(task) for task in recent(rest, 30)]}]
+
+    def review(project_id):
+        return {"label": "任务整理", "href": "#review", "attrs": [("data-action", "review-project"), ("data-id", project_id)]}
+
+    cards, attention = [], 0
+    for project in projects:
+        items = [task for task in tasks if task["project"] == project["id"]]
+        key, label, reason = _project_health(items, now)
+        attention += key != "normal"
+        href = f"#project/{quote(project['id'], safe='')}"
+        cards.append({"slug": project["id"], "title": project["name"], "href": href,
+                      "category": f"c:{project['category']}" if project.get("category") else "other",
+                      "status_key": key, "status_label": label, "focus": project.get("focus") or "暂无明确推进主线",
+                      "stats": [(sum(task["status"] == "active" for task in items), "进行中"), (len(recent(items, 7)), "近 7 天完成")],
+                      "lines": [f"最近更新 {max((newest(task)[:16] for task in items), default='') or '暂无'}"], "note": f"状态说明：{reason}",
+                      "actions": [{"label": "进入项目", "href": href, "primary": True}, review(project["id"])], "columns": board(items)})
+    independent = [task for task in tasks if (task["project"] or "independent") == "independent"]
+    mainline = max((task for task in independent if task["status"] == "active" and task.get("kind") == "task_line"), key=newest, default=None)
+    cards.append({"slug": "independent", "title": "独立任务", "href": "#review", "title_attrs": [("data-action", "review-project"), ("data-id", "independent")],
+                  "category": "independent", "independent": True,
+                  "focus": mainline["title"] if mainline else "尚未形成任务主线", "focus_href": task_href(mainline["id"]) if mainline else "",
+                  "stats": [(sum(task["status"] == "active" for task in independent), "进行中"), (len(recent(independent, 30)), "近 30 天完成")],
+                  "note": "独立任务可整理，并逐步形成项目。", "board_label": "独立任务看板",
+                  "actions": [{"label": "查看独立任务", "href": "#review", "primary": True, "attrs": [("data-action", "review-project"), ("data-id", "independent")]}, review("independent")],
+                  "columns": board(independent)})
+    names = list(dict.fromkeys(project["category"] for project in projects if project.get("category")))
+    uncategorized = sum(not project.get("category") for project in projects)
+    filters = [("all", "全部", len(projects) + 1)] + [(f"c:{name}", name, sum(project.get("category") == name for project in projects)) for name in names]
+    if names and uncategorized:
+        filters.append(("other", "未分类", uncategorized))
+    filters.append(("independent", "独立任务", 1))
+    return {"counts": {"projects": len(projects), "active": sum(task["status"] == "active" for task in tasks), "attention": attention},
+            "head_actions_html": '<button id="new-project-button" class="button ghost" type="button" data-action="new-project">新建项目</button>',
+            "filters": filters, "empty_html": "该分类尚未登记项目。", "cards": cards}
+
+
+def render_projects(snapshot: dict) -> str:
+    return projects_template.render(projects_page_data(snapshot))
 
 
 def _task_text(task: dict) -> str:

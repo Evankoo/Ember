@@ -114,6 +114,9 @@ class Handler(BaseHTTPRequestHandler):
                 if page is None:
                     raise WorkspaceError("该项目不在当前工作区。", 404)
                 self.json(page)
+            elif path == "/api/pages/projects":
+                from .pages import render_projects
+                self.json({"html": render_projects(self.server.workspace.snapshot())})
             elif path == "/api/pages/library":
                 from .pages import render_library
                 self.json({"html": render_library(self.server.workspace.snapshot())})

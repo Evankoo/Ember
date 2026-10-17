@@ -1,8 +1,8 @@
 {
   "schema": 1,
-  "checked_at": "2026-10-17T08:38:52+00:00",
-  "source_commit": "34bfdebdd1c643b36eded700dcdef4e1ad913a4a",
-  "ui_sha256": "559d10e17763be1042465967fecdac35cdcde3bd56b749d093864cae01fff351",
+  "checked_at": "2026-10-17T08:41:14+00:00",
+  "source_commit": "9000afb242c42aec7c7ebdf73b6ef82dd4afa586",
+  "ui_sha256": "9311c54ee02503f2a3d65b1fa47e1c1131f0f4bef71dcf0058c898b433cd388d",
   "pages": [
     "home",
     "home-confirm",
