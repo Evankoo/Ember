@@ -24,7 +24,7 @@ jobs:
           with ZipFile(next(Path('dist').glob('ember-*.whl'))) as wheel:
               names = set(wheel.namelist())
               assert not any('__pycache__' in name or name.endswith(('.pyc', '.pyo')) for name in names)
-              assert {'ember/web/index.html', 'ember/web/app.js', 'ember/web/fonts/OFL.txt', 'ember/skills/ember-init/scripts/bootstrap.py', 'ember/executors.py'} <= names
+              assert {'ember/ember_ui/pages/shell.py', 'ember/pages.py', 'ember/web/app.js', 'ember/web/fonts/OFL.txt', 'ember/skills/ember-init/scripts/bootstrap.py', 'ember/executors.py'} <= names
               assert {'ember/onboarding.py', 'ember/onboarding_completion.py', 'ember/project_registration.py', 'ember/skills/ember-project/SKILL.md', 'ember/skills/ember-project/scripts/project.py'} <= names
               assert any(name.startswith('ember/examples/workspace/tasks/') for name in names)
               assert not any(name.startswith('ember/examples/workspace/archive/') or name.endswith('/archive-records.json') for name in names)
