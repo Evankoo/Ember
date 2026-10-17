@@ -41,7 +41,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "src/ember/web"
 CONFIG = ROOT / "docs/workbench-parity.json"
 RECORD = ROOT / "docs/workbench-parity-record.json"
-UI_FILES = ("index.html", "app.js", "app.css", "assets/workbench-pages.css")
+UI_FILES = ("app.js", "app.css", "assets/workbench-pages.css")
 
 
 SHARED = ROOT / "src/ember/ember_ui"

@@ -1,9 +1,9 @@
 {
   "schema": 2,
-  "source_commit": "9000afb242c42aec7c7ebdf73b6ef82dd4afa586",
+  "source_commit": "21c7acc69887801be0dc546c68fd0dadd2b0163e",
   "source_dir": "ui/ember_ui",
   "files": {
-    "README.md": "63ef809aa99b5d40bd518f9a5b8822c6f28108efce38c78acd57321e894ea974",
+    "README.md": "97fcae607e50928b3949b7da025a4000069a2efefd1f227efaa654424ea52a3b",
     "__init__.py": "ff3974de64f5a2b1f143799209831a3468c8f6fc8dc3aca2e0e157f672c960b7",
     "markdown.py": "1dea433ab2a8f71719830f2b35fbf4834eaab2b50a5b60180da90e2784b131bc",
     "marks.py": "d5edbaa78309cdc87375ad38de01031f045d41f1e8b30952693e548a510a9b41",
@@ -14,6 +14,7 @@
     "pages/projects.py": "703ad137bda8437ccf8bfab57ff2be598a44361f4dfcb6f66e90980e58a7d912",
     "pages/review.py": "375c77007b141205e21242c0ba6a07172e3e2be279a8576f70b9726f095825ab",
     "pages/settings.py": "270d1fd1528e012002c8b414a144ecacd4422393ddd1dbaadf148093ba57bf66",
+    "pages/shell.py": "ed8c744174afd0e9dff48108f1de7c1a05eca6c0235c50cefce65f0dace23228",
     "pages/system.py": "889afe0ca29932aae4814229cc99880833b5948b4936d046d4110d94898d1ca0",
     "pages/task_detail.py": "64a22b76311a6ba5b9052690ac39ec1b9a8a696ffc2cb40bf1bca7985dbf4bdc",
     "static/ember-ui.js": "451949fd7e7f0ae3c042fe182876ae2e90a2a4ee3ef2d4a1a98cd42e623ec1e4",

@@ -13,7 +13,6 @@ const app = (() => {
   const software = { entries: [], default: "", editing: false, manual: { label: "", kind: "app", path: "" }, epoch: 0, saving: false };
   const statusNames = { active: "进行中", waiting_user: "待确认", blocked: "受阻", completed: "已完成" };
   const workNames = { text: "文字", image: "图片", video: "视频", audio: "音频", data: "数据", mixed: "混合", system: "系统" };
-  const categoryClasses = ["account_operations", "course_teaching", "novel_writing", "system_building"];
   const brandMark = `<svg class="brand-mark" viewBox="0 0 256 256" fill="none" aria-hidden="true" focusable="false"><path d="M68 146H194C197 106 186 68 162 36C154 58 128 68 100 86C76 102 62 124 62 150C62 194 94 222 134 222C160 222 180 212 194 196" stroke="currentColor" stroke-width="27" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   const TEXT_FILE = /\.(md|markdown|txt|csv|json)$/i;
   const ATTACHMENT_LIMIT = 16000;
@@ -35,7 +34,6 @@ const app = (() => {
   const bytes = n => n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n >= 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n || 0} B`;
   const workType = item => item.kind === "task_line" ? "任务线" : workNames[item.work_type] || item.work_type;
   const categories = () => [...new Set(data().projects.map(p => p.category).filter(Boolean))];
-  const categoryClass = name => categoryClasses[Math.max(0, categories().indexOf(name)) % categoryClasses.length];
   const fileIcon = item => /\.md$/i.test(item.name) ? "M" : /\.(png|jpe?g|webp|gif)$/i.test(item.name) ? "◇" : /\.(mp4|mov|webm)$/i.test(item.name) ? "▶" : /\.pdf$/i.test(item.name) ? "P" : "·";
   const fileKind = item => `<span class="task-file-kind">${esc((String(item.name).match(/\.([a-z0-9]{1,8})$/i) || [, "文件"])[1].toUpperCase().slice(0, 4))}</span>`;
   function inline(text) {
@@ -144,26 +142,33 @@ const app = (() => {
     const values = favorites();
     values.has(id) ? values.delete(id) : values.add(id);
     try { localStorage.setItem(favoriteKey(), JSON.stringify([...values])); } catch { notice("浏览器不允许保存收藏，本次刷新后会恢复。", true); }
-    renderNav();
+    loadNav();
   }
 
   async function loadState(render = true) {
     state.data = await api("api/state");
     data().tasks ||= []; data().projects ||= []; data().files ||= []; data().reports ||= [];
     renderNav();
+    const nav = loadNav();
     if (render) renderRoute();
+    await nav;
+  }
+
+  /* The workspace list is rendered on the server with the full workbench's sidebar template; it is
+     reloaded when projects or favorites change. renderNav only marks the current page. */
+  let navRequest = 0;
+  async function loadNav() {
+    const request = ++navRequest;
+    let page;
+    try { page = await api(`api/pages/sidebar?favorites=${encodeURIComponent([...favorites()].join(","))}`); }
+    catch (error) { if (request === navRequest) notice(`侧栏读取失败：${error.message}`, true); return; }
+    if (request !== navRequest) return;
+    document.getElementById("workspace-nav").innerHTML = page.html;
+    sidebar.restoreNavigation();
+    renderNav();
   }
 
   function renderNav() {
-    const saved = favorites();
-    const row = p => `<div class="sidebar-project-row" data-sidebar-project="${esc(p.id)}"><a href="#project/${encodeURIComponent(p.id)}" data-project-nav="${esc(p.id)}" aria-label="${p.kind === "system" ? "系统" : "项目"}：${esc(p.name)}"><span class="sidebar-dot ${categoryClass(p.category)}"></span><span class="sidebar-project-title">${esc(p.name)}</span></a><button type="button" class="sidebar-favorite-button${saved.has(p.id) ? " saved" : ""}" data-action="favorite" data-id="${esc(p.id)}" aria-label="${saved.has(p.id) ? "取消收藏" : "收藏置顶"} · ${esc(p.name)}" aria-pressed="${saved.has(p.id)}">${saved.has(p.id) ? "★" : "☆"}</button></div>`;
-    const section = (title, items, attrs = "") => `<details class="sidebar-section" ${attrs} open><summary>${esc(title)}</summary><div class="sidebar-children">${items.map(row).join("") || `<div class="sidebar-empty">暂无项目</div>`}</div></details>`;
-    const groups = categories().length
-      ? [...categories().map(name => [name, data().projects.filter(p => p.category === name)]), ["未分类", data().projects.filter(p => !p.category)]]
-      : [["项目", data().projects.filter(p => p.kind !== "system")], ["系统", data().projects.filter(p => p.kind === "system")]];
-    const favoriteItems = data().projects.filter(p => saved.has(p.id));
-    document.getElementById("workspace-nav").innerHTML = `${section("收藏项目", favoriteItems, "data-sidebar-favorites").replace('class="sidebar-section"', 'class="sidebar-section sidebar-favorites"').replace(`<div class="sidebar-empty">暂无项目</div>`, `<div class="sidebar-empty">点击项目旁的星标收藏</div>`)}${groups.filter(([, items]) => items.length).map(([name, items]) => section(name, items, `data-work-category-section="${esc(name)}"`)).join("")}`;
-    sidebar.restoreNavigation();
     document.getElementById("workspace-state").textContent = data().workspace_name || "本地工作区";
     document.getElementById("workspace-version").textContent = `版本 ${data().version || ""}`;
     for (const link of document.querySelectorAll("[data-nav]")) {

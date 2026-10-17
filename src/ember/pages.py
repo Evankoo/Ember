@@ -13,7 +13,7 @@ from urllib.parse import quote
 from .ember_ui.markdown import markdown_to_html
 from datetime import datetime
 
-from .ember_ui.pages import home, library as library_template, project as project_template, projects as projects_template, review as review_template, settings as settings_template, system as system_template, task_detail
+from .ember_ui.pages import home, library as library_template, project as project_template, projects as projects_template, review as review_template, settings as settings_template, shell as shell_template, system as system_template, task_detail
 
 STATUS_NAMES = {"active": "进行中", "waiting_user": "待确认", "blocked": "受阻", "completed": "已完成"}
 EXECUTOR_NAMES = {"codex": "Codex", "opencode": "OpenCode", "claude-code": "Claude Code", "workbuddy": "WorkBuddy",
@@ -575,3 +575,65 @@ def render_settings(skills: list[dict]) -> str:
                       "details": [("登记文件", f".agents/skills/{item['name']}/SKILL.md")]} for item in skills],
         },
     })
+
+
+# ---------- 页面外壳 ----------
+# The document and sidebar come from the full workbench's shell template. The workspace list is filled
+# by app.js from render_sidebar(), which takes the favorites the browser keeps for this workspace.
+SHARED_SCRIPTS = ("ember-ui", "sidebar", "execution-confirm", "task-detail", "home", "task-overview", "projects", "project",
+                  "system", "review", "library", "settings")
+PAGE_STYLES = ("task-detail:task", "projects:projects", "project:project", "system:system", "settings:settings")
+PRIMARY_PAGES = (("home", "任务台"), ("projects", "项目视图"), ("review", "任务检视"), ("library", "资料浏览"), ("settings", "设置"))
+CATEGORY_CLASSES = ("account_operations", "course_teaching", "novel_writing", "system_building")
+WORKBENCH_DIALOG = ('<dialog id="workbench-dialog" class="paper-dialog workbench-dialog" aria-labelledby="dialog-title">'
+                    '<header class="paper-dialog-head"><div><h2 id="dialog-title"></h2></div><button id="dialog-close" class="home-dialog-close" type="button" aria-label="关闭弹窗">×</button></header>'
+                    '<div id="dialog-body" class="dialog-body"></div></dialog>')
+
+
+def render_index() -> str:
+    sidebar = shell_template.sidebar({
+        "brand": {"href": "#home", "label": "余烬首页", "name": "余烬", "subtitle": "本地工作台"},
+        "aside_attrs": [("id", "sidebar"), ("aria-label", "工作台导航")],
+        "nav_id": "sidebar-nav", "nav_attrs": [("aria-label", "页面与工作区")],
+        "primary": [{"label": label, "href": f"#{key}", "attrs": [("data-nav", key)]} for key, label in PRIMARY_PAGES],
+        "workspace_id": "workspace-nav",
+        "bottom_html": '<button id="update-button" class="sidebar-update-button" type="button" data-action="check-update"><span aria-hidden="true">↻</span>检查更新</button>',
+        "runtime_label": "工作区状态",
+        "runtime_html": '<span id="workspace-state" class="machine">正在读取工作区…</span><span id="workspace-version" class="sync-state"></span>',
+    })
+    styles = [("ember_ui/workbench.css", ())]
+    styles += [(f"ember_ui/{name}.css", [("data-page-style", key), ("disabled", None)]) for name, key in (item.split(":") for item in PAGE_STYLES)]
+    styles += [("assets/workbench-pages.css", ()), ("app.css", ())]
+    return shell_template.document({
+        "title": "余烬", "meta": [("color-scheme", "light")], "icon": {"href": "assets/brand.svg", "type": "image/svg+xml"},
+        "stylesheets": styles, "sidebar_html": sidebar,
+        "sidebar_after_html": '<script src="ember_ui/sidebar-state.js"></script>',
+        "main": {"class": "shell app-main", "attrs": [("tabindex", "-1")]},
+        "content_html": '<div class="loading-state" role="status">正在读取工作区…</div>',
+        "after_main_html": WORKBENCH_DIALOG + shell_template.execution_dialog({"configure_href": "#settings"}),
+        "scripts": [{"src": f"ember_ui/{name}.js"} for name in SHARED_SCRIPTS] + [{"src": "app.js"}],
+    })
+
+
+def render_sidebar(snapshot: dict, favorites: list[str]) -> str:
+    """The sidebar's workspace list: favorites first, then projects by category (or projects and systems)."""
+    projects = snapshot["projects"]
+    names = list(dict.fromkeys(project["category"] for project in projects if project.get("category")))
+    saved = set(favorites)
+
+    def row(project):
+        category = CATEGORY_CLASSES[max(0, names.index(project["category"]) if project.get("category") in names else 0) % len(CATEGORY_CLASSES)]
+        kind = "系统" if project.get("kind") == "system" else "项目"
+        return {"slug": project["id"], "title": project["name"], "href": f"#project/{quote(project['id'], safe='')}", "category": category,
+                "saved": project["id"] in saved, "link_attrs": [("data-project-nav", project["id"]), ("aria-label", f"{kind}：{project['name']}")],
+                "button_attrs": [("data-action", "favorite"), ("data-id", project["id"])]}
+
+    if names:
+        groups = [(name, [p for p in projects if p.get("category") == name]) for name in names] + [("未分类", [p for p in projects if not p.get("category")])]
+    else:
+        groups = [("项目", [p for p in projects if p.get("kind") != "system"]), ("系统", [p for p in projects if p.get("kind") == "system"])]
+    return shell_template.workspace_nav({
+        "favorites": [row(project) for project in projects if project["id"] in saved], "favorites_empty": "点击项目旁的星标收藏",
+        "sections": [{"key": name, "label": name, "rows": [row(project) for project in members]} for name, members in groups],
+    })
+

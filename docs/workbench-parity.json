@@ -164,7 +164,7 @@
       "reason": "完整版独有：健康指标与告警入口"
     },
     {
-      "id": "*:only-core:.sidebar-children > .sidebar-empty",
+      "id": "*:only-core:.sidebar-children > .sidebar-favorites-empty",
       "status": "intentional",
       "reason": "数据：示例没有收藏项目"
     },

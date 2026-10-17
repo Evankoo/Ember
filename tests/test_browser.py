@@ -249,6 +249,22 @@ class SettingsBrowserTests(unittest.TestCase):
         self.assertFalse(self.page.evaluate("Boolean(window.bad)"))
         self.assert_untouched()
 
+    def test_sidebar_lists_projects_and_keeps_favorites(self):
+        self.page.goto(self.base + "/#project/chenyu")
+        favorites = self.page.locator("[data-sidebar-favorites] [data-sidebar-project]")
+        expect(self.page.locator('.sidebar-section:not(.sidebar-favorites) [data-project-nav="chenyu"]')).to_have_attribute("aria-current", "page")
+        expect(favorites).to_have_count(0)
+        expect(self.page.locator(".sidebar-favorites-empty")).to_have_text("点击项目旁的星标收藏")
+        self.page.locator('.sidebar-section:not(.sidebar-favorites) [data-sidebar-project="studio"] .sidebar-favorite-button').click()
+        expect(favorites).to_have_count(1)
+        expect(favorites.locator(".sidebar-favorite-button")).to_have_attribute("aria-pressed", "true")
+        self.page.reload()
+        expect(favorites).to_have_count(1)
+        self.page.locator('[data-sidebar-favorites] [data-sidebar-project="studio"] .sidebar-favorite-button').click()
+        expect(favorites).to_have_count(0)
+        self.assertEqual(self.errors, [])
+        self.assert_untouched()
+
     def test_projects_view_filters_and_drags_a_task_into_important(self):
         self.page.goto(self.base + "/#projects")
         cards = self.page.locator(".project-view-grid [data-project-card]:not(.hidden)")

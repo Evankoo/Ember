@@ -114,6 +114,10 @@ class Handler(BaseHTTPRequestHandler):
                 if page is None:
                     raise WorkspaceError("该项目不在当前工作区。", 404)
                 self.json(page)
+            elif path == "/api/pages/sidebar":
+                from .pages import render_sidebar
+                favorites = [value for value in query.get("favorites", [""])[0].split(",") if value]
+                self.json({"html": render_sidebar(self.server.workspace.snapshot(), favorites)})
             elif path == "/api/pages/projects":
                 from .pages import render_projects
                 self.json({"html": render_projects(self.server.workspace.snapshot())})
@@ -188,12 +192,15 @@ class Handler(BaseHTTPRequestHandler):
         return [{"name": item["name"], "version": item.get("version", "未登记版本"), "purpose": item.get("purpose", ""), "registered": True} for item in records]
 
     def static(self, path):
-        if path == "/":
-            path = "/index.html"
+        if path in {"/", "/index.html"}:
+            # The page shell is the full workbench's template; app.js fills it from /api.
+            from .pages import render_index
+            self.send(200, render_index().encode("utf-8"), "text/html; charset=utf-8")
+            return
         relative = Path(path.lstrip("/"))
         if any(part in {"..", "."} or part.startswith(".") for part in relative.parts) or "\\" in path:
             raise WorkspaceError("资源路径无效", 404)
-        allowed = path in {"/index.html", "/app.js", "/app.css"} or path.startswith(("/assets/", "/fonts/", "/ember_ui/"))
+        allowed = path in {"/app.js", "/app.css"} or path.startswith(("/assets/", "/fonts/", "/ember_ui/"))
         base = WEB
         if relative.parts[:1] == ("ember_ui",):
             base, relative = SHARED_STATIC, Path(*relative.parts[1:])

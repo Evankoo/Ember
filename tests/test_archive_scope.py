@@ -97,13 +97,14 @@ class ArchiveScopeTests(unittest.TestCase):
     def test_public_frontend_contains_no_archive_page_action_or_styles(self):
         package = Path(__file__).resolve().parents[1] / 'src/ember'
         for filename, forbidden in (
-            ('web/index.html', 'href="#archive"'),
             ('web/app.js', 'renderArchive'),
             ('web/app.js', '/api/archive'),
             ('web/app.css', '.archive-'),
         ):
             with self.subTest(filename=filename, forbidden=forbidden):
                 self.assertNotIn(forbidden, (package / filename).read_text())
+        from ember.pages import render_index
+        self.assertNotIn('href="#archive"', render_index())
 
     def test_ci_wheel_check_python_is_valid(self):
         root = Path(__file__).resolve().parents[1]

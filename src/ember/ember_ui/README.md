@@ -28,6 +28,9 @@ own export tool and never edits it there.
   project file tabs (`window.EmberLibrary.mount`).
 - `static/settings.css`, `static/settings.js`: the settings page layout and its
   Skills filters (`window.EmberSettings.mount`).
+- `pages/shell.py`: the document around every page, the sidebar (page links,
+  workspace projects by category with favorites, bottom status) and the execution
+  confirmation dialog; edition modules go in its `*_html` slots.
 - `markdown.py`, `marks.py`: the Markdown subset and the flame mark both
   editions render.
 - `pages/task_detail.py`, `pages/home.py`, `pages/projects.py`, `pages/project.py`,

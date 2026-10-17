@@ -49,7 +49,8 @@ class WorkbenchStyleTests(unittest.TestCase):
         self.assertEqual(CSP.count("data:"), 1)
 
     def test_page_loads_only_local_relative_assets(self):
-        html = (WEB / "index.html").read_text(encoding="utf-8")
+        from ember.pages import render_index
+        html = render_index()
         references = re.findall(r'(?:href|src)="([^"#]+)"', html)
         for reference in references:
             self.assertFalse(reference.startswith(("/", "http:", "https:", "//")), reference)
