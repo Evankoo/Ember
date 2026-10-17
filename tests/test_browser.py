@@ -279,8 +279,12 @@ class SettingsBrowserTests(unittest.TestCase):
         self.page.locator('[data-project-category-filter="all"]').click()
         expect(cards).to_have_count(3)
         self.addCleanup(lambda: self.workspace.set_important("autumn-assets", {"important": False, "revision": self.workspace.snapshot()["revision"]}))
-        self.page.drag_and_drop('[data-project="chenyu"][data-board-column="active"] [data-task-id="autumn-assets"]',
-                                '[data-project="chenyu"][data-board-column="important"]')
+        # Drag events sent directly: native drag-and-drop is unreliable in headless Chromium on Linux.
+        transfer = self.page.evaluate_handle("() => new DataTransfer()")
+        target = self.page.locator('[data-project="chenyu"][data-board-column="important"]')
+        self.page.locator('[data-project="chenyu"][data-board-column="active"] [data-task-id="autumn-assets"]').dispatch_event("dragstart", {"dataTransfer": transfer})
+        target.dispatch_event("dragover", {"dataTransfer": transfer})
+        target.dispatch_event("drop", {"dataTransfer": transfer})
         expect(self.page.locator('[data-project="chenyu"][data-board-column="important"] [data-task-id="autumn-assets"]')).to_be_visible()
         self.assertTrue(any(url.endswith("/api/tasks/autumn-assets/important") and body["important"] is True for url, body in self.posts))
         self.assertEqual(self.errors, [])

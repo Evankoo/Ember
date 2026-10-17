@@ -1,6 +1,7 @@
 """Exercise the local HTTP trust boundary and a real persisted workflow."""
 from http.client import HTTPConnection
 import json
+import sys
 from pathlib import Path
 import tempfile
 import threading
@@ -72,7 +73,9 @@ class HTTPTests(unittest.TestCase):
         with patch("ember.server.subprocess.run") as run:
             run.return_value.returncode = 0
             self.data("/api/reveal", "POST", {"id": "交付/草稿/autumn-plan/秋季内容方案V0.2草稿.md"})
-            self.assertEqual(Path(run.call_args.args[0][-1]), self.docs / "交付/草稿/autumn-plan/秋季内容方案V0.2草稿.md")
+            # macOS selects the file in Finder; Linux has no such action and opens its folder.
+            draft = self.docs / "交付/草稿/autumn-plan/秋季内容方案V0.2草稿.md"
+            self.assertEqual(Path(run.call_args.args[0][-1]), draft if sys.platform == "darwin" else draft.parent)
             self.data("/api/reveal", "POST", {"task_id": "autumn-plan", "folder": "input", "mode": "open"})
             self.assertEqual(Path(run.call_args.args[0][-1]), self.docs / "任务资料/autumn-plan")
             for payload in ({"id": "../config/projects.json"}, {"id": "/etc/passwd"}, {"task_id": "autumn-plan", "folder": "../.."},
