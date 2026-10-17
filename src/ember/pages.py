@@ -11,7 +11,7 @@ import re
 from urllib.parse import quote
 
 from .ember_ui.markdown import markdown_to_html
-from .ember_ui.pages import home, project as project_template, task_detail
+from .ember_ui.pages import home, project as project_template, system as system_template, task_detail
 
 STATUS_NAMES = {"active": "进行中", "waiting_user": "待确认", "blocked": "受阻", "completed": "已完成"}
 EXECUTOR_NAMES = {"codex": "Codex", "opencode": "OpenCode", "claude-code": "Claude Code", "workbuddy": "WorkBuddy",
@@ -324,6 +324,34 @@ def project_page(snapshot: dict, project_id: str) -> dict | None:
     }
 
 
-def render_project(snapshot: dict, project_id: str) -> str | None:
+def system_page(snapshot: dict, project_id: str) -> dict | None:
+    """A system registered in this workspace, shown with the full workbench's system workspace layout."""
     page = project_page(snapshot, project_id)
-    return None if page is None else project_template.render(page)
+    if page is None:
+        return None
+    tasks = sorted((item for item in snapshot["tasks"] if item["project"] == project_id),
+                   key=lambda item: str(item.get("updated_at") or item.get("date") or ""), reverse=True)
+    active = [item for item in tasks if item["status"] in ("active", "waiting_user", "blocked")]
+    lines = [item for item in tasks if item.get("kind") == "task_line" and item not in active]
+    recent = [item for item in tasks if item["status"] == "completed" and item not in lines][:8]
+    visible = {item["id"] for item in (active + lines + recent)[:10]}
+    project = next(item for item in snapshot["projects"] if item["id"] == project_id)
+    return {
+        "title": page["title"], "eyebrow": "AI SYSTEM", "description_html": "", "focus": page["focus"], "actions": [],
+        "launcher": page["launcher"],
+        "health": {"label": "正常", "detail": "本机工作区可读取"},
+        "stats": {"active": len(active), "lines": len(lines), "records": len(tasks)},
+        "overview": page["overview"], "strip": page["strip"],
+        "rows": [row for row in page["rows"] if row["task_id"] in visible],
+        "all_tasks": {"href": "#review", "attrs": [("data-action", "review-project"), ("data-id", project["id"])]},
+    }
+
+
+def render_project(snapshot: dict, project_id: str) -> dict | None:
+    """The project page, or the system workspace for a registered system."""
+    project = next((item for item in snapshot["projects"] if item["id"] == project_id), None)
+    if project is None:
+        return None
+    if project.get("kind") == "system":
+        return {"kind": "system", "html": system_template.render(system_page(snapshot, project_id))}
+    return {"kind": "project", "html": project_template.render(project_page(snapshot, project_id))}

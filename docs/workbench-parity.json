@@ -209,9 +209,29 @@
       "reason": "状态：分类圆点的文字色不可见"
     },
     {
-      "id": "system:*",
-      "status": "pending",
-      "reason": "系统工作区页：完整版用 system-workspace 版式，开源版仍用项目页版式"
+      "id": "system:only-*:*project-task-*",
+      "status": "intentional",
+      "reason": "数据：示例系统没有任务，完整版系统有当前任务"
+    },
+    {
+      "id": "system:only-local:*project-entry-*",
+      "status": "intentional",
+      "reason": "数据：完整版系统说明的入口里有网址和可打开的目录"
+    },
+    {
+      "id": "system:only-local:.system-hero-action > .button.ghost",
+      "status": "intentional",
+      "reason": "完整版独有：系统自己登记的工作台入口"
+    },
+    {
+      "id": "system:only-local:.system-hero-copy > .system-current-focus",
+      "status": "intentional",
+      "reason": "数据：示例系统没有填写当前重点"
+    },
+    {
+      "id": "system:style:.sidebar-project-row > .sidebar-dot",
+      "status": "intentional",
+      "reason": "状态：分类圆点的文字色不可见"
     },
     {
       "id": "library:only-local:*library-preview-head-actions*",

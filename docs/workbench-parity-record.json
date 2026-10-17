@@ -1,8 +1,8 @@
 {
   "schema": 1,
-  "checked_at": "2026-10-17T04:39:57+00:00",
-  "source_commit": "1a0aa05535766bdc2f531bcd2e46b2f4ea3017df",
-  "ui_sha256": "2639d48751912b3cef9abd0f3d1e9597519b96604676d8f09af170e985bf93d1",
+  "checked_at": "2026-10-17T04:58:49+00:00",
+  "source_commit": "6df90f1477669cfe4a11773b21aa1efd402ea0e2",
+  "ui_sha256": "34a1af90f2cb601200849940f102fa169a844439cf9db648aa5d77c628b571ea",
   "pages": [
     "home",
     "home-confirm",
@@ -21,6 +21,6 @@
     1000,
     390
   ],
-  "pending": 85,
-  "intentional": 71
+  "pending": 32,
+  "intentional": 82
 }

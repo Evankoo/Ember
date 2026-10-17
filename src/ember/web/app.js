@@ -360,9 +360,11 @@ const app = (() => {
     if (state.route !== "project" || state.id !== id) return;
     if (ui.projectId !== id) { ui.projectId = id; ui.file = ""; }
     filters.project = { query: "", kind: "tasks", task: "all", subtype: "" };
+    pageStyle(page.kind);
+    main.className = `shell app-main ${page.kind === "system" ? "system-workspace-page" : "project-workspace-page"} paper-management-page`;
     main.innerHTML = page.html;
     document.title = `${p.name} · 余烬`;
-    window.EmberProject.mount(main);
+    (page.kind === "system" ? window.EmberSystem : window.EmberProject).mount(main);
   }
 
   /* ---------- 文件预览 ---------- */
@@ -743,7 +745,13 @@ const app = (() => {
     }
   }
 
+  // As in the full workbench, a page's own stylesheet applies only on that page.
+  function pageStyle(name = "") {
+    document.querySelectorAll("link[data-page-style]").forEach(link => { link.disabled = link.dataset.pageStyle !== name; });
+  }
+
   function renderRoute() {
+    pageStyle(state.route === "task" ? "task" : "");
     for (const key of ["taskMaterials", "home", "overview"]) { state[key]?.destroy(); state[key] = null; }
     document.body.classList.toggle("paper-management-shell", state.route !== "home");
     const renders = { home: renderHome, projects: renderProjects, project: renderProject, task: renderTask, library: renderLibrary, review: renderReview, settings: renderSettings };

@@ -113,7 +113,9 @@ class ProjectPageTests(TaskPageTests):
         self.assertEqual(page["eyebrow"], "PROJECT")
         self.assertEqual(page["counts"]["tasks"], len(page["rows"]))
         self.assertTrue(all(row["href"].startswith("#task/") for row in page["rows"]))
-        markup = render_project(self.snapshot, "chenyu")
+        result = render_project(self.snapshot, "chenyu")
+        self.assertEqual(result["kind"], "project")
+        markup = result["html"]
         self.assertIn('data-project-panel="materials" hidden', markup)
         self.assertIn('data-action="new-task"', markup)
         for forbidden in ("<script", "<style", " style="):
