@@ -398,8 +398,8 @@ class SettingsBrowserTests(unittest.TestCase):
                     self.page.locator('#main-content h1', has_text='余烬首次使用').wait_for()
                     self.assertIn('等待用户检查任务卡', self.page.locator('#main-content').inner_text())
                     self.page.goto(base + '/#settings')
-                    self.page.locator('#settings-skills .compact-skill-row').first.wait_for()
-                    self.assertEqual(self.page.locator('#settings-skills .compact-skill-row strong').all_text_contents(),
+                    self.page.locator('#compactSkillList .compact-skill-row').first.wait_for()
+                    self.assertEqual(self.page.locator('#compactSkillList .compact-skill-row strong').all_text_contents(),
                                      ['ember-init', 'ember', 'ember-project'])
                 self.assertEqual(workspace.snapshot()['tasks'][0]['status'], 'active')
                 post('/api/projects', {'id': 'practice', 'name': '余烬练习项目', 'kind': 'project',
@@ -412,8 +412,8 @@ class SettingsBrowserTests(unittest.TestCase):
                     self.page.set_viewport_size({'width': width, 'height': 1000})
                     self.page.goto(base + '/#settings')
                     self.page.reload()
-                    expect(self.page.locator('#settings-skills .compact-skill-row')).to_have_count(2)
-                    self.assertEqual(self.page.locator('#settings-skills .compact-skill-row strong').all_text_contents(),
+                    expect(self.page.locator('#compactSkillList .compact-skill-row')).to_have_count(2)
+                    self.assertEqual(self.page.locator('#compactSkillList .compact-skill-row strong').all_text_contents(),
                                      ['ember', 'ember-project'])
                     self.assertNotIn('三项基础 Skill', self.page.locator('#main-content').inner_text())
                     self.page.goto(base + '/#project/practice')

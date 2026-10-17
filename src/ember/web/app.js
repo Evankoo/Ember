@@ -495,9 +495,16 @@ const app = (() => {
 
 
   /* ---------- 设置 ---------- */
-  function renderSettings() {
+  /* The shell and Skills module are rendered on the server with the full workbench's template
+     (ember_ui/pages/settings.py); this page fills in the execution software and the health check. */
+  async function renderSettings() {
     main.className = "shell app-main settings-page paper-management-page";
-    main.innerHTML = `<section class="settings-hub paper-management-page"><header class="settings-hub-head"><div><h1>设置</h1><p>本机执行环境与当前文档库的基础 Skill，在这里查看和管理。</p></div><div class="settings-hub-actions"><button class="button" type="button" data-action="check-update">检查更新</button><button id="health-check-button" class="button" type="button" data-action="health-check">检查服务状态</button></div></header><nav class="settings-section-nav" aria-label="设置分区"><a href="#settings" data-action="scroll-to" data-id="execution-environment">执行环境</a><a href="#settings" data-action="scroll-to" data-id="settings-skills-section">Skills</a></nav><section id="execution-environment" class="settings-execution-strip"><div class="settings-section-head"><div><h2>执行环境</h2><p>先看当前生效的环境，需要时再修改配置。</p></div><span>仅对这台电脑生效</span></div><div id="software-content" aria-live="polite">正在读取本机已保存的软件清单…</div></section><section id="health-result" class="settings-health-summary"><div class="settings-health-main"><span class="settings-health-state">服务状态</span><small>只在点击“检查服务状态”后检查；不会验证软件登录或调用模型。</small></div></section><section id="settings-skills-section" class="settings-skills-module"><div class="settings-skills-head"><div><h2>Skills</h2><p>这里显示当前文档库保留的基础 Skill。首次引导完成并确认移除后，日常任务入口和项目建立继续保留。登记不代表模型已登录或能够执行；专业业务 Skill 由你另行准备。</p></div></div><div id="settings-skills" class="compact-skill-list">正在读取当前工作区的登记…</div></section></section>`;
+    let page;
+    try { page = await api("api/pages/settings"); }
+    catch (error) { if (state.route === "settings") main.innerHTML = `<section class="panel load-error"><h1>设置读取失败</h1><p class="form-error">${esc(error.message)}</p></section>`; return; }
+    if (state.route !== "settings") return;
+    main.innerHTML = page.html;
+    window.EmberSettings.mount(main);
     readSettings();
   }
 
@@ -513,11 +520,9 @@ const app = (() => {
       state.settings = result;
       resetSoftware();
       renderSoftware();
-      document.getElementById("settings-skills").innerHTML = result.skills.map(item => `<details class="compact-skill-row"><summary><span class="setting-identity"><strong>${esc(item.name)}</strong><small>${esc(item.purpose || "已登记基础 Skill")}</small></span><span class="setting-category">基础</span><span class="skill-status available">${esc(item.version)}</span><span class="skill-detail-toggle" aria-hidden="true"></span></summary><div class="compact-skill-detail"><code>${esc(item.path || item.name)}</code></div></details>`).join("") || `<p class="form-error">登记结果为空；请检查工作区契约，不要把它当作能力已验证。</p>`;
     } catch (error) {
       if (request !== state.settingsRequest || state.route !== "settings") return;
       document.getElementById("software-content").innerHTML = `<p class="form-error">${esc(error.message)} · 原配置保留，未当作空清单。</p><button class="button" type="button" data-action="settings-reload">重新读取</button>`;
-      document.getElementById("settings-skills").textContent = "登记暂不可读，不能确定已安装能力。";
     }
   }
 
@@ -660,7 +665,7 @@ const app = (() => {
   }
 
   function renderRoute() {
-    pageStyle(state.route === "task" ? "task" : "");
+    pageStyle({ task: "task", settings: "settings" }[state.route] || "");
     for (const key of ["taskMaterials", "home", "overview", "review", "library"]) { state[key]?.destroy(); state[key] = null; }
     document.body.classList.toggle("paper-management-shell", state.route !== "home");
     const renders = { home: renderHome, projects: renderProjects, project: renderProject, task: renderTask, library: renderLibrary, review: renderReview, settings: renderSettings };

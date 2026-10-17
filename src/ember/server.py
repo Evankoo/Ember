@@ -94,14 +94,10 @@ class Handler(BaseHTTPRequestHandler):
                 state = self.server.workspace.snapshot()
                 self.json({"status": "ready", "version": __version__, "tasks": len(state["tasks"]), "contract": contract})
             elif path == "/api/settings":
-                from .bootstrap import verify_workspace_contract
-                verify_workspace_contract(self.server.workspace)
-                records = [item for item in self.server.workspace._json("skills/manifest.json").get("skills", [])
-                           if isinstance(item, dict) and item.get("name") in {"ember-init", "ember", "ember-project"}
-                           and item.get("path") == f".agents/skills/{item['name']}/SKILL.md"]
-                self.json({"execution_environment": self.server.executor_registry.snapshot(),
-                           "skills": [{"name": item["name"], "version": item.get("version", "未登记版本"),
-                                      "purpose": item.get("purpose", ""), "registered": True} for item in records]})
+                self.json({"execution_environment": self.server.executor_registry.snapshot(), "skills": self.registered_skills()})
+            elif path == "/api/pages/settings":
+                from .pages import render_settings
+                self.json({"html": render_settings(self.registered_skills())})
             elif path == "/api/pages/task":
                 # Server-rendered with the shared template; app.js inserts it and wires the materials.
                 from .pages import render_task
@@ -178,6 +174,15 @@ class Handler(BaseHTTPRequestHandler):
             self.error(str(error), getattr(error, "status", 400))
         except (OSError, ValueError) as error:
             self.error("工作区或资源不可读取：" + str(error), 400)
+
+    def registered_skills(self):
+        """The workspace's basic Skills as registered in its manifest; registration is not proof they can run."""
+        from .bootstrap import verify_workspace_contract
+        verify_workspace_contract(self.server.workspace)
+        records = [item for item in self.server.workspace._json("skills/manifest.json").get("skills", [])
+                   if isinstance(item, dict) and item.get("name") in {"ember-init", "ember", "ember-project"}
+                   and item.get("path") == f".agents/skills/{item['name']}/SKILL.md"]
+        return [{"name": item["name"], "version": item.get("version", "未登记版本"), "purpose": item.get("purpose", ""), "registered": True} for item in records]
 
     def static(self, path):
         if path == "/":

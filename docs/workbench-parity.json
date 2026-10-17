@@ -249,29 +249,9 @@
       "reason": "完整版独有：整理规则与索引入口"
     },
     {
-      "id": "settings:only-local:*settings-skill-*",
-      "status": "pending",
-      "reason": "设置：Skills 区完整版有分类栏、筛选与结果区"
-    },
-    {
-      "id": "settings:only-local:*skill-results*",
-      "status": "pending",
-      "reason": "设置：Skills 区完整版有分类栏、筛选与结果区"
-    },
-    {
-      "id": "settings:only-local:*skill-category-*",
-      "status": "pending",
-      "reason": "设置：Skills 区完整版有分类栏、筛选与结果区"
-    },
-    {
-      "id": "settings:only-core:.settings-skills-module > .compact-skill-list",
-      "status": "pending",
-      "reason": "设置：Skills 列表应放进完整版的结果区结构"
-    },
-    {
       "id": "settings:style:.compact-skill-row > .skill-status",
-      "status": "pending",
-      "reason": "设置：结构未对齐导致 Skill 状态徽标为绿色，完整版为中性色"
+      "status": "intentional",
+      "reason": "状态：完整版的能力检测结果过期时，所有 Skill 徽标显示为中性色"
     }
   ],
   "transparent_classes": "^(action-form)$"

@@ -13,7 +13,7 @@ from urllib.parse import quote
 from .ember_ui.markdown import markdown_to_html
 from datetime import datetime
 
-from .ember_ui.pages import home, library as library_template, project as project_template, review as review_template, system as system_template, task_detail
+from .ember_ui.pages import home, library as library_template, project as project_template, review as review_template, settings as settings_template, system as system_template, task_detail
 
 STATUS_NAMES = {"active": "进行中", "waiting_user": "待确认", "blocked": "受阻", "completed": "已完成"}
 EXECUTOR_NAMES = {"codex": "Codex", "opencode": "OpenCode", "claude-code": "Claude Code", "workbuddy": "WorkBuddy",
@@ -471,4 +471,36 @@ def render_library(snapshot: dict) -> str:
         "materials": materials,
         "counts": {"delivery": sum(record["kind"] == "delivery" for record in materials), "input": sum(record["kind"] == "input" for record in materials)},
         "projects": [(slug, _project_name(projects, slug)) for slug in used], "forms": LIBRARY_FORMS, "browser": {"sync_url": True},
+    })
+
+
+SETTINGS_EXECUTION = (
+    '<section id="execution-environment" class="settings-execution-strip"><div class="settings-section-head"><div><h2>执行环境</h2>'
+    '<p>先看当前生效的环境，需要时再修改配置。</p></div><span>仅对这台电脑生效</span></div>'
+    '<div id="software-content" aria-live="polite">正在读取本机已保存的软件清单…</div></section>'
+)
+SETTINGS_HEALTH = (
+    '<section id="health-result" class="settings-health-summary"><div class="settings-health-main"><span class="settings-health-state">服务状态</span>'
+    '<small>只在点击“检查服务状态”后检查；不会验证软件登录或调用模型。</small></div></section>'
+)
+
+
+def render_settings(skills: list[dict]) -> str:
+    """设置: the shared shell and Skills module around this package's execution software and health sections."""
+    scroll = lambda target: [("data-action", "scroll-to"), ("data-id", target)]
+    return settings_template.render({
+        "intro": "本机执行环境与当前文档库的基础 Skill，在这里查看和管理。",
+        "actions_html": '<button class="button" type="button" data-action="check-update">检查更新</button>'
+                        '<button id="health-check-button" class="button" type="button" data-action="health-check">检查服务状态</button>',
+        "nav": [{"href": "#settings", "label": "执行环境", "attrs": scroll("execution-environment")},
+                {"href": "#settings", "label": "Skills", "attrs": scroll("skills")}],
+        "execution_html": SETTINGS_EXECUTION, "health_html": SETTINGS_HEALTH,
+        "skills": {
+            # Registration is not proof that a model is signed in or can run; professional Skills are the user's own.
+            "summary": "基础 Skill · 登记不代表模型已登录或能够执行",
+            "categories": [{"key": "basic", "label": "基础", "count": len(skills), "note": "已登记"}] if skills else [],
+            "rows": [{"name": item["name"], "display_name": item["name"], "description": item.get("purpose") or "已登记基础 Skill",
+                      "category": "basic", "category_label": "基础", "profile": "always", "state": "available", "state_label": item.get("version") or "未登记版本",
+                      "details": [("登记文件", f".agents/skills/{item['name']}/SKILL.md")]} for item in skills],
+        },
     })
