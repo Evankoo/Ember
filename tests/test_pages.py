@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ember.pages import file_preview, home_page_data, home_search, render_home, render_task, task_page, task_preview
+from ember.pages import card_sections, file_preview, home_page_data, home_search, project_page, render_home, render_project, render_task, task_page, task_preview
 from ember.store import Workspace
 
 
@@ -90,6 +90,34 @@ class HomePageTests(TaskPageTests):
         data = file_preview(self.workspace.read_file(item["id"]))
         self.assertEqual(data["kind"], "markdown")
         self.assertTrue(data["raw_url"].startswith("api/preview?id="))
+
+
+
+class ProjectPageTests(TaskPageTests):
+    def test_card_sections_and_entries(self):
+        sections = card_sections("# 标题\n\n前言\n\n## 项目总览\n\n概况\n\n## 时间线\n\n- 2026-09：开始")
+        self.assertEqual(sections[""], "前言")
+        self.assertEqual(sections["项目总览"], "概况")
+        project = {"id": "p", "name": "示例", "locations": ["/srv/demo"],
+                   "overview": "## 项目总览\n\n概况\n\n## 工作位置与入口\n\n| 类型 | 路径或网址 | 用途 |\n| --- | --- | --- |\n| 代码 | `/srv/demo` | 源码 |\n"}
+        snapshot = {"projects": [project], "tasks": [], "files": []}
+        page = project_page(snapshot, "p")
+        rows = page["overview"]["sections"][0]["entries"][0]["rows"]
+        self.assertEqual((rows[0]["environment"], rows[0]["value"], rows[0]["kind"]), ("本机", "/srv/demo", "path"))
+        self.assertIn('data-action="reveal-location"', rows[0]["actions_html"])
+        self.assertEqual([item["label"] for item in page["strip"]["items"]], ["说明正本"])
+        self.assertIsNone(project_page(snapshot, "missing"))
+
+    def test_example_project_page(self):
+        page = project_page(self.snapshot, "chenyu")
+        self.assertEqual(page["eyebrow"], "PROJECT")
+        self.assertEqual(page["counts"]["tasks"], len(page["rows"]))
+        self.assertTrue(all(row["href"].startswith("#task/") for row in page["rows"]))
+        markup = render_project(self.snapshot, "chenyu")
+        self.assertIn('data-project-panel="materials" hidden', markup)
+        self.assertIn('data-action="new-task"', markup)
+        for forbidden in ("<script", "<style", " style="):
+            self.assertNotIn(forbidden, markup)
 
 
 if __name__ == "__main__":

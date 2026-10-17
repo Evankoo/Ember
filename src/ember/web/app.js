@@ -336,90 +336,33 @@ const app = (() => {
     main.innerHTML = `<header class="project-view-page-head"><h1>项目视图</h1><p>${data().projects.length} 个项目 · ${activeCount} 项进行中 · ${attention} 个需要关注</p><button id="new-project-button" class="button ghost" type="button" data-action="new-project">新建项目</button></header><nav class="chips project-category-filters" aria-label="项目分类">${tabs.map(([value, name, count]) => `<button class="chip${selected === value ? " active" : ""}" type="button" data-action="project-category" data-id="${esc(value)}" aria-pressed="${selected === value}">${esc(name)}<small>${count}</small></button>`).join("")}</nav><section class="project-view-grid">${visible.map(projectCard).join("")}${showIndependent ? projectCard(independent) : ""}${!visible.length && !showIndependent ? `<p class="library-empty">该分类尚未登记项目。</p>` : ""}</section>`;
   }
 
-  /* Project card sections, read the same way as the full workbench: overview, entries,
-     scope and stage on the left; the dated timeline in the right column. */
-  function cardSections(p) {
-    const body = String(p.overview || "").replace(/^#\s+.*\n?/, "");
-    const sections = {}, parts = body.split(/^##\s+(.+?)\s*$/m);
-    sections[""] = parts[0].trim();
-    for (let i = 1; i < parts.length; i += 2) sections[parts[i]] = (parts[i + 1] || "").trim();
-    return sections;
-  }
-
-  function entryRows(source, p) {
-    const lines = source.split("\n"), out = [], prose = [];
-    const cells = line => /^\s*\|.*\|\s*$/.test(line) ? line.trim().slice(1, -1).split(/(?<!\\)\|/).map(cell => cell.trim().replace(/\\\|/g, "|")) : [];
-    const flush = () => { if (prose.length) out.push(markdown(prose.splice(0).join("\n"))); };
-    for (let i = 0; i < lines.length;) {
-      const head = cells(lines[i]).join("|"), divider = cells(lines[i + 1] || "");
-      const four = head === "类型|环境|路径或网址|用途与访问说明", three = head === "类型|路径或网址|用途";
-      if (!(four || three) || !divider.length || !divider.every(cell => /^:?-{3,}:?$/.test(cell.replace(/\s/g, "")))) { prose.push(lines[i++]); continue; }
-      flush(); i += 2;
-      const rows = [];
-      while (i < lines.length && cells(lines[i]).length) {
-        const row = cells(lines[i++]), [label, environment, value, note] = four ? row : [row[0], "本机", row[1], row[2]];
-        const literal = String(value || "").replace(/^`|`$/g, "");
-        const url = /^https?:\/\//.test(literal), path = literal.startsWith("/");
-        const locator = url ? `<a class="project-entry-url" href="${esc(literal)}" target="_blank" rel="noopener noreferrer"><code class="project-entry-locator">${esc(literal)}</code></a>` : `<code class="project-entry-locator">${esc(literal)}</code>`;
-        const actions = (url || path ? `<button type="button" class="button ghost" data-action="copy-entry" data-id="${esc(literal)}" aria-label="复制${esc(label)}">复制</button>` : "") + (path && (p.locations || []).includes(literal) ? `<button type="button" class="button ghost" data-action="reveal-location" data-id="${esc(p.id)}" data-location="${esc(literal)}">打开目录</button>` : "");
-        rows.push(`<div class="project-entry-row"><div class="project-entry-label"><strong>${esc(label)}</strong><small>${esc(environment)}</small></div><div class="project-entry-content">${locator}<div class="project-entry-note">${inline(note || "")}</div></div><div class="project-entry-actions">${actions}</div></div>`);
-      }
-      out.push(`<div class="project-entry-list">${rows.join("")}</div>`);
-    }
-    flush();
-    return out.join("");
-  }
-
-  function renderProject() {
-    const p = project(state.id);
-    main.className = "shell app-main project-workspace-page paper-management-page";
-    if (!p) { main.innerHTML = `<section class="panel project-intro-card"><h1>找不到项目</h1><p>该项目不在当前工作区。</p><a href="#projects">返回项目视图</a></section>`; return; }
-    if (ui.projectId !== p.id) { ui.projectId = p.id; filters.project = { query: "", kind: "tasks", task: "all", subtype: "" }; ui.file = ""; }
-    const system = p.kind === "system", entity = system ? "系统" : "项目";
-    const tasks = data().tasks.filter(t => t.project === p.id);
-    const deliveries = data().files.filter(f => f.project === p.id && ["draft", "formal"].includes(f.kind));
-    const inputs = data().files.filter(f => f.project === p.id && f.kind === "input");
-    const sections = cardSections(p);
-    const primaryHeading = ["项目总览", "当前概况", "系统总览"].find(name => name in sections) || (system ? "当前概况" : "项目总览");
-    const entryHeading = ["工作位置与入口", "系统入口"].find(name => name in sections);
-    const primary = markdown(sections[primaryHeading] || sections[""] || p.description || "");
-    const extra = [entryHeading && sections[entryHeading] ? `<section class="project-description-section"><h3>${esc(entryHeading)}</h3>${entryRows(sections[entryHeading], p)}</section>` : ""]
-      .concat(["范围与要求", "当前阶段"].map(name => sections[name] ? `<section class="project-description-section"><h3>${name}</h3>${markdown(sections[name])}</section>` : "")).join("");
-    // Timeline lives in the card; older registries kept it in config/projects.json instead.
-    const timeline = sections["时间线"] ? markdown(sections["时间线"]) : (p.timeline || []).length ? `<ul>${p.timeline.map(item => `<li>${esc(item.date)}：${esc(item.title)}${item.text ? `。${esc(item.text)}` : ""}</li>`).join("")}</ul>` : "";
-    const described = entryHeading ? sections[entryHeading] : "";
-    const locations = (p.locations || []).filter(path => !described.includes(path)).map(path => `<span class="project-location-item wide"><small>本机工作目录</small><code>${esc(path)}</code></span>`).join("");
-    const tabs = [["tasks", "任务", tasks.length], ["delivery", "交付文件", deliveries.length], ["input", "输入资料", inputs.length]];
-    const focus = p.focus ? `<div class="project-current-focus"><small>当前重点</small><strong>${esc(p.focus)}</strong></div>` : "";
-    main.innerHTML = `<section class="panel project-intro-card project-workspace-hero"><div class="intro-head"><div><span class="eyebrow">${system ? "SYSTEM" : "PROJECT"}</span><h1>${esc(p.name)}</h1></div><div class="project-hero-actions"><button class="button ghost" type="button" data-action="new-task" data-project="${esc(p.id)}">新建任务</button><div class="project-task-launcher"><form class="action-form" data-execution-confirm data-execution-label="开始${entity}任务"><input type="hidden" name="project_id" value="${esc(p.id)}"><button class="gstudio-action-trigger" type="submit" data-execution-confirm-trigger aria-label="开始${entity}任务并确认执行器" title="开始${entity}任务并确认执行器">${actionMark}</button></form></div></div></div><div class="intro-desc"></div><div class="project-hero-summary">${focus}<div class="project-hero-stats"><span><b>${tasks.filter(t => t.status !== "completed").length}</b>进行中</span><span><b>${tasks.filter(t => t.kind === "task_line").length}</b>任务主线</span><span><b>${tasks.filter(t => t.status === "completed").length}</b>已完成</span></div></div>${primary ? `<section class="context-overview-panel" aria-labelledby="context-overview-title" tabindex="0"><section class="context-overview-primary"><h2 id="context-overview-title">${esc(primaryHeading)}</h2><div class="context-overview-copy">${primary}${extra}</div></section><hr><section class="context-reader-timeline"><h3>时间线</h3>${timeline ? `<div class="context-overview-copy">${timeline}</div>` : `<p class="context-reader-empty">暂无有日期意义的变化。</p>`}</section></section>` : `<div class="context-overview-unavailable">${entity}说明尚无已确认的概览内容。</div>`}<div class="project-location-strip" aria-label="${entity}位置"><div class="project-location-items"><span class="project-location-item"><small>说明正本</small><strong>余烬 · Ember</strong></span>${locations}</div><div class="project-location-actions"></div></div></section><nav class="project-workspace-tabs" role="tablist" aria-label="${entity}内容">${tabs.map(([id, label, count]) => `<button class="${filters.project.kind === id ? "active" : ""}" role="tab" type="button" data-action="project-tab" data-id="${id}" aria-selected="${filters.project.kind === id}">${label}<span>${count}</span></button>`).join("")}</nav><div id="project-scene"></div>`;
-    renderProjectScene();
-  }
-
-  const projectTaskFilters = [["all", "全部"], ["important", "当前重点"], ["groups", "任务主线"], ["active", "进行中"], ["completed", "已完成"]];
-
-  function renderProjectScene() {
-    const f = filters.project, scene = document.getElementById("project-scene");
-    if (f.kind === "tasks") {
-      const entity = project(state.id)?.kind === "system" ? "系统" : "项目";
-      const count = data().tasks.filter(t => t.project === state.id).length;
-      const chip = ([id, label]) => `<button type="button" class="chip${f.task === id ? " active" : ""}" data-action="project-task-filter" data-id="${id}" aria-pressed="${f.task === id}">${label}</button>`;
-      scene.innerHTML = `<section class="panel project-workspace"><div class="project-workspace-layout"><div class="project-task-pane" data-project-panel="tasks"><div class="project-pane-head"><div class="project-pane-title"><h2>${entity}任务</h2><span>${count}</span></div><div class="project-pane-tools"><input id="project-search" class="project-pane-search" type="search" data-filter="project" data-field="query" placeholder="搜索${entity}任务" aria-label="搜索${entity}任务" value="${esc(f.query)}"></div></div><div class="project-task-filters" aria-label="任务筛选">${projectTaskFilters.map(chip).join("")}<span class="filter-separator" aria-hidden="true"></span>${chip(["delivery", "有交付文件"])}</div><div class="project-task-list" id="project-task-list"></div></div></div></section>`;
-      renderProjectTasks();
-    } else {
-      scene.innerHTML = `<section class="panel project-workspace"><div class="project-workspace-layout"><div class="project-material-pane library-material-page" data-project-panel="materials">${libraryLayout("project")}</div></div></section>`;
+  /* ---------- 项目页 ---------- */
+  /* Rendered on the server with the full workbench's template (ember_ui/pages/project.py); the tabs and
+     task filters are ember_ui/project.js. The 交付文件 / 输入资料 tabs hand over to this page's own file
+     browser through the same hook the full workbench uses. */
+  window.GStudioProjectMaterialSwitch = view => {
+    const pane = main.querySelector('[data-project-panel="materials"]');
+    if (!pane) return;
+    if (filters.project.kind !== view || !pane.childElementCount) {
+      Object.assign(filters.project, { kind: view, query: "", subtype: "" }); ui.file = "";
+      pane.innerHTML = libraryLayout("project");
       renderFiles("project");
     }
-  }
+  };
 
-  function renderProjectTasks() {
-    const f = filters.project, q = f.query.trim().toLowerCase();
-    const keep = { all: () => true, important: t => t.important, groups: t => t.kind === "task_line", active: t => t.status !== "completed", completed: t => t.status === "completed", delivery: t => (t.outputs || []).length > 0 }[f.task] || (() => true);
-    const rows = data().tasks.filter(t => t.project === state.id && keep(t) && (!q || [t.title, t.goal, t.description, t.id].join(" ").toLowerCase().includes(q)))
-      .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
-    document.getElementById("project-task-list").innerHTML = rows.map(t => {
-      const delivered = (t.outputs || []).length > 0;
-      return `<article class="project-task-row" data-task-id="${esc(t.id)}" data-status="${esc(t.status)}"><div class="project-task-row-main"><a href="#task/${encodeURIComponent(t.id)}">${esc(t.title)}</a><div class="subtitle">${esc(t.goal)}</div></div><div class="project-task-row-meta"><span class="badge ${esc(t.status)}">${esc(statusNames[t.status] || t.status)}</span><span class="delivery-label${delivered ? " has-delivery" : ""}">${delivered ? "有交付文件" : "无独立交付文件"}</span></div></article>`;
-    }).join("") || `<p class="muted project-task-empty">没有匹配的任务。</p>`;
+  async function renderProject() {
+    const p = project(state.id), id = state.id;
+    main.className = `shell app-main project-workspace-page paper-management-page`;
+    if (!p) { main.innerHTML = `<section class="panel project-intro-card"><h1>找不到项目</h1><p>该项目不在当前工作区。</p><a href="#projects">返回项目视图</a></section>`; return; }
+    let page;
+    try { page = await api(`api/pages/project?id=${encodeURIComponent(id)}`); }
+    catch (error) { if (state.route === "project" && state.id === id) main.innerHTML = `<section class="panel load-error"><h1>项目页读取失败</h1><p class="form-error">${esc(error.message)}</p></section>`; return; }
+    if (state.route !== "project" || state.id !== id) return;
+    if (ui.projectId !== id) { ui.projectId = id; ui.file = ""; }
+    filters.project = { query: "", kind: "tasks", task: "all", subtype: "" };
+    main.innerHTML = page.html;
+    document.title = `${p.name} · 余烬`;
+    window.EmberProject.mount(main);
   }
 
   /* ---------- 文件预览 ---------- */
@@ -914,8 +857,6 @@ const app = (() => {
       case "complete": completeTask(id); return;
       case "status-filter": filters[button.dataset.filter].status = id; renderRoute(); return;
       case "project-category": ui.projectCategory = id; renderProjects(); return;
-      case "project-tab": filters.project.kind = id; filters.project.query = ""; filters.project.subtype = ""; ui.file = ""; renderProject(); return;
-      case "project-task-filter": filters.project.task = id; renderProjectScene(); return;
       case "library-tab": filters.library.kind = id; filters.library.subtype = ""; ui.file = ""; renderLibrary(); return;
       case "reset-filter": filters[id] = { ...filters[id], query: "", project: "", type: "", status: "" }; renderRoute(); return;
       case "review-filters": ui.reviewFilters = !ui.reviewFilters; renderReview(); return;
@@ -941,9 +882,6 @@ const app = (() => {
         catch { notice("浏览器没能写入剪贴板，请选中上方文字手动复制。", true); }
         return;
       case "download": { const link = Object.assign(document.createElement("a"), { href: `api/raw?id=${encodeURIComponent(id)}`, download: "" }); link.click(); return; }
-      case "copy-entry":
-        try { await navigator.clipboard.writeText(id); notice("已复制。"); } catch { notice("浏览器无法写入剪贴板，请手动选择复制。", true); }
-        return;
       case "check-update": setMenu(false); await checkUpdate(); return;
       case "copy-update": {
         const copied = await copyUpdatePrompt();
@@ -1020,7 +958,7 @@ const app = (() => {
     if (control.dataset.filter) {
       const key = control.dataset.filter; filters[key][control.dataset.field] = control.value;
       if (key === "review") renderReviewList();
-      else if (key === "project") filters.project.kind === "tasks" ? renderProjectTasks() : renderFiles("project");
+      else if (key === "project") renderFiles("project");
       else if (key === "library") renderFiles("library");
     }
   });
@@ -1048,7 +986,14 @@ const app = (() => {
   });
   document.querySelector(".skip-link").addEventListener("click", event => { event.preventDefault(); main.focus(); });
   document.getElementById("dialog-close").addEventListener("click", closeDialog);
-  window.addEventListener("hashchange", route);
+  // A project or home page keeps its filters in the address bar; another page starts without them.
+  window.addEventListener("hashchange", () => { if (location.search) history.replaceState(null, "", location.pathname + location.hash); route(); });
+  document.addEventListener("click", async event => {
+    const button = event.target.closest("[data-project-entry-copy]");
+    if (!button) return;
+    const copied = await window.GStudioUI.copyPrompt(button.dataset.projectEntryCopy);
+    notice(copied ? "入口已复制" : "复制失败，请选择路径或网址手动复制", !copied);
+  });
   document.addEventListener("keydown", event => { if (event.key === "Escape" && event.target.closest?.("#software-candidates")) { event.preventDefault(); closeFoundSoftware(); document.getElementById("find-software")?.focus(); } });
   // The task header clips overflow, so the actions menu is placed against the viewport.
   document.addEventListener("toggle", event => {

@@ -7,10 +7,11 @@ buttons handled by app.js; only the 任务操作 menu is open-source-only markup
 from __future__ import annotations
 
 import html
+import re
 from urllib.parse import quote
 
 from .ember_ui.markdown import markdown_to_html
-from .ember_ui.pages import home, task_detail
+from .ember_ui.pages import home, project as project_template, task_detail
 
 STATUS_NAMES = {"active": "进行中", "waiting_user": "待确认", "blocked": "受阻", "completed": "已完成"}
 EXECUTOR_NAMES = {"codex": "Codex", "opencode": "OpenCode", "claude-code": "Claude Code", "workbuddy": "WorkBuddy",
@@ -223,3 +224,106 @@ def file_preview(meta: dict) -> dict:
         data["kind"] = "markdown" if markdown_file else "text"
         data["body_html"] = markdown_to_html(meta["text"]) if markdown_file else f'<pre class="library-text-preview">{html.escape(meta["text"])}</pre>'
     return data
+
+
+FOUR_COLUMNS = "| 类型 | 环境 | 路径或网址 | 用途与访问说明 |\n| --- | --- | --- | --- |"
+
+
+def card_sections(markdown: str) -> dict[str, str]:
+    """The project card's level-two sections; "" holds the text before the first one."""
+    body = re.sub(r"^#\s+.*\n?", "", str(markdown or ""), count=1)
+    parts = re.split(r"(?m)^##\s+(.+?)\s*$", body)
+    sections = {"": parts[0].strip()}
+    for index in range(1, len(parts), 2):
+        sections[parts[index]] = (parts[index + 1] if index + 1 < len(parts) else "").strip()
+    return sections
+
+
+def _entry_markdown(markdown: str) -> str:
+    """Older cards used a three-column table without the environment; read it as this machine."""
+    lines, out, index = markdown.splitlines(), [], 0
+    while index < len(lines):
+        if re.fullmatch(r"\|\s*类型\s*\|\s*路径或网址\s*\|\s*用途\s*\|\s*", lines[index]) and index + 1 < len(lines):
+            out.append(FOUR_COLUMNS)
+            index += 2
+            while index < len(lines) and lines[index].strip().startswith("|"):
+                cells = [cell.strip() for cell in re.split(r"(?<!\\)\|", lines[index].strip()[1:-1])]
+                out.append(f"| {cells[0]} | 本机 | {cells[1] if len(cells) > 1 else ''} | {cells[2] if len(cells) > 2 else ''} |")
+                index += 1
+            continue
+        out.append(lines[index])
+        index += 1
+    return "\n".join(out)
+
+
+def _entry_parts(markdown: str, project: dict) -> list[dict]:
+    parts = []
+    for part in project_template.entry_parts(_entry_markdown(markdown)):
+        if isinstance(part, str):
+            parts.append({"html": markdown_to_html(part)})
+            continue
+        rows = []
+        for label, environment, value, note in part:
+            kind = project_template.locator_kind(value)
+            actions = ""
+            if kind == "path" and value in (project.get("locations") or []):
+                actions = (f'<button type="button" class="button ghost" data-action="reveal-location" data-id="{html.escape(project["id"], quote=True)}" '
+                           f'data-location="{html.escape(value, quote=True)}">打开目录</button>')
+            rows.append({"label": label, "environment": environment, "value": value, "kind": kind, "note": note, "actions_html": actions})
+        parts.append({"rows": rows})
+    return parts
+
+
+def project_page(snapshot: dict, project_id: str) -> dict | None:
+    """The project workspace page; the file tabs are filled by the page's own browser."""
+    project = next((item for item in snapshot["projects"] if item["id"] == project_id), None)
+    if project is None:
+        return None
+    system = project.get("kind") == "system"
+    entity = "系统" if system else "项目"
+    tasks = sorted((item for item in snapshot["tasks"] if item["project"] == project_id),
+                   key=lambda item: str(item.get("updated_at") or item.get("date") or ""), reverse=True)
+    files = [item for item in snapshot["files"] if item.get("project") == project_id]
+    sections = card_sections(project.get("overview") or "")
+    primary_label = next((name for name in ("项目总览", "当前概况", "系统总览") if name in sections), "当前概况" if system else "项目总览")
+    entry_label = next((name for name in ("工作位置与入口", "系统入口") if name in sections), "")
+    primary = markdown_to_html(sections.get(primary_label) or sections.get("") or project.get("description") or "")
+    extra = []
+    if entry_label and sections.get(entry_label):
+        extra.append({"title": entry_label, "entries": _entry_parts(sections[entry_label], project)})
+    extra += [{"title": name, "html": markdown_to_html(sections[name])} for name in ("范围与要求", "当前阶段") if sections.get(name)]
+    # Older registries kept the timeline in the project registry instead of the card.
+    timeline = markdown_to_html(sections["时间线"]) if sections.get("时间线") else "".join(
+        ["<ul>"] + [f"<li>{html.escape(str(item.get('date', '')))}：{html.escape(str(item.get('title', '')))}"
+                    + (f"。{html.escape(str(item['text']))}" if item.get("text") else "") + "</li>" for item in project.get("timeline") or []] + ["</ul>"]
+    ) if project.get("timeline") else ""
+    described = sections.get(entry_label, "") if entry_label else ""
+    locations = [path for path in project.get("locations") or [] if path not in described]
+    return {
+        "title": project["name"], "eyebrow": "SYSTEM" if system else "PROJECT",
+        "hero_actions_html": f'<button class="button ghost" type="button" data-action="new-task" data-project="{html.escape(project_id, quote=True)}">新建任务</button>',
+        "launcher": {"confirm_label": f"开始{entity}任务并确认执行器", "form": {
+            "hidden": [("project_id", project_id)], "attrs": [("data-execution-confirm", None), ("data-execution-label", f"开始{entity}任务")]}},
+        "focus": project.get("focus") or "",
+        "stats": {"active": sum(item["status"] in ("active", "waiting_user", "blocked") for item in tasks),
+                  "groups": sum(item.get("kind") == "task_line" for item in tasks),
+                  "completed": sum(item["status"] == "completed" for item in tasks)},
+        "overview": {"state": "ok", "layout_id": "context", "primary_label": primary_label, "primary_html": primary,
+                     "sections": extra, "timeline_html": timeline} if primary else {"state": "message", "message": "项目说明暂无已确认的概览内容。"},
+        # As in the full workbench, the strip first names where the description lives: this workspace.
+        "strip": {"items": [{"label": "说明正本", "value": "余烬", "strong": True}] + [{"label": "本机工作目录", "value": path, "wide": True} for path in locations], "actions": []},
+        "counts": {"tasks": len(tasks), "delivery": sum(item["kind"] in ("draft", "formal") for item in files),
+                   "input": sum(item["kind"] == "input" for item in files)},
+        "task_search_label": f"搜索{entity}任务", "has_delivery": True,
+        "rows": [{"task_id": item["id"], "title": item["title"], "href": task_href(item["id"]), "task_line": item.get("kind") == "task_line",
+                  "description": item.get("description") or item.get("goal") or "", "status": item["status"],
+                  "status_label": STATUS_NAMES.get(item["status"], item["status"]), "important": bool(item.get("important")),
+                  "group": item.get("kind") == "task_line", "has_delivery": bool(item.get("outputs")),
+                  "search": " ".join(str(item.get(key) or "") for key in ("title", "description", "goal", "id")).casefold()} for item in tasks],
+        "materials_html": '<div class="project-material-pane library-material-page" data-project-panel="materials" hidden></div>',
+    }
+
+
+def render_project(snapshot: dict, project_id: str) -> str | None:
+    page = project_page(snapshot, project_id)
+    return None if page is None else project_template.render(page)

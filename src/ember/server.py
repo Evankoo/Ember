@@ -112,6 +112,12 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/pages/home":
                 from .pages import render_home
                 self.json({"html": render_home(self.server.workspace.snapshot())})
+            elif path == "/api/pages/project":
+                from .pages import render_project
+                markup = render_project(self.server.workspace.snapshot(), query.get("id", [""])[0])
+                if markup is None:
+                    raise WorkspaceError("该项目不在当前工作区。", 404)
+                self.json({"html": markup})
             elif path == "/api/home/search":
                 from .pages import home_search
                 self.json(home_search(self.server.workspace.snapshot(), query.get("q", [""])[0]))
