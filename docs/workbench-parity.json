@@ -13,6 +13,17 @@
       "core": "#home"
     },
     {
+      "name": "home-confirm",
+      "local": "/",
+      "core": "#home",
+      "fill": [
+        "#homeCommandInput",
+        "核对本周的工作安排"
+      ],
+      "open": "#homeConfirmOpen",
+      "within": "#homeConfirmDialog"
+    },
+    {
       "name": "projects",
       "local": "/projects",
       "core": "#projects"
@@ -201,11 +212,6 @@
       "id": "system:*",
       "status": "pending",
       "reason": "系统工作区页：完整版用 system-workspace 版式，开源版仍用项目页版式"
-    },
-    {
-      "id": "home:only-local:.home-command-shell > .home-entry-context",
-      "status": "pending",
-      "reason": "首页：完整版的任务上下文条在输入框下方独立一行"
     },
     {
       "id": "library:only-local:*library-preview-head-actions*",

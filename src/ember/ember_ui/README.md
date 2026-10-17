@@ -13,9 +13,12 @@ own export tool and never edits it there.
 - `static/execution-confirm.js`: the execution confirmation dialog.
 - `static/task-detail.js`: task materials list, divider and drawer
   (`window.EmberTaskDetail.mount`).
+- `static/home.js`, `static/task-overview.js`: the home request input, search,
+  preview and home execution confirmation (`window.EmberHome.mount`), and the
+  全部任务 browser (`window.EmberTaskOverview.mount`).
 - `markdown.py`, `marks.py`: the Markdown subset and the flame mark both
   editions render.
-- `pages/task_detail.py`: the task detail page template. It takes one page
+- `pages/task_detail.py`, `pages/home.py`: the task detail and home page templates. It takes one page
   dictionary (documented in the module) and returns markup only; each edition
   builds the dictionary from its own data and wraps the result.
 

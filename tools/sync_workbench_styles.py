@@ -50,10 +50,16 @@ def private_markers(path: Path = PRIVATE_MARKERS) -> tuple[str, ...]:
     return tuple(line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip() and not line.startswith("#"))
 
 
+# A machine home path, not an endpoint such as /api/home/search.
+HOME_PATH = re.compile(r"(?<![\w/])/home/")
+
+
 def sensitive(text: str, extra: tuple[str, ...] = ()) -> list[str]:
-    # Embedded font data is base64, not text that could carry a private name.
-    text = re.sub(r"url\(data:[^)]*\)", "url(data:)", text)
-    return [word for word in FORBIDDEN + extra if word.lower() in text.lower()]
+    # Embedded font data is base64 and the SVG namespace is a fixed identifier, not text that could
+    # carry a private name or address.
+    text = re.sub(r"url\(data:[^)]*\)", "url(data:)", text).replace('xmlns="http://www.w3.org/2000/svg"', "")
+    found = [word for word in FORBIDDEN + extra if word != "/home/" and word.lower() in text.lower()]
+    return found + (["/home/"] if "/home/" in FORBIDDEN + extra and HOME_PATH.search(text) else [])
 
 
 PAGE_STYLES = (("project view", "/projects"), ("project detail", "project"), ("task detail", "task"), ("settings", "/settings"))

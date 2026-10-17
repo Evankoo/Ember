@@ -109,6 +109,21 @@ class Handler(BaseHTTPRequestHandler):
                 if markup is None:
                     raise WorkspaceError("该任务不在当前工作区。", 404)
                 self.json({"html": markup})
+            elif path == "/api/pages/home":
+                from .pages import render_home
+                self.json({"html": render_home(self.server.workspace.snapshot())})
+            elif path == "/api/home/search":
+                from .pages import home_search
+                self.json(home_search(self.server.workspace.snapshot(), query.get("q", [""])[0]))
+            elif path == "/api/home/task-preview":
+                from .pages import task_preview
+                result = task_preview(self.server.workspace.snapshot(), query.get("id", [""])[0])
+                if result is None:
+                    raise WorkspaceError("该任务不在当前工作区。", 404)
+                self.json(result)
+            elif path == "/api/home/file-preview":
+                from .pages import file_preview
+                self.json(file_preview(self.server.workspace.read_file(query.get("id", [""])[0])))
             elif path == "/api/update":
                 # Only on the user's click; the result says what is available, it installs nothing.
                 from .updates import check_update

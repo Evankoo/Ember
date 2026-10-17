@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ember.pages import render_task, task_page
+from ember.pages import file_preview, home_page_data, home_search, render_home, render_task, task_page, task_preview
 from ember.store import Workspace
 
 
@@ -14,6 +14,7 @@ class TaskPageTests(unittest.TestCase):
         workspace = Workspace(Path(cls.temp.name) / "Ember")
         workspace.initialize(example=True)
         cls.snapshot = workspace.snapshot()
+        cls.workspace = workspace
 
     @classmethod
     def tearDownClass(cls):
@@ -56,6 +57,39 @@ class TaskPageTests(unittest.TestCase):
         self.assertIn('href="#task/may-plan"', html)
         for forbidden in ("<script", "<style", " style="):
             self.assertNotIn(forbidden, html)
+
+
+
+class HomePageTests(TaskPageTests):
+    def test_home_page_data_and_markup(self):
+        page = home_page_data(self.snapshot)
+        self.assertEqual(len(page["overview"]["rows"]), len(self.snapshot["tasks"]))
+        self.assertEqual(page["task_href_base"], "#task/")
+        self.assertEqual(page["intents"][0]["href"], "#review")
+        self.assertTrue(all(row["href"].startswith("#task/") for row in page["overview"]["rows"]))
+        markup = render_home(self.snapshot)
+        self.assertIn('id="homeCommandForm"', markup)
+        self.assertNotIn('method="post"', markup)
+        self.assertNotIn("<script", markup)
+
+    def test_search_returns_tasks_first_then_materials_with_selections(self):
+        result = home_search(self.snapshot, "秋季")
+        kinds = [item["kind"] for item in result["items"]]
+        self.assertEqual(kinds[0], "task")
+        material = next(item for item in result["items"] if item["kind"] != "task")
+        self.assertIn("file_id", material["selection"])
+        self.assertTrue(material["preview_url"].startswith("api/home/file-preview?id="))
+        self.assertEqual(home_search(self.snapshot, "  ")["items"], [])
+
+    def test_previews(self):
+        preview = task_preview(self.snapshot, "autumn-plan")
+        self.assertEqual(preview["detail_url"], "#task/autumn-plan")
+        self.assertIn("任务目标", preview["body_html"])
+        self.assertIsNone(task_preview(self.snapshot, "missing"))
+        item = next(f for f in self.snapshot["files"] if f["name"].endswith(".md"))
+        data = file_preview(self.workspace.read_file(item["id"]))
+        self.assertEqual(data["kind"], "markdown")
+        self.assertTrue(data["raw_url"].startswith("api/preview?id="))
 
 
 if __name__ == "__main__":

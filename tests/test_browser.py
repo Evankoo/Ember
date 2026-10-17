@@ -114,19 +114,22 @@ class SettingsBrowserTests(unittest.TestCase):
     def test_home_requires_a_request_before_confirming(self):
         self.page.goto(self.base + "/#home")
         for value in ("", "   "):
-            self.page.locator("#context-request").fill(value)
-            self.page.locator("#context-prepare").click()
+            self.page.locator("#homeCommandInput").fill(value)
+            self.page.locator("#homeConfirmOpen").click()
             expect(self.page.locator(".toast.show")).to_have_text("请先描述本轮要求")
-            self.assertFalse(self.page.locator("#home-confirm-dialog").evaluate("node => node.open"))
-        self.page.locator("#context-request").fill("整理活动资料")
-        self.page.locator("#context-prepare").click()
-        self.page.locator("#prompt-state.ready").wait_for()
-        expect(self.page.locator("#confirm-request")).to_have_value("整理活动资料")
-        self.page.locator("#confirm-request").fill("改过的任务")
-        self.page.locator('[data-action="confirm-reset"]').click()
-        expect(self.page.locator("#confirm-request")).to_have_value("整理活动资料")
-        expect(self.page.locator("#prompt-preview")).to_contain_text("授权边界")
-        expect(self.page.locator('input[name="confirm-route"][value="continue"]')).to_be_disabled()
+            self.assertFalse(self.page.locator("#homeConfirmDialog").evaluate("node => node.open"))
+        self.page.locator("#homeCommandInput").fill("整理活动资料")
+        expect(self.page.locator("#homeIntentHint")).to_contain_text("前往任务检视")
+        self.page.locator("#homeConfirmOpen").click()
+        self.page.locator("#homePromptState.ready").wait_for()
+        expect(self.page.locator("#homeTaskInput")).to_have_value("整理活动资料")
+        self.page.locator("#homeTaskInput").fill("改过的任务")
+        self.page.locator("#homeTaskReset").click()
+        expect(self.page.locator("#homeTaskInput")).to_have_value("整理活动资料")
+        expect(self.page.locator("#homePromptPreview")).to_contain_text("授权边界")
+        expect(self.page.locator('input[name="route_mode"][value="continue"]')).to_be_disabled()
+        self.page.locator("#homeConfirmBack").click()
+        self.assertFalse(self.page.locator("#homeConfirmDialog").evaluate("node => node.open"))
         self.assert_untouched()
 
     def test_task_page_previews_files_and_opens_the_drawer_when_narrow(self):
@@ -183,6 +186,19 @@ class SettingsBrowserTests(unittest.TestCase):
             self.assertFalse(dialog.evaluate("node => node.open"))
         self.assert_untouched()
 
+    def test_project_and_library_launchers_use_the_shared_confirmation(self):
+        self.page.goto(self.base + "/#project/chenyu")
+        self.page.locator(".project-task-launcher [data-execution-confirm-trigger]").click()
+        expect(self.page.locator("#executionConfirmAction")).to_have_text("新任务 · 晨屿咖啡内容合作")
+        expect(self.page.locator("#executionConfirmFixed")).to_contain_text("项目页")
+        self.page.keyboard.press("Escape")
+        self.page.goto(self.base + "/#library")
+        self.page.locator("[data-select-file]").first.check()
+        self.page.locator("#library-selection [data-execution-confirm-trigger]").click()
+        expect(self.page.locator("#executionConfirmScope")).to_have_text("所选资料 1 项")
+        self.page.keyboard.press("Escape")
+        self.assert_untouched()
+
     def test_update_button_shows_the_release_and_a_copyable_prompt(self):
         newer = {"tag": "v99.0.0", "url": "https://github.com/Evankoo/Ember/releases/tag/v99.0.0",
                  "published_at": "2026-10-20", "notes": "<img src=x onerror=window.bad=1> 新功能"}
@@ -231,9 +247,9 @@ class SettingsBrowserTests(unittest.TestCase):
 
     def preview(self):
         self.page.goto(self.base + "/#home")
-        self.page.locator("#context-request").fill("请整理当前任务，不要发布或完成它。")
-        self.page.locator("#context-prepare").click()
-        self.page.locator("#prompt-state.ready").wait_for()
+        self.page.locator("#homeCommandInput").fill("请整理当前任务，不要发布或完成它。")
+        self.page.locator("#homeConfirmOpen").click()
+        self.page.locator("#homePromptState.ready").wait_for()
 
     def assert_untouched(self):
         self.assertEqual(self.workspace_bytes(), self.original_files)
@@ -256,7 +272,7 @@ class SettingsBrowserTests(unittest.TestCase):
             self.page.locator('#main-content h1', has_text='页面不存在').wait_for()
             self.page.locator('#main-content a[href="#home"]').focus()
             self.page.keyboard.press('Enter')
-            self.page.locator('#home-task-list').wait_for()
+            self.page.locator('#homeAllTasks').wait_for()
         self.assert_untouched()
 
     def test_empty_workspace_pages_have_no_archive_or_automatic_writes(self):
@@ -271,8 +287,8 @@ class SettingsBrowserTests(unittest.TestCase):
                 for width in (1440, 390):
                     self.page.set_viewport_size({'width': width, 'height': 1000})
                     self.page.goto(f'http://127.0.0.1:{server.server_port}/#home')
-                    self.page.locator('#home-task-list .empty').wait_for()
-                    self.assertEqual(self.page.locator('#home-count').inner_text(), '0')
+                    expect(self.page.locator('#taskOverviewEmpty')).to_contain_text('还没有任务记录')
+                    self.assertEqual(self.page.locator('#taskOverviewCount').inner_text(), '显示 0 / 0 条')
                     self.assertEqual(self.page.locator('a[href="#archive"]').count(), 0)
                     self.assertTrue(self.page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'))
                 self.assertEqual(before, {str(p.relative_to(workspace.path)): p.read_bytes() for p in workspace.path.rglob('*') if p.is_file()})
@@ -325,7 +341,7 @@ class SettingsBrowserTests(unittest.TestCase):
 
             try:
                 self.page.goto(base + '/#home')
-                expect(self.page.locator('#home-count')).to_have_text('0')
+                expect(self.page.locator('#taskOverviewCount')).to_have_text('显示 0 / 0 条')
                 first = post('/api/tasks', {'title': '余烬首次使用', 'project': 'ember',
                     'work_type': 'system', 'artifact_mode': 'none', 'executor': 'opencode',
                     'skills_used': ['ember-init', 'ember'], 'goal': '安装并完成新手实操'})
@@ -337,8 +353,8 @@ class SettingsBrowserTests(unittest.TestCase):
                     self.page.set_viewport_size({'width': width, 'height': 1000})
                     self.page.goto(base + '/#home')
                     self.page.reload()
-                    self.page.locator('#home-task-list', has_text='余烬首次使用').wait_for()
-                    self.assertEqual(self.page.locator('#home-count').inner_text(), '1')
+                    self.page.locator('#taskOverviewRows', has_text='余烬首次使用').wait_for()
+                    self.assertEqual(self.page.locator('#taskOverviewCount').inner_text(), '显示 1 / 1 条')
                     self.page.goto(base + '/#task/' + first['id'])
                     self.page.locator('#main-content h1', has_text='余烬首次使用').wait_for()
                     self.assertIn('等待用户检查任务卡', self.page.locator('#main-content').inner_text())
@@ -489,11 +505,11 @@ class SettingsBrowserTests(unittest.TestCase):
         with patch.object(self.registry, "open_software", return_value=opened) as launch:
             self.preview()
             launch.assert_not_called()
-            self.page.locator("#copy-context-button").click()
-            self.assertEqual(len(self.page.evaluate("window.__copies")), 1)
+            self.page.locator("#homePromptCopy").click()
+            self.page.wait_for_function("()=>window.__copies.length === 1")
             launch.assert_not_called()
-            self.page.locator("#copy-open-context-button").click()
-            self.page.wait_for_function("()=>document.getElementById('confirm-feedback').textContent.includes('已打开')")
+            self.page.locator("#homeDispatchConfirm").click()
+            expect(self.page.locator(".toast.show")).to_contain_text("已复制并打开")
             launch.assert_called_once()
             payload, workspace = launch.call_args.args
             self.assertEqual(set(payload), {"executor_id", "expected_revision", "confirmation"})
@@ -508,18 +524,22 @@ class SettingsBrowserTests(unittest.TestCase):
         self.save_fixture()
         self.preview()
         with patch.object(self.registry, "open_software") as launch:
-            self.page.evaluate("()=>{navigator.clipboard.writeText=async()=>{throw new Error('denied')}}")
-            self.page.locator("#copy-open-context-button").click()
-            self.page.wait_for_function("()=>document.getElementById('confirm-feedback').textContent.includes('复制失败')")
-            self.assertTrue(self.page.locator("#confirm-feedback").is_visible())
+            self.page.evaluate("()=>{navigator.clipboard.writeText=async()=>{throw new Error('denied')};document.execCommand=()=>false}")
+            self.page.locator("#homeDispatchConfirm").click()
+            expect(self.page.locator(".toast.show")).to_contain_text("复制失败")
             launch.assert_not_called()
         self.page.evaluate("()=>{navigator.clipboard.writeText=async text=>window.__copies.push(text)}")
         payload = {"executors": [{**entry, "label": entry["label"] + "已修改"} for entry in self.entries],
                    "default_executor": "other-cli", "expected_revision": self.registry.snapshot()["revision"]}
         self.registry.save(payload)
         with patch("ember.executors.subprocess.run") as run:
-            self.page.locator("#copy-open-context-button").click()
-            self.page.wait_for_function("()=>document.getElementById('confirm-feedback').textContent.includes('已改变')")
+            self.page.locator("#homeConfirmOpen").click()
+            self.page.locator("#homePromptState.ready").wait_for()
+            # The dialog read the saved software before it changed; opening re-checks and refuses.
+            self.registry.save({**payload, "expected_revision": self.registry.snapshot()["revision"],
+                                "executors": [{**entry, "label": entry["label"] + "再改"} for entry in self.entries]})
+            self.page.locator("#homeDispatchConfirm").click()
+            expect(self.page.locator(".toast.show")).to_contain_text("已改变")
             run.assert_not_called()
         self.assert_untouched()
 

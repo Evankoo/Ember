@@ -1,20 +1,23 @@
 {
   "schema": 2,
-  "source_commit": "db7bc1ff83af977fe94020e59585acbd08dc91dd",
+  "source_commit": "5631c1a18b7b163378b47dbc3833db49641363a9",
   "source_dir": "ui/ember_ui",
   "files": {
-    "README.md": "56f76d49ec4fffe9a9a94cf4554921cf7c9302f218a5ff3650ce3bd71c4c063d",
+    "README.md": "9c63786cd975fef62b02d1082dad6fb999853b12390c6562e52abde0dd6b481f",
     "__init__.py": "ff3974de64f5a2b1f143799209831a3468c8f6fc8dc3aca2e0e157f672c960b7",
     "markdown.py": "1dea433ab2a8f71719830f2b35fbf4834eaab2b50a5b60180da90e2784b131bc",
     "marks.py": "d5edbaa78309cdc87375ad38de01031f045d41f1e8b30952693e548a510a9b41",
     "pages/__init__.py": "ddf98a44eb28acdf0399d6e813c929a1879c2f1b9a93c64770fec0028fd25afa",
+    "pages/home.py": "b4246c370ed9399ad61fb2e0ea8b97bc10b49018c3b6eb084818c7e9bde675b8",
     "pages/task_detail.py": "64a22b76311a6ba5b9052690ac39ec1b9a8a696ffc2cb40bf1bca7985dbf4bdc",
     "static/ember-ui.js": "451949fd7e7f0ae3c042fe182876ae2e90a2a4ee3ef2d4a1a98cd42e623ec1e4",
     "static/execution-confirm.js": "82b7dbf47deed067690aa2e0bb12badec8135b37c217c562ed1e40eae55187a5",
+    "static/home.js": "f76a0effc9b5ba05a34df79d38f4a71d5250b28cd29e8e14d4494826af8f2cf3",
     "static/sidebar-state.js": "7552ece209b94856e4c2381c2096c2a782c4c555f8775e6f020ff86a28a5b0ce",
     "static/sidebar.js": "a04aa64f3aa0de00044cec5c5d8f306747334da16478c40dda4988d133058730",
     "static/task-detail.css": "84a717332fd541161172382bc3f665cb4109e6a9910fe7a58053d1042413dcf2",
     "static/task-detail.js": "142a6ce2633257f1b551f922de6c97c01359f072fd95addc30bc423eda3b8c72",
+    "static/task-overview.js": "f6f16b69fc3839849f11ffc51f18c5ec168b78f459f81eeca6a4b6019a7f6412",
     "static/workbench.css": "6630c14f28bcd4a3845249255aee04fe39e06b8eb3fa850bd72a767e52c99698"
   },
   "page_styles_sha256": "7cc5260ee1fcd6efdd3d09a92c0bf9c229dc1e30fa196fdddac06bf4662413f1"

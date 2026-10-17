@@ -23,6 +23,9 @@ class WorkbenchStyleTests(unittest.TestCase):
             self.assertEqual(SYNC["sensitive"](data.decode("utf-8")), [], name)
         self.assertEqual(SYNC["sensitive"]("url(/Volumes/x) Studio", ("studio",)), ["/Volumes/", "studio"])
         self.assertEqual(SYNC["sensitive"]("url(data:font/woff2;base64,AAAA/Users/BB)"), [])
+        self.assertEqual(SYNC["sensitive"]("cd /home/someone"), ["/home/"])
+        self.assertEqual(SYNC["sensitive"]('fetch("/api/home/search") <svg xmlns="http://www.w3.org/2000/svg">'), [])
+        self.assertEqual(SYNC["sensitive"]('<a href="http://example">'), ["http://"])
 
     def test_record_matches_the_shipped_copy(self):
         self.assertEqual(self.record["source_dir"], "ui/ember_ui")

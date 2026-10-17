@@ -8,7 +8,7 @@ const app = (() => {
   const sidebar = document.getElementById("sidebar");
   const dialog = document.getElementById("workbench-dialog");
   const dialogBody = document.getElementById("dialog-body");
-  const state = { data: null, route: "home", id: "", dialogReturn: null, taskMaterials: null, preview: null, settings: null, settingsRequest: 0, contextRequest: 0 };
+  const state = { data: null, route: "home", id: "", dialogReturn: null, taskMaterials: null, home: null, overview: null, preview: null, settings: null, settingsRequest: 0, contextRequest: 0 };
   const filters = {
     home: { query: "", project: "", type: "", status: "" },
     review: { query: "", project: "", type: "", status: "", sort: "updated" },
@@ -16,13 +16,10 @@ const app = (() => {
     project: { query: "", kind: "tasks", task: "all", subtype: "" }
   };
   const ui = { review: new Set(), library: new Set(), reviewTask: "", reviewReport: "", reportFilter: "", file: "", projectId: "", projectCategory: "", reviewFilters: false };
-  const composer = { task: "", files: [], attachments: [] };
-  const confirm = { request: "", relation: "new", taskId: "", fileIds: [], attachments: [] };
   const software = { entries: [], default: "", editing: false, manual: { label: "", kind: "app", path: "" }, epoch: 0, saving: false };
   const statusNames = { active: "进行中", waiting_user: "待确认", blocked: "受阻", completed: "已完成" };
   const workNames = { text: "文字", image: "图片", video: "视频", audio: "音频", data: "数据", mixed: "混合", system: "系统" };
   const categoryClasses = ["account_operations", "course_teaching", "novel_writing", "system_building"];
-  const routeNames = { new: ["新建任务", "建立独立任务上下文"], continue: ["继续任务", "沿用原任务的目标与记录"], based: ["基于任务新建", "参考已有任务开启新工作"] };
   const brandMark = `<svg class="brand-mark" viewBox="0 0 256 256" fill="none" aria-hidden="true" focusable="false"><path d="M68 146H194C197 106 186 68 162 36C154 58 128 68 100 86C76 102 62 124 62 150C62 194 94 222 134 222C160 222 180 212 194 196" stroke="currentColor" stroke-width="27" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   const TEXT_FILE = /\.(md|markdown|txt|csv|json)$/i;
   const ATTACHMENT_LIMIT = 16000;
@@ -214,8 +211,6 @@ const app = (() => {
     return rows.sort(order);
   }
 
-  const taskRow = t => `<tr data-task-id="${esc(t.id)}"><td class="name"><a class="task-name" href="${taskLink(t)}">${esc(t.title)}</a>${t.kind === "task_line" ? `<span class="task-group-tag">任务线</span>` : ""}</td><td class="desc">${esc(t.goal || t.description || "")}</td><td class="overview-project">${esc(projectName(t.project))}</td><td class="overview-status">${badge(t)}</td><td class="overview-type">${esc(workType(t))}</td><td class="overview-updated">${esc(stamp(t))}</td></tr>`;
-  const taskTable = (id, rows, emptyText) => `<div class="task-overview-scroll"><table class="task-table project-overview-table"><colgroup><col class="overview-name-col"><col class="overview-desc-col"><col class="overview-project-col"><col class="overview-status-col"><col class="overview-type-col"><col class="overview-updated-col"></colgroup><thead><tr><th>任务名称</th><th>任务描述</th><th>项目</th><th>状态</th><th class="overview-type">类型</th><th>更新时间</th></tr></thead><tbody id="${id}">${rows.map(taskRow).join("") || `<tr><td class="empty" colspan="6">${esc(emptyText)}</td></tr>`}</tbody></table></div>`;
 
   function statusChips(key) {
     const current = filters[key].status;
@@ -223,164 +218,46 @@ const app = (() => {
   }
 
   /* ---------- 任务台 ---------- */
-  function renderHome() {
-    const types = [...new Set(data().tasks.map(t => t.work_type))];
+  /* Rendered on the server with the full workbench's template (ember_ui/pages/home.py) and driven by
+     its scripts (ember_ui/home.js, task-overview.js). This page supplies search, previews, attached
+     text files, the prompt preview and what happens after confirmation, from the local workspace. */
+  const homeAttachments = new Map();
+  const homeHooks = {
+    search: query => api(`api/home/search?q=${encodeURIComponent(query)}`),
+    taskPreview: id => api(`api/home/task-preview?id=${encodeURIComponent(id)}`),
+    materialPreview: item => api(item.preview_url),
+    // Only text files are attached, as text inside the prompt; nothing is uploaded or stored.
+    async stageFile(file) {
+      if (!TEXT_FILE.test(file.name)) throw new Error("只接收 Markdown、TXT、CSV、JSON 文字文件");
+      if (file.size > 1048576) throw new Error("超过 1 MB，未加入");
+      const text = await file.text(), used = [...homeAttachments.values()].reduce((sum, item) => sum + item.text.length, 0);
+      if (used + text.length > ATTACHMENT_LIMIT) throw new Error("附带的文字已接近上下文上限");
+      const id = `local-${crypto.randomUUID()}`;
+      homeAttachments.set(id, { name: file.name, text });
+      return { staging_id: id, name: file.name, size: file.size };
+    },
+    async previewPrompt(form) {
+      const fields = new FormData(form), taskId = String(fields.get("task_id") || ""), mode = String(fields.get("route_mode") || "new");
+      const relation = taskId ? { continue: "continue", derive: "based" }[mode] || "new" : "new";
+      const fileIds = fields.getAll("material_selection").map(value => { try { return JSON.parse(value).file_id; } catch { return undefined; } }).filter(Boolean);
+      const attachments = fields.getAll("staged_file_id").map(id => homeAttachments.get(String(id))).filter(Boolean);
+      const payload = { request: String(fields.get("request_text") || "").trim(), relation, file_ids: fileIds, attachments, page: "home" };
+      if (relation !== "new") payload.task_id = taskId;
+      return executionPreview(form, payload);
+    },
+    dispatch: (form, prompt) => openWithPrompt(prompt, executionPrompts.get(form)?.environment),
+  };
+
+  async function renderHome() {
     main.className = "shell app-main home-page";
-    main.innerHTML = `<section class="home-command-shell" aria-labelledby="home-title"><div class="home-command-heading"><h1 id="home-title">想让 <span class="home-command-ai">AI</span> 帮你做什么</h1></div><form id="context-form" class="action-form home-command-form" data-form="home-command"><div class="home-entry-row"><div class="home-entry-main"><div class="home-composer"><textarea id="context-request" name="request" rows="4" aria-label="本次要求" placeholder="输入要求，或用 fd 检索任务与资料…"></textarea><div class="home-composer-foot"><div id="home-contexts" class="home-input-contexts"></div><div id="home-materials" class="home-material-chips"></div><span class="home-drop-hint">可粘贴或拖入文字文件 · fd 检索任务与资料 · Shift+Enter 换行</span></div></div><div id="home-results" class="home-results" hidden></div></div><button id="context-prepare" class="home-confirm-open gstudio-action-trigger" type="submit" aria-label="确认执行" title="确认执行">${actionMark}</button></div></form></section><section class="home-all-tasks" aria-labelledby="home-tasks-title"><div class="task-overview-sticky"><div class="section-head"><div class="task-overview-heading"><h2 id="home-tasks-title">全部任务</h2></div><span class="meta">显示 <span id="home-count">0</span> / ${data().tasks.length} 条</span></div><div class="task-overview-filters"><div class="search-wrap"><span class="search-icon" aria-hidden="true">⌕</span><input id="home-search" type="search" data-filter="home" data-field="query" aria-label="搜索任务" placeholder="搜索任务…" value="${esc(filters.home.query)}"></div><select id="home-project" data-filter="home" data-field="project" aria-label="项目">${projectOptions(filters.home.project)}</select><select id="home-type" data-filter="home" data-field="type" aria-label="类型">${option("", "全部类型", filters.home.type)}${types.map(type => option(type, workNames[type] || type, filters.home.type)).join("")}</select></div><div class="task-overview-status-bar">${statusChips("home")}<button class="button ghost clear-filters" type="button" data-action="reset-filter" data-id="home">清除筛选</button></div></div><div id="home-table">${taskTable("home-task-list", [], "")}</div></section>`;
-    renderComposer();
-    renderTaskResults("home");
-  }
-
-  function renderTaskResults(key) {
-    const items = matchingTasks(key);
-    if (key === "home") {
-      document.getElementById("home-table").innerHTML = taskTable("home-task-list", items, data().tasks.length ? "没有匹配任务，请调整搜索或筛选。" : "工作区还没有任务。在上方描述要做的事，或让 AI 用余烬 Skill 记录工作。");
-      document.getElementById("home-count").textContent = String(items.length);
-      main.querySelector('[data-action="reset-filter"][data-id="home"]').classList.toggle("dimmed", !Object.values(filters.home).some(Boolean));
-    } else if (key === "review") renderReviewList();
-  }
-
-  function renderComposer() {
-    const contexts = document.getElementById("home-contexts"), materials = document.getElementById("home-materials");
-    if (!contexts) return;
-    const target = task(composer.task);
-    contexts.innerHTML = (target ? [`<div class="home-context-chip"><span class="home-context-dot"></span><span class="home-context-kind">任务</span><b>${esc(target.title)}</b><button type="button" data-action="composer-remove-task" aria-label="移除关联任务">×</button></div>`] : []).concat(composer.files.map(id => file(id)).filter(Boolean).map(f => `<div class="home-context-chip"><span class="home-context-dot"></span><span class="home-context-kind">资料</span><b>${esc(f.name)}</b><button type="button" data-action="composer-remove-file" data-id="${esc(f.id)}" aria-label="移除资料 ${esc(f.name)}">×</button></div>`)).join("");
-    materials.innerHTML = composer.attachments.map((item, index) => `<div class="home-context-chip"><span class="home-context-dot"></span><span class="home-context-kind">文件</span><b>${esc(item.name)}</b><button type="button" data-action="composer-remove-attachment" data-id="${index}" aria-label="移除文件 ${esc(item.name)}">×</button></div>`).join("");
-  }
-
-  function renderComposerResults() {
-    const node = document.getElementById("home-results"), input = document.getElementById("context-request");
-    if (!node) return;
-    const match = input.value.match(/^fd\s+(.+)$/s);
-    if (!match) { node.hidden = true; node.innerHTML = ""; return; }
-    const terms = match[1].trim().toLowerCase().split(/\s+/).filter(Boolean);
-    const hit = text => terms.every(term => text.toLowerCase().includes(term));
-    const tasks = data().tasks.filter(t => hit([t.title, t.goal, t.id].join(" "))).slice(0, 6);
-    const files = data().files.filter(f => ["input", "draft", "formal"].includes(f.kind) && hit([f.name, projectName(f.project), task(f.taskId)?.title || ""].join(" "))).slice(0, 6);
-    node.hidden = false;
-    node.innerHTML = (tasks.map(t => `<button type="button" class="home-result" data-action="composer-add-task" data-id="${esc(t.id)}"><span class="home-context-kind">任务</span><b>${esc(t.title)}</b><small>${esc(projectName(t.project))} · ${esc(statusNames[t.status] || t.status)}</small></button>`).join("") + files.map(f => `<button type="button" class="home-result" data-action="composer-add-file" data-id="${esc(f.id)}"><span class="home-context-kind">资料</span><b>${esc(f.name)}</b><small>${esc(kindName(f.kind))} · ${esc(projectName(f.project))}</small></button>`).join("")) || `<p class="home-result-empty">没有匹配的任务或资料。</p>`;
-  }
-
-  async function addAttachments(list) {
-    const accepted = [...list].filter(item => TEXT_FILE.test(item.name));
-    if (accepted.length < list.length) notice("只接收 Markdown、TXT、CSV、JSON 文字文件；其他文件请登记为任务资料。", true);
-    for (const item of accepted) {
-      if (item.size > 1048576) { notice(`${item.name} 超过 1 MB，未加入。`, true); continue; }
-      const text = await item.text();
-      const used = composer.attachments.reduce((sum, value) => sum + value.text.length, 0);
-      if (used + text.length > ATTACHMENT_LIMIT) { notice("附带的文字已接近上下文上限，请精简后再加入。", true); break; }
-      composer.attachments.push({ name: item.name, text });
-    }
-    renderComposer();
-  }
-
-  /* ---------- 确认执行 ---------- */
-  /* The full workbench's execution confirmation: the fixed prompt is read-only on the left; the
-     任务 part is the only editable section; copy and open always rebuild the same full prompt. */
-  const confirmDialog = Object.assign(document.createElement("dialog"), { id: "home-confirm-dialog", className: "home-confirm-dialog", tabIndex: -1 });
-  confirmDialog.setAttribute("aria-labelledby", "home-confirm-title");
-  document.body.append(confirmDialog);
-  const routeHelp = { new: "建立独立任务上下文", continue: "沿用所选任务继续执行", based: "保留来源，建立新的任务上下文" };
-
-  function openConfirm({ request = "", relation = "new", taskId = "", fileIds = [], attachments = [], projectId = "", page = "home" }) {
-    Object.assign(confirm, { request, defaultTask: request, relation: taskId ? relation : "new", taskId, fileIds: [...fileIds], attachments: [...attachments], projectId, page, prompt: null });
-    state.dialogReturn = document.activeElement;
-    const source = task(taskId);
-    confirmDialog.innerHTML = `<div class="home-confirm-head"><div><h2 id="home-confirm-title">确认执行</h2><p id="home-confirm-task">${source ? `${esc(routeNames[confirm.relation][0])} · ${esc(source.title)}` : projectId && project(projectId) ? `新任务 · ${esc(project(projectId).name)}` : "新任务 · 未选择相关任务"}</p></div><button class="home-dialog-close" type="button" data-action="confirm-close" aria-label="关闭确认弹窗">×</button></div><div class="home-confirm-body"><div class="home-confirm-workspace"><section class="home-prompt-review"><header><span id="prompt-state" class="home-prompt-state loading">正在生成固定提示词…</span><small id="prompt-meta">五段 · 只读</small></header><div class="home-prompt-body article md" id="prompt-preview" tabindex="0"></div></section><div class="home-confirm-decision"><section class="home-confirm-task-editor"><div><label for="confirm-request">任务</label><small id="confirm-count">${confirm.request.length} / 4000</small></div><textarea id="confirm-request" maxlength="4000" rows="7" placeholder="输入本轮任务提示词">${esc(confirm.request)}</textarea><button class="link-button" type="button" data-action="confirm-reset">恢复默认任务</button></section><fieldset class="home-confirm-routes"><legend>任务路由</legend>${Object.entries(routeNames).map(([value, [title]]) => `<label data-home-route-choice class="${value !== "new" && !source ? "disabled" : ""}"><input type="radio" name="confirm-route" value="${value}"${confirm.relation === value ? " checked" : ""}${value !== "new" && !source ? " disabled" : ""}><span><b>${title}</b></span></label>`).join("")}<p id="confirm-route-help">${routeHelp[confirm.relation]}</p></fieldset><section class="home-confirm-material-section"><div class="home-confirm-material-head"><span>相关资料 <b id="confirm-material-count">0</b></span></div><div class="home-confirm-materials" id="confirm-materials"></div></section></div></div></div><footer class="execution-confirm-foot home-confirm-foot"><button class="button ghost" id="copy-context-button" type="button" data-action="copy-context" disabled>复制提示词</button><button class="button ghost" type="button" data-action="confirm-close">返回修改</button><p class="execution-confirm-feedback" id="confirm-feedback" role="status" aria-live="polite"></p><div class="execution-confirm-runner"><span class="execution-confirm-runner-name" id="confirm-environment" role="status" data-state="loading">正在读取设置…</span><a class="button ghost execution-confirm-configure" id="confirm-configure" href="#settings" data-action="open-settings" hidden>去配置</a><button class="button primary gstudio-execute-key" id="copy-open-context-button" type="button" data-action="copy-open-context" aria-label="复制并打开" title="复制并打开" disabled>${actionMark}</button></div></footer>`;
-    renderConfirmMaterials();
-    if (!confirmDialog.open) confirmDialog.showModal();
-    confirmDialog.focus();
-    readEnvironment();
-    refreshContext();
-  }
-
-  function closeConfirm() { if (confirmDialog.open) confirmDialog.close(); }
-  confirmDialog.addEventListener("close", () => {
-    const previous = state.dialogReturn;
-    if (previous?.isConnected) previous.focus(); else document.getElementById("context-request")?.focus();
-    state.dialogReturn = null;
-  });
-  confirmDialog.addEventListener("click", event => { if (event.target === confirmDialog) closeConfirm(); });
-
-  function confirmFeedback(message, error = false) {
-    const node = document.getElementById("confirm-feedback");
-    if (!node) return;
-    node.textContent = message;
-    node.classList.toggle("error", error);
-  }
-
-  function renderConfirmMaterials() {
-    const items = confirm.fileIds.map(id => file(id)).filter(Boolean).map(f => `<span><b>${esc(f.name)}</b><small>${esc(kindName(f.kind))}</small></span>`)
-      .concat(confirm.attachments.map(item => `<span><b>${esc(item.name)}</b><small>附带文件</small></span>`));
-    document.getElementById("confirm-material-count").textContent = String(items.length);
-    document.getElementById("confirm-materials").innerHTML = items.join("") || `<em>无附加文件</em>`;
-  }
-
-  async function readEnvironment() {
-    let environment = null, failure = "";
-    try { environment = (await api("api/settings")).execution_environment; } catch (error) { failure = error.message; }
-    state.preview = { ...(state.preview || {}), environment };
-    const selected = environment?.executors.find(entry => entry.id === environment.default_executor);
-    const label = document.getElementById("confirm-environment");
-    if (!label) return;
-    label.textContent = environment?.ready ? selected.label : failure || environment?.error || "未配置执行软件";
-    label.dataset.state = environment?.ready ? "ready" : "missing";
-    if (selected) label.title = selected.path;
-    document.getElementById("confirm-configure").hidden = Boolean(environment?.ready);
-    const button = document.getElementById("copy-open-context-button");
-    button.setAttribute("aria-label", environment?.ready ? `复制并用 ${selected.label} 打开` : "请先配置执行软件");
-    button.title = button.getAttribute("aria-label");
-    syncConfirmButtons();
-  }
-
-  const fullPrompt = () => confirm.prompt && confirm.request.trim() ? confirm.prompt.prefix + confirm.request.trim() + confirm.prompt.suffix : "";
-  function syncConfirmButtons() {
-    const ready = Boolean(fullPrompt()) && !/^\s*#{2,3}\s+(任务|上下文|输入与真源|授权边界|成功标准|输出)\s*$/m.test(confirm.request);
-    const copy = document.getElementById("copy-context-button"), open = document.getElementById("copy-open-context-button");
-    if (copy && !copy.dataset.busy) copy.disabled = !ready;
-    if (open && !open.dataset.busy) open.disabled = !ready || !state.preview?.environment?.ready;
-    const input = document.getElementById("confirm-request");
-    if (input) input.setAttribute("aria-invalid", String(!confirm.request.trim()));
-  }
-
-  function refreshContext() {
-    state.contextPromise = generateContext();
-    return state.contextPromise;
-  }
-
-  async function generateContext() {
-    const request = ++state.contextRequest;
-    const output = document.getElementById("prompt-preview"), stateNode = document.getElementById("prompt-state"), meta = document.getElementById("prompt-meta");
-    if (!output) return;
-    confirm.prompt = null; syncConfirmButtons();
-    stateNode.textContent = "正在生成固定提示词…"; stateNode.className = "home-prompt-state loading";
-    try {
-      const payload = { request: confirm.defaultTask || confirm.request || "（待填写）", relation: confirm.relation, file_ids: confirm.fileIds, attachments: confirm.attachments, page: confirm.page };
-      if (confirm.relation !== "new") payload.task_id = confirm.taskId;
-      if (confirm.projectId && confirm.relation === "new") payload.project_id = confirm.projectId;
-      const result = await api("api/context", payload);
-      if (request !== state.contextRequest || !document.getElementById("prompt-preview")) return;
-      confirm.prompt = result;
-      output.innerHTML = markdown(result.fixed);
-      output.scrollTop = 0;
-      stateNode.textContent = "固定提示词"; stateNode.className = "home-prompt-state ready";
-      meta.textContent = `${new Intl.NumberFormat("zh-CN").format(result.fixed.length)} 字 · 只读`;
-      syncConfirmButtons();
-    } catch (error) {
-      if (request !== state.contextRequest) return;
-      stateNode.textContent = error.message || "提示词生成失败"; stateNode.className = "home-prompt-state error";
-      meta.textContent = "生成失败";
-    }
-  }
-
-  function selectOutput() {
-    const input = document.getElementById("confirm-request");
-    if (!input) return;
-    const text = fullPrompt();
-    const area = Object.assign(document.createElement("textarea"), { value: text, readOnly: true, className: "home-prompt-manual-copy" });
-    area.setAttribute("aria-label", "完整提示词，请手动复制");
-    document.getElementById("prompt-preview").replaceChildren(area);
-    area.focus(); area.select();
+    let page;
+    try { page = await api("api/pages/home"); }
+    catch (error) { if (state.route === "home") main.innerHTML = `<section class="panel load-error"><h1>任务台读取失败</h1><p class="form-error">${esc(error.message)}</p></section>`; return; }
+    if (state.route !== "home") return;
+    state.home?.destroy(); state.overview?.destroy();
+    main.innerHTML = page.html;
+    state.home = window.EmberHome.mount(document.getElementById("homeCommandForm"), homeHooks);
+    state.overview = window.EmberTaskOverview.mount(document.getElementById("homeAllTasks"));
   }
 
   /* ---------- 检查更新 ---------- */
@@ -514,7 +391,7 @@ const app = (() => {
     const locations = (p.locations || []).filter(path => !described.includes(path)).map(path => `<span class="project-location-item wide"><small>本机工作目录</small><code>${esc(path)}</code></span>`).join("");
     const tabs = [["tasks", "任务", tasks.length], ["delivery", "交付文件", deliveries.length], ["input", "输入资料", inputs.length]];
     const focus = p.focus ? `<div class="project-current-focus"><small>当前重点</small><strong>${esc(p.focus)}</strong></div>` : "";
-    main.innerHTML = `<section class="panel project-intro-card project-workspace-hero"><div class="intro-head"><div><span class="eyebrow">${system ? "SYSTEM" : "PROJECT"}</span><h1>${esc(p.name)}</h1></div><div class="project-hero-actions"><button class="button ghost" type="button" data-action="new-task" data-project="${esc(p.id)}">新建任务</button><div class="project-task-launcher">${actionKey("project-context", `开始${entity}任务并确认执行器`, `data-id="${esc(p.id)}"`)}</div></div></div><div class="intro-desc"></div><div class="project-hero-summary">${focus}<div class="project-hero-stats"><span><b>${tasks.filter(t => t.status !== "completed").length}</b>进行中</span><span><b>${tasks.filter(t => t.kind === "task_line").length}</b>任务主线</span><span><b>${tasks.filter(t => t.status === "completed").length}</b>已完成</span></div></div>${primary ? `<section class="context-overview-panel" aria-labelledby="context-overview-title" tabindex="0"><section class="context-overview-primary"><h2 id="context-overview-title">${esc(primaryHeading)}</h2><div class="context-overview-copy">${primary}${extra}</div></section><hr><section class="context-reader-timeline"><h3>时间线</h3>${timeline ? `<div class="context-overview-copy">${timeline}</div>` : `<p class="context-reader-empty">暂无有日期意义的变化。</p>`}</section></section>` : `<div class="context-overview-unavailable">${entity}说明尚无已确认的概览内容。</div>`}<div class="project-location-strip" aria-label="${entity}位置"><div class="project-location-items"><span class="project-location-item"><small>说明正本</small><strong>余烬 · Ember</strong></span>${locations}</div><div class="project-location-actions"></div></div></section><nav class="project-workspace-tabs" role="tablist" aria-label="${entity}内容">${tabs.map(([id, label, count]) => `<button class="${filters.project.kind === id ? "active" : ""}" role="tab" type="button" data-action="project-tab" data-id="${id}" aria-selected="${filters.project.kind === id}">${label}<span>${count}</span></button>`).join("")}</nav><div id="project-scene"></div>`;
+    main.innerHTML = `<section class="panel project-intro-card project-workspace-hero"><div class="intro-head"><div><span class="eyebrow">${system ? "SYSTEM" : "PROJECT"}</span><h1>${esc(p.name)}</h1></div><div class="project-hero-actions"><button class="button ghost" type="button" data-action="new-task" data-project="${esc(p.id)}">新建任务</button><div class="project-task-launcher"><form class="action-form" data-execution-confirm data-execution-label="开始${entity}任务"><input type="hidden" name="project_id" value="${esc(p.id)}"><button class="gstudio-action-trigger" type="submit" data-execution-confirm-trigger aria-label="开始${entity}任务并确认执行器" title="开始${entity}任务并确认执行器">${actionMark}</button></form></div></div></div><div class="intro-desc"></div><div class="project-hero-summary">${focus}<div class="project-hero-stats"><span><b>${tasks.filter(t => t.status !== "completed").length}</b>进行中</span><span><b>${tasks.filter(t => t.kind === "task_line").length}</b>任务主线</span><span><b>${tasks.filter(t => t.status === "completed").length}</b>已完成</span></div></div>${primary ? `<section class="context-overview-panel" aria-labelledby="context-overview-title" tabindex="0"><section class="context-overview-primary"><h2 id="context-overview-title">${esc(primaryHeading)}</h2><div class="context-overview-copy">${primary}${extra}</div></section><hr><section class="context-reader-timeline"><h3>时间线</h3>${timeline ? `<div class="context-overview-copy">${timeline}</div>` : `<p class="context-reader-empty">暂无有日期意义的变化。</p>`}</section></section>` : `<div class="context-overview-unavailable">${entity}说明尚无已确认的概览内容。</div>`}<div class="project-location-strip" aria-label="${entity}位置"><div class="project-location-items"><span class="project-location-item"><small>说明正本</small><strong>余烬 · Ember</strong></span>${locations}</div><div class="project-location-actions"></div></div></section><nav class="project-workspace-tabs" role="tablist" aria-label="${entity}内容">${tabs.map(([id, label, count]) => `<button class="${filters.project.kind === id ? "active" : ""}" role="tab" type="button" data-action="project-tab" data-id="${id}" aria-selected="${filters.project.kind === id}">${label}<span>${count}</span></button>`).join("")}</nav><div id="project-scene"></div>`;
     renderProjectScene();
   }
 
@@ -609,33 +486,54 @@ const app = (() => {
     }) : null;
   }
 
-  /* ---------- 确认执行（任务页） ---------- */
-  /* The shared confirmation dialog (ember_ui/execution-confirm.js) asks this page for the prompt:
-     the form's task, selected files and "所选文件新建" become a local context request. After the user
-     confirms, the dialog submits the form; here that means copy the prompt, then open the saved software. */
+  /* ---------- 确认执行 ---------- */
+  /* The full workbench's confirmation dialogs (ember_ui/execution-confirm.js on the task, project and
+     library pages; ember_ui/home.js on the home page) ask this page for the prompt. After the user
+     confirms, the prompt is copied and then the saved software is opened; nothing calls a model. */
   const executionPrompts = new WeakMap();
-  window.GStudioRunner.preview = async form => {
-    const t = task(form.elements.task_id.value);
-    if (!t) throw new Error("该任务已不在当前工作区，请刷新页面。");
-    const fileIds = [...form.querySelectorAll('input[name="selection"]')].map(input => { try { const value = JSON.parse(input.value); return outputAt(value.task_id, value.path)?.id; } catch { return undefined; } }).filter(Boolean);
-    const based = t.status === "completed" || Boolean(form.querySelector('input[name="create_new_task"]'));
-    const request = based ? `基于${t.status === "completed" ? "已完成任务" : "所选文件"}准备新工作：${t.title}` : t.next || `继续推进：${t.title}`;
-    const [prompt, settings] = await Promise.all([api("api/context", { request, relation: based ? "based" : "continue", task_id: t.id, file_ids: fileIds, page: "task" }), api("api/settings")]);
+  async function executionPreview(form, payload, title = "", scope = "") {
+    const [prompt, settings] = await Promise.all([api("api/context", payload), api("api/settings")]);
     const environment = settings.execution_environment, software = environment.executors.find(entry => entry.id === environment.default_executor);
     executionPrompts.set(form, { prompt, environment });
     return { fixed_prompt_html: markdown(prompt.fixed), fixed_prompt: prompt.fixed, task: prompt.task, prompt_prefix: prompt.prefix, prompt_suffix: prompt.suffix,
-             title: `${based ? "基于" : "继续"} · ${t.title}`, scope: `任务 ${t.id} · 所选文件 ${fileIds.length} 个`,
-             executor_ready: Boolean(environment.ready && software), executor: environment.default_executor || "", executor_label: software?.label || "", executor_path: software?.path || "", executor_error: environment.error || "" };
-  };
-  async function dispatchExecution(form) {
-    const saved = executionPrompts.get(form), edited = form.elements.task_override?.value.trim() || "";
-    if (!saved?.environment.ready || !edited) { notice("提示词还没有生成，或还没有可用的执行软件。", true); return; }
-    // Two separate results, reported in turn: copying, then opening.
-    if (!(await window.GStudioUI.copyPrompt(saved.prompt.prefix + edited + saved.prompt.suffix))) { notice("复制失败：浏览器没能写入剪贴板，因此没有打开软件。请重新打开确认弹窗，用“复制提示词”手动复制。", true); return; }
+             title, scope, executor_ready: Boolean(environment.ready && software), executor: environment.default_executor || "",
+             executor_label: software?.label || "", executor_path: software?.path || "", executor_error: environment.error || "" };
+  }
+  // Two separate results, reported in turn: copying, then opening.
+  async function openWithPrompt(text, environment) {
+    if (!environment?.ready || !text.trim()) { notice("提示词还没有生成，或还没有可用的执行软件。", true); return; }
+    if (!(await window.GStudioUI.copyPrompt(text))) { notice("复制失败：浏览器没能写入剪贴板，因此没有打开软件。请重新打开确认弹窗，用“复制提示词”手动复制。", true); return; }
     try {
-      const opened = await api("api/executors/open", { executor_id: saved.environment.default_executor, expected_revision: saved.environment.revision, confirmation: true });
+      const opened = await api("api/executors/open", { executor_id: environment.default_executor, expected_revision: environment.revision, confirmation: true });
       notice(`已复制并打开 ${opened.label}。请手工粘贴、发送；没有调用模型。`);
     } catch (error) { notice(`已复制提示词；打开失败：${error.message}`, true); }
+  }
+  // What a confirmation form asks for: continue a task, start in a project, or work on selected files.
+  function executionRequest(form) {
+    const fields = new FormData(form);
+    const taskId = String(fields.get("task_id") || ""), projectId = String(fields.get("project_id") || "");
+    if (taskId) {
+      const t = task(taskId);
+      if (!t) throw new Error("该任务已不在当前工作区，请刷新页面。");
+      const fileIds = fields.getAll("selection").map(value => { try { const item = JSON.parse(value); return outputAt(item.task_id, item.path)?.id; } catch { return undefined; } }).filter(Boolean);
+      const based = t.status === "completed" || fields.has("create_new_task");
+      return { payload: { request: based ? `基于${t.status === "completed" ? "已完成任务" : "所选文件"}准备新工作：${t.title}` : t.next || `继续推进：${t.title}`,
+                          relation: based ? "based" : "continue", task_id: t.id, file_ids: fileIds, page: "task" },
+               title: `${based ? "基于" : "继续"} · ${t.title}`, scope: `任务 ${t.id} · 所选文件 ${fileIds.length} 个` };
+    }
+    if (projectId) {
+      const p = project(projectId);
+      return { payload: { request: `在「${projectName(projectId)}」中开始一项新工作：先读取${p?.kind === "system" ? "系统" : "项目"}说明，等待我补充具体要求。`, relation: "new", project_id: projectId, file_ids: [], page: "project" },
+               title: `新任务 · ${projectName(projectId)}`, scope: `${p?.kind === "system" ? "系统" : "项目"} ${projectId}` };
+    }
+    const fileIds = fields.getAll("file_id").map(String);
+    return { payload: { request: "请先核对所选资料，再按我的要求处理：", relation: "new", file_ids: fileIds, page: "library" },
+             title: "基于所选资料新建", scope: `所选资料 ${fileIds.length} 项` };
+  }
+  window.GStudioRunner.preview = async form => { const request = executionRequest(form); return executionPreview(form, request.payload, request.title, request.scope); };
+  function dispatchExecution(form) {
+    const saved = executionPrompts.get(form), edited = form.elements.task_override?.value.trim() || "";
+    openWithPrompt(saved && edited ? saved.prompt.prefix + edited + saved.prompt.suffix : "", saved?.environment);
   }
 
   /* ---------- 资料浏览 ---------- */
@@ -675,7 +573,7 @@ const app = (() => {
     if (!bar) return;
     bar.hidden = !ui.library.size;
     document.getElementById("library-clear").hidden = !ui.library.size;
-    bar.innerHTML = ui.library.size ? `<div><strong>已选 ${ui.library.size} 项</strong><span>原资料保持只读</span></div>${actionKey("files-context", "基于所选资料准备上下文")}` : "";
+    bar.innerHTML = ui.library.size ? `<div><strong>已选 ${ui.library.size} 项</strong><span>原资料保持只读</span></div><form class="action-form" data-execution-confirm data-execution-label="用所选资料开始处理">${[...ui.library].map(id => `<input type="hidden" name="file_id" value="${esc(id)}">`).join("")}<button class="gstudio-action-trigger" type="submit" data-execution-confirm-trigger aria-label="基于所选资料准备上下文" title="基于所选资料准备上下文">${actionMark}</button></form>` : "";
   }
 
   function filePreviewHtml(item) {
@@ -903,8 +801,7 @@ const app = (() => {
   }
 
   function renderRoute() {
-    state.taskMaterials?.destroy();
-    state.taskMaterials = null;
+    for (const key of ["taskMaterials", "home", "overview"]) { state[key]?.destroy(); state[key] = null; }
     document.body.classList.toggle("paper-management-shell", state.route !== "home");
     const renders = { home: renderHome, projects: renderProjects, project: renderProject, task: renderTask, library: renderLibrary, review: renderReview, settings: renderSettings };
     const render = renders[state.route];
@@ -954,14 +851,6 @@ const app = (() => {
   }
 
   async function submit(form) {
-    if (form.dataset.form === "home-command") {
-      const input = document.getElementById("context-request"), request = input.value.trim();
-      // As in the full workbench: nothing opens until the request says what to do.
-      if (!request) { input.focus(); notice("请先描述本轮要求", true); return; }
-      if (/^fd(\s|$)/.test(request)) { notice("fd 用于检索：从下方结果选择任务或资料，然后写下这次的要求。"); return; }
-      openConfirm({ request, relation: composer.task ? (task(composer.task)?.status === "completed" ? "based" : "continue") : "new", taskId: composer.task, fileIds: composer.files, attachments: composer.attachments });
-      return;
-    }
     if (form.dataset.busy || form.dataset.committed) return;
     const error = formError(form); if (error) error.textContent = "";
     const fields = new FormData(form), payload = Object.fromEntries(fields.entries());
@@ -999,7 +888,7 @@ const app = (() => {
     const id = button.dataset.id;
     switch (button.dataset.action) {
       case "close-dialog": closeDialog(); return;
-      case "open-settings": closeDialog(); closeConfirm(); go("settings"); return;
+      case "open-settings": closeDialog(); go("settings"); return;
       case "settings-reload": await readSettings(); return;
       case "scroll-to": document.getElementById(id)?.scrollIntoView({ block: "start" }); return;
       case "favorite": toggleFavorite(id); return;
@@ -1046,13 +935,6 @@ const app = (() => {
         if (window.innerWidth > 1180) renderReportPreview(); else openDialog(report.title, `<div class="article md">${markdown(report.content)}</div>`, "drawer");
         return;
       }
-      case "composer-add-task": composer.task = id; document.getElementById("context-request").value = ""; renderComposerResults(); renderComposer(); document.getElementById("context-request").focus(); return;
-      case "composer-add-file": if (!composer.files.includes(id)) composer.files.push(id); document.getElementById("context-request").value = ""; renderComposerResults(); renderComposer(); document.getElementById("context-request").focus(); return;
-      case "composer-remove-task": composer.task = ""; renderComposer(); return;
-      case "composer-remove-file": composer.files = composer.files.filter(value => value !== id); renderComposer(); return;
-      case "composer-remove-attachment": composer.attachments.splice(Number(id), 1); renderComposer(); return;
-      case "project-context": openConfirm({ page: "project", projectId: id, request: `在「${projectName(id)}」中开始一项新工作：先读取${project(id).kind === "system" ? "系统" : "项目"}说明，等待我补充具体要求。` }); return;
-      case "files-context": openConfirm({ page: "library", fileIds: [...ui.library], request: "请先核对所选资料，再按我的要求处理：" }); return;
       case "new-report": newReport(); return;
       case "copy-review":
         try { await navigator.clipboard.writeText(state.reviewText || ""); notice("提示词已复制。请在 AI 工具里粘贴并确认发送。"); }
@@ -1062,25 +944,10 @@ const app = (() => {
       case "copy-entry":
         try { await navigator.clipboard.writeText(id); notice("已复制。"); } catch { notice("浏览器无法写入剪贴板，请手动选择复制。", true); }
         return;
-      case "confirm-close": closeConfirm(); return;
       case "check-update": setMenu(false); await checkUpdate(); return;
       case "copy-update": {
         const copied = await copyUpdatePrompt();
         updateFeedback(copied ? "更新提示词已复制。请在 AI 工具里粘贴并确认发送。" : "浏览器没能写入剪贴板，已选中完整提示词，请按 ⌘C 手动复制。", !copied);
-        return;
-      }
-      case "confirm-reset": {
-        const input = document.getElementById("confirm-request");
-        confirm.request = input.value = confirm.defaultTask;
-        document.getElementById("confirm-count").textContent = `${input.value.length} / 4000`;
-        syncConfirmButtons(); input.focus(); return;
-      }
-      case "copy-context": {
-        await state.contextPromise;
-        const text = fullPrompt();
-        if (!text) { confirmFeedback("提示词还没有生成，或任务为空。", true); return; }
-        try { await navigator.clipboard.writeText(text); confirmFeedback("提示词已复制。请在 AI 工具里粘贴并确认发送。"); }
-        catch { selectOutput(); confirmFeedback("浏览器没能写入剪贴板，已选中完整提示词，请按 ⌘C 手动复制。", true); }
         return;
       }
     }
@@ -1116,28 +983,10 @@ const app = (() => {
           } catch (error) { updateFeedback(`① 已复制更新提示词；② 打开失败：${error.message}`, true); }
           break;
         }
-        case "copy-open-context": {
-          await state.contextPromise;
-          const environment = state.preview?.environment, text = fullPrompt();
-          if (!environment?.ready) { confirmFeedback("还没有可用的执行软件，请先到设置页配置。", true); break; }
-          if (!text) { confirmFeedback("提示词还没有生成，或任务为空。", true); break; }
-          // Two separate results, each reported inside this dialog: copying, then opening.
-          try { await navigator.clipboard.writeText(text); }
-          catch { selectOutput(); confirmFeedback("① 复制失败：浏览器没能写入剪贴板，因此没有打开软件。已选中完整提示词，请手动复制后自行打开。", true); break; }
-          confirmFeedback("① 已复制提示词；② 正在打开软件…");
-          try {
-            const opened = await api("api/executors/open", { executor_id: environment.default_executor, expected_revision: environment.revision, confirmation: true });
-            confirmFeedback(`① 已复制提示词；② 已打开 ${opened.label}。请在软件里粘贴并确认发送。`);
-            notice(`已复制并打开 ${opened.label}。请手工粘贴、发送；没有调用模型。`);
-            setTimeout(closeConfirm, 1600);
-          } catch (error) { confirmFeedback(`① 已复制提示词；② 打开失败：${error.message}`, true); }
-          break;
-        }
       }
     } finally {
       delete button.dataset.busy; button.removeAttribute("aria-busy");
       if (button.isConnected) button.disabled = false;
-      if (button.id === "copy-open-context-button") syncConfirmButtons();
     }
   }
 
@@ -1168,11 +1017,9 @@ const app = (() => {
       if (control.id === "software-path") software.manual.path = control.value;
       softwareChanged(); return;
     }
-    if (control.id === "context-request") { renderComposerResults(); return; }
-    if (control.id === "confirm-request") { confirm.request = control.value; document.getElementById("confirm-count").textContent = `${control.value.length} / 4000`; syncConfirmButtons(); return; }
     if (control.dataset.filter) {
       const key = control.dataset.filter; filters[key][control.dataset.field] = control.value;
-      if (key === "home" || key === "review") renderTaskResults(key);
+      if (key === "review") renderReviewList();
       else if (key === "project") filters.project.kind === "tasks" ? renderProjectTasks() : renderFiles("project");
       else if (key === "library") renderFiles("library");
     }
@@ -1185,7 +1032,6 @@ const app = (() => {
       software.entries.find(entry => entry.id === control.closest("[data-software-id]").dataset.softwareId).kind = control.value;
       softwareChanged(); return;
     }
-    if (control.name === "confirm-route") { confirm.relation = control.value; document.getElementById("confirm-route-help").textContent = routeHelp[control.value]; refreshContext(); return; }
     if (control.id === "material-kind") {
       const reference = control.value === "reference";
       document.getElementById("material-text-fields").disabled = reference;
@@ -1199,19 +1045,6 @@ const app = (() => {
     else if (control.dataset.selectFile) { control.checked ? ui.library.add(control.dataset.selectFile) : ui.library.delete(control.dataset.selectFile); control.closest(".library-material-row")?.classList.toggle("selected", control.checked); renderFileSelection(); }
   });
   document.addEventListener("keydown", event => {
-    if (event.target.id === "context-request" && event.key === "Enter" && !event.shiftKey && !event.isComposing) {
-      event.preventDefault();
-      document.getElementById("context-form").requestSubmit();
-    }
-  });
-  document.addEventListener("paste", event => {
-    if (event.target.id !== "context-request" || !event.clipboardData?.files.length) return;
-    event.preventDefault(); addAttachments(event.clipboardData.files).catch(error => notice(error.message, true));
-  });
-  document.addEventListener("dragover", event => { if (event.target.closest?.(".home-composer")) event.preventDefault(); });
-  document.addEventListener("drop", event => {
-    if (!event.target.closest?.(".home-composer")) return;
-    event.preventDefault(); addAttachments(event.dataTransfer.files).catch(error => notice(error.message, true));
   });
   document.querySelector(".skip-link").addEventListener("click", event => { event.preventDefault(); main.focus(); });
   document.getElementById("dialog-close").addEventListener("click", closeDialog);

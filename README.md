@@ -1,5 +1,7 @@
 # 余烬 · Ember
 
+**Token 烧完了，还剩什么？**
+
 **每一次对话，都从上一次的余烬里燃起。**
 
 **人和 AI，在同一份档案上推进工作。**
@@ -150,6 +152,6 @@ python -m unittest discover -s tests -v
 rm -rf build src/*.egg-info && python -m pip wheel . --no-deps -w dist
 ```
 
-打包前先清理 `build/`，避免旧文件混进 wheel。公共界面层 `src/ember/ember_ui/`（页面模板、Markdown 渲染、样式表与侧栏、提示、文件预览、执行确认、任务页资料区等脚本）从完整版工作台的 `ui/ember_ui/` 原样复制，不要直接修改；本仓库的补充样式写在 `web/app.css`。任务详情页由服务器用公共模板生成（数据见 `src/ember/pages.py`），页面通过参数把本机数据和操作交给公共脚本。维护者用 `python tools/sync_workbench_styles.py --source <工作台目录>` 重新复制，复制前会检查并拒绝任何本机路径、机器名或私有系统名。页面结构以完整版为准：`python tools/check_workbench_parity.py --source <工作台目录>` 逐页对照正在运行的完整版（结构、颜色与字体，三种宽度），差异必须在 `docs/workbench-parity.json` 写明原因；界面改动后加 `--write-record` 更新对照记录，否则测试不通过。发布前运行 `python tools/release_check.py --source <工作台目录>`，测试、样式表同步、逐页对照和版本说明全部通过才能打标签。真实浏览器测试是可选的：安装 `playwright==1.60.0` 和 Chromium 后运行 `python -m unittest discover -s tests -p test_browser.py -v`，测试使用独立的虚构工作区。
+打包前先清理 `build/`，避免旧文件混进 wheel。公共界面层 `src/ember/ember_ui/`（页面模板、Markdown 渲染、样式表与侧栏、提示、文件预览、执行确认、任务页资料区等脚本）从完整版工作台的 `ui/ember_ui/` 原样复制，不要直接修改；本仓库的补充样式写在 `web/app.css`。任务详情页和首页由服务器用公共模板生成（数据见 `src/ember/pages.py`），页面通过参数把本机数据和操作交给公共脚本。维护者用 `python tools/sync_workbench_styles.py --source <工作台目录>` 重新复制，复制前会检查并拒绝任何本机路径、机器名或私有系统名。页面结构以完整版为准：`python tools/check_workbench_parity.py --source <工作台目录>` 逐页对照正在运行的完整版（结构、颜色与字体，三种宽度），差异必须在 `docs/workbench-parity.json` 写明原因；界面改动后加 `--write-record` 更新对照记录，否则测试不通过。发布前运行 `python tools/release_check.py --source <工作台目录>`，测试、样式表同步、逐页对照和版本说明全部通过才能打标签。真实浏览器测试是可选的：安装 `playwright==1.60.0` 和 Chromium 后运行 `python -m unittest discover -s tests -p test_browser.py -v`，测试使用独立的虚构工作区。
 
 原创代码、示例和 Skill 采用 [MIT](LICENSE)；标题字体单独遵守 SIL Open Font License 1.1，见 `src/ember/web/fonts/OFL.txt`。

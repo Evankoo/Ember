@@ -25,13 +25,6 @@ fieldset{margin:0;padding:0;border:0;min-width:0}
 .project-scene-filters{grid-template-columns:minmax(0,1fr);margin-bottom:10px}
 .project-location-item{display:inline-flex;align-items:center;gap:8px}
 
-.home-entry-main{position:relative}
-.home-result{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;width:100%;padding:10px 14px;border:0;border-bottom:1px solid var(--line-soft);background:transparent;text-align:left;font:inherit;color:var(--ink);cursor:pointer}
-.home-result:hover,.home-result:focus-visible{background:var(--line-soft)}
-.home-result b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
-.home-result small{color:var(--muted);font-size:11px}
-.home-result .home-context-kind{font-size:10px;color:var(--muted)}
-.home-result-empty{margin:0;padding:14px;color:var(--muted);font-size:12px}
 
 .workbench-dialog{width:min(640px,calc(100vw - 32px));max-height:calc(100vh - 48px)}
 .workbench-dialog .paper-dialog-head{padding:16px 20px}
@@ -58,7 +51,6 @@ fieldset{margin:0;padding:0;border:0;min-width:0}
 
 @media(max-width:700px){.field-grid{grid-template-columns:minmax(0,1fr)}.project-view-page-head{grid-template-columns:minmax(0,1fr)}.project-view-page-head>button{grid-column:1;grid-row:auto;justify-self:start;margin-top:8px}}
 
-.home-results{background:var(--surface)}
 .task-table td.empty{display:table-cell}
 .project-task-filters .chip{flex:none;white-space:nowrap}
 .library-material-row:not(:has(>input)){grid-template-columns:20px minmax(0,1fr) auto}

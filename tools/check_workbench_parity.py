@@ -183,6 +183,8 @@ def run(args) -> int:
                         page.goto(url)
                         page.wait_for_load_state("networkidle")
                         page.wait_for_timeout(400)
+                        if item.get("fill"):  # Some dialogs open only once a request is typed.
+                            page.locator(item["fill"][0]).fill(item["fill"][1])
                         if item.get("open"):  # A dialog or drawer the page opens on request; nothing is executed.
                             page.locator(item["open"]).first.click()
                             page.wait_for_load_state("networkidle")
