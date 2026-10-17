@@ -44,8 +44,13 @@ RECORD = ROOT / "docs/workbench-parity-record.json"
 UI_FILES = ("index.html", "app.js", "app.css", "assets/workbench-pages.css")
 
 
-def ui_files() -> list[str]:
-    return [*UI_FILES, *sorted(f"ember_ui/{path.name}" for path in (WEB / "ember_ui").iterdir() if path.is_file())]
+SHARED = ROOT / "src/ember/ember_ui"
+
+
+def ui_files() -> list[Path]:
+    """Every file that shapes the pages: this package's web files, the page builder and the shared layer."""
+    shared = sorted(path for path in SHARED.rglob("*") if path.is_file() and "__pycache__" not in path.parts)
+    return [*(WEB / name for name in UI_FILES), ROOT / "src/ember/pages.py", *shared]
 
 COLLECT = r"""([ignored, transparent, within]) => {
   // Shapes use class names only: a <form class="action-form"> that posts in the workbench and a
@@ -74,8 +79,8 @@ COLLECT = r"""([ignored, transparent, within]) => {
 
 def ui_sha256() -> str:
     digest = hashlib.sha256()
-    for name in ui_files():
-        digest.update(name.encode() + b"\0" + (WEB / name).read_bytes())
+    for path in ui_files():
+        digest.update(path.relative_to(ROOT).as_posix().encode() + b"\0" + path.read_bytes())
     return digest.hexdigest()
 
 

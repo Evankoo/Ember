@@ -95,27 +95,18 @@ class SettingsBrowserTests(unittest.TestCase):
             self.assertTrue(self.page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1"), width)
         self.assert_untouched()
 
-    def test_task_page_lists_log_rows_and_folds_program_records(self):
-        def with_logs(route):
-            state = route.fetch().json()
-            item = next(task for task in state["data"]["tasks"] if task["id"] == "autumn-plan")
-            item["executor"] = "claude-code"
-            item["logs"] = [{"date": "2026-10-14 12:07:22+08:00", "text": "人工记录 `a`。"},
-                            {"date": "2026-10-14 12:00:05+08:00", "text": "添加输入快照：b.md。"},
-                            {"date": "2026-10-14 12:00:04+08:00", "text": "添加输入快照：c.md。"},
-                            {"date": "", "text": "2026-10-13 09:00:00+08:00：旧式记录。"}]
-            route.fulfill(json=state)
-        self.page.route("**/api/state", with_logs)
+    def test_task_page_is_rendered_by_the_shared_template(self):
         self.page.goto(self.base + "/#task/autumn-plan")
         log = self.page.locator(".task-execution-log")
         expect(log.locator(".task-log-entry")).to_have_count(3)
-        expect(log.locator(".task-log-entry").first.locator("time")).to_have_text("2026-10-14 12:07")
-        expect(log.locator("summary")).to_have_text("添加输入快照 · 2 条")
-        expect(log.locator(".task-log-entry").last.locator("time")).to_have_text("2026-10-13 09:00")
+        expect(log.locator(".task-log-entry").first.locator("time")).to_have_text("2026-09-18 12:00")
+        expect(self.page.locator(".task-current-body h3").first).to_have_text("任务目标")
         expect(self.page.locator(".task-technical-info h3")).to_have_text("技术信息")
-        expect(self.page.locator(".task-technical-summary")).to_contain_text("执行器 Claude Code")
+        expect(self.page.locator(".task-technical-summary")).to_contain_text("执行器 人工")
         expect(self.page.locator(".task-delivery-file .task-file-kind").first).to_have_text("MD")
         expect(self.page.locator(".task-file-preview .article h1, .task-file-preview .article h2").first).to_be_visible()
+        self.page.locator(".task-manage-menu summary").click()
+        expect(self.page.locator('[data-action="edit-task"]')).to_be_visible()
         self.page.set_viewport_size({"width": 390, "height": 900})
         self.assertTrue(self.page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1"))
         self.assert_untouched()

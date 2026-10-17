@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Copy the full workbench's shared interface layer into the open-source web assets.
+"""Copy the full workbench's shared interface layer into the open-source package.
 
 The public interface is derived from the full workbench used in practice. Its shared
-interface layer (`ui/ember_ui/static/`: stylesheets and scripts) is copied here verbatim
-into `src/ember/web/ember_ui/`; nothing in that folder is edited in this repository. The
-source files are read as inert text; no workbench service, data or configuration is loaded.
+interface layer (`ui/ember_ui/`: page templates, Markdown rendering, and the stylesheets and
+scripts in `static/`) is copied here verbatim into `src/ember/ember_ui/`; nothing in that folder
+is edited in this repository. The source files are read as inert text; no workbench service,
+data or configuration is loaded or imported.
 
     python tools/sync_workbench_styles.py --source <workbench checkout>          # update
     python tools/sync_workbench_styles.py --source <workbench checkout> --check  # report drift only
@@ -27,10 +28,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "src/ember/web"
-SHARED = WEB / "ember_ui"
+SHARED = ROOT / "src/ember/ember_ui"
 PAGE_STYLESHEET = WEB / "assets/workbench-pages.css"
 RECORD = ROOT / "docs/workbench-source.json"
-SOURCE_DIR = "ui/ember_ui/static"
+SOURCE_DIR = "ui/ember_ui"
+COPIED = (".py", ".css", ".js", ".md")
 FONT = WEB / "fonts/gstudio-display.woff2"
 # Machine paths and addresses must never reach the public package. Names that are private to the
 # maintainer (people, machines, internal systems) live in a local file outside the repository.
@@ -88,14 +90,13 @@ def page_styles(base: str, shipped: set[str]) -> str:
 def extract(source: Path, base: str) -> tuple[dict[str, bytes], str, str]:
     """Shared files (name -> bytes), the page stylesheet and the source revision."""
     folder = source / SOURCE_DIR
-    if not folder.is_dir():
-        raise SystemExit(f"not a workbench checkout: {folder} is missing")
-    if any(path.is_dir() for path in folder.iterdir()):
-        raise SystemExit(f"unexpected layout in {folder}: expected flat files")
-    files = {path.name: path.read_bytes() for path in sorted(folder.iterdir()) if path.is_file() and not path.name.startswith(".")}
-    if "workbench.css" not in files:
-        raise SystemExit(f"unexpected layout in {folder}: workbench.css is missing")
-    for font in re.findall(r"url\(data:font/woff2;base64,([^)]+)\)", files["workbench.css"].decode("utf-8")):
+    if not (folder / "static").is_dir():
+        raise SystemExit(f"not a workbench checkout: {folder}/static is missing")
+    files = {path.relative_to(folder).as_posix(): path.read_bytes() for path in sorted(folder.rglob("*"))
+             if path.is_file() and path.suffix in COPIED and "__pycache__" not in path.parts and not path.name.startswith(".")}
+    if "static/workbench.css" not in files:
+        raise SystemExit(f"unexpected layout in {folder}: static/workbench.css is missing")
+    for font in re.findall(r"url\(data:font/woff2;base64,([^)]+)\)", files["static/workbench.css"].decode("utf-8")):
         if sha256(base64.b64decode(font)) != sha256(FONT.read_bytes()):
             raise SystemExit("the workbench display font differs from the bundled OFL font; review licensing before syncing")
     shipped = {data.decode("utf-8").strip() for name, data in files.items() if name.endswith(".css")}
@@ -111,7 +112,10 @@ def extract(source: Path, base: str) -> tuple[dict[str, bytes], str, str]:
 
 
 def current_copy() -> dict[str, bytes]:
-    return {path.name: path.read_bytes() for path in sorted(SHARED.iterdir()) if path.is_file()} if SHARED.is_dir() else {}
+    if not SHARED.is_dir():
+        return {}
+    return {path.relative_to(SHARED).as_posix(): path.read_bytes() for path in sorted(SHARED.rglob("*"))
+            if path.is_file() and "__pycache__" not in path.parts}
 
 
 def main(argv=None) -> int:
@@ -128,11 +132,10 @@ def main(argv=None) -> int:
             return 0
         print("workbench interface files have drifted; review the pages, then run without --check")
         return 1
-    SHARED.mkdir(exist_ok=True)
-    for path in SHARED.iterdir():
-        if path.is_file() and path.name not in files:
-            path.unlink()
+    for name in set(current_copy()) - set(files):
+        (SHARED / name).unlink()
     for name, data in files.items():
+        (SHARED / name).parent.mkdir(parents=True, exist_ok=True)
         (SHARED / name).write_bytes(data)
     PAGE_STYLESHEET.write_text(pages, encoding="utf-8")
     RECORD.write_text(json.dumps({

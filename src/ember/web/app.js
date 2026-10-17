@@ -49,29 +49,6 @@ const app = (() => {
   const categoryClass = name => categoryClasses[Math.max(0, categories().indexOf(name)) % categoryClasses.length];
   const fileIcon = item => /\.md$/i.test(item.name) ? "M" : /\.(png|jpe?g|webp|gif)$/i.test(item.name) ? "◇" : /\.(mp4|mov|webm)$/i.test(item.name) ? "▶" : /\.pdf$/i.test(item.name) ? "P" : "·";
   const fileKind = item => `<span class="task-file-kind">${esc((String(item.name).match(/\.([a-z0-9]{1,8})$/i) || [, "文件"])[1].toUpperCase().slice(0, 4))}</span>`;
-  const executorNames = { codex: "Codex", opencode: "OpenCode", "claude-code": "Claude Code", workbuddy: "WorkBuddy", "qianwen-office": "千问办公", "doubao-work": "豆包工作", external: "外部", manual: "人工" };
-  /* Entries the program writes itself; consecutive ones of the same kind fold into one row. */
-  const machineLogKinds = ["添加输入快照", "添加草稿交付", "登记输入引用"];
-  function logRows(logs) {
-    const entries = logs.map(log => {
-      const legacy = !log.date && String(log.text).match(/^(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2})(?::\d{2})?(?:[+-]\d{2}:?\d{2})?\s*[：｜|:]\s*(.*)$/);
-      const date = legacy ? legacy[1] : String(log.date || "");
-      const text = legacy ? legacy[2] : String(log.text || "");
-      return { time: date.replace("T", " ").slice(0, 16), text, kind: machineLogKinds.find(kind => text.startsWith(kind)) || "" };
-    });
-    const rows = [];
-    for (let i = 0; i < entries.length;) {
-      let end = i + 1;
-      while (entries[i].kind && end < entries.length && entries[end].kind === entries[i].kind) end++;
-      const time = `<time>${esc(entries[i].time)}</time>`;
-      rows.push(end - i > 1
-        ? `<li class="task-log-entry task-log-machine">${time}<details><summary>${esc(entries[i].kind)} · ${end - i} 条</summary><ul>${entries.slice(i, end).map(e => `<li>${inline(e.text)}</li>`).join("")}</ul></details></li>`
-        : `<li class="task-log-entry${entries[i].kind ? " task-log-machine" : ""}">${time}<div>${inline(entries[i].text)}</div></li>`);
-      i = end;
-    }
-    return rows.join("");
-  }
-
   function inline(text) {
     return esc(text)
       .replace(/`([^`]+)`/g, "<code>$1</code>")
@@ -580,9 +557,9 @@ const app = (() => {
   const previewBody = item => window.GStudioPreview.html(previewData(item));
 
   /* ---------- 任务详情 ---------- */
-  /* Same markup as the full workbench: task body on the left; on the right the delivery / input file
-     list, a draggable divider and the preview, a drawer below 1180px. ember_ui/task-detail.js runs
-     those materials; this page supplies the files, previews and file actions from the local workspace. */
+  /* The server renders this page with the full workbench's template; ember_ui/task-detail.js runs the
+     materials (file list, divider, preview, drawer) and this page supplies files, previews and file
+     actions from the local workspace. */
   const folderOf = f => f.id.slice(f.id.indexOf(`/${f.taskId}/`) + f.taskId.length + 2);
   const outputsOf = t => t ? data().files.filter(f => (t.outputs || []).includes(f.id)) : [];
   const deliveryOf = t => outputsOf(t)[0]?.kind || (t?.artifact_mode === "delivery" ? "draft" : "");
@@ -612,37 +589,24 @@ const app = (() => {
     taskHref: id => `#task/${encodeURIComponent(id)}`,
   };
 
-  function renderTask() {
-    const item = task(state.id);
+  async function renderTask() {
+    const item = task(state.id), id = state.id;
     main.className = "shell app-main task-detail-page paper-management-page";
     if (!item) { main.innerHTML = `<section class="panel task-current-pane"><h1>找不到任务</h1><p>该任务不在当前工作区。</p><a href="#home">返回任务台</a></section>`; return; }
-    const inputIds = new Set(item.inputs || []);
-    const inputs = data().files.filter(f => inputIds.has(f.id));
-    const delivery = deliveryOf(item);
+    // The page itself is rendered on the server with the shared template (ember_ui/pages/task_detail.py).
+    let page;
+    try { page = await api(`api/pages/task?id=${encodeURIComponent(id)}`); }
+    catch (error) { if (state.route === "task" && state.id === id) main.innerHTML = `<section class="panel load-error"><h1>任务页读取失败</h1><p class="form-error">${esc(error.message)}</p></section>`; return; }
+    if (state.route !== "task" || state.id !== id) return;
+    state.taskMaterials?.destroy();
+    main.innerHTML = page.html;
+    document.title = `${item.title} · 余烬`;
     const related = item.kind === "task_line" ? (item.related || []).map(task).filter(Boolean) : [];
-    const hasMaterials = Boolean(delivery || inputs.length || related.length);
-    const open = item.status !== "completed";
-    const project = item.project === "independent" ? `<span>独立任务</span>` : `<a href="#project/${encodeURIComponent(item.project)}">${esc(projectName(item.project))}</a>`;
-    const manage = [open ? `<button type="button" role="menuitem" data-action="edit-task" data-id="${esc(item.id)}">更新任务记录</button><button type="button" role="menuitem" data-action="add-material" data-id="${esc(item.id)}">添加资料</button>${item.artifact_mode === "delivery" ? `<button id="promote-task-button" type="button" role="menuitem" data-action="promote" data-id="${esc(item.id)}">正式交付并完成</button>` : `<button id="complete-task-button" type="button" role="menuitem" data-action="complete" data-id="${esc(item.id)}">完成任务</button>`}` : "", `<button type="button" role="menuitem" data-action="important" data-id="${esc(item.id)}" aria-pressed="${Boolean(item.important)}">${item.important ? "移出重点" : "设为重点"}</button>`].join("");
-    const continueLabel = open ? "核对提示词并继续任务" : "基于已完成任务新建";
-    const continueForm = `<form class="action-form" data-task-continue-form data-execution-confirm data-execution-label="${open ? "继续当前任务" : "基于已完成任务新建"}"><input type="hidden" name="task_id" value="${esc(item.id)}"><button class="gstudio-action-trigger" type="submit" data-execution-confirm-trigger aria-label="${continueLabel}" title="${continueLabel}">${actionMark}</button></form>`;
-    const tools = `${hasMaterials ? `<button class="button ghost task-material-toggle" id="taskMaterialToggle" type="button" aria-controls="taskDeliveryWorkspace" aria-expanded="false">任务资料</button>` : ""}<details class="task-manage-menu"><summary class="button ghost" aria-label="任务操作">任务操作</summary><div class="task-manage-list" role="menu">${manage}</div></details>${continueForm}`;
-    const section = (title, text) => text ? `<h3>${title}</h3>${markdown(text)}` : "";
-    const relatedList = related.length ? `<details class="task-group-related" aria-label="相关任务索引"><summary class="task-group-related-head"><strong>相关任务</strong><span>${related.length} 项 · 展开</span></summary><div class="task-group-related-list">${related.map(t => `<a class="group-related-row ${esc(t.status)}" href="${taskLink(t)}"><span class="group-related-dot" aria-hidden="true"></span><strong>${esc(t.title)}</strong><span class="group-related-status">${esc(statusNames[t.status] || t.status)}</span><span class="group-related-arrow" aria-hidden="true">›</span></a>`).join("")}</div></details>` : "";
-    const parent = data().tasks.find(t => t.kind === "task_line" && (t.related || []).includes(item.id));
-    const technical = `<section class="task-technical-info" aria-label="技术信息"><h3>技术信息</h3><p class="task-technical-summary"><span>Skill ${esc((item.skills_used || []).join("、") || "未记录")}</span><span>执行器 ${esc(executorNames[item.executor] || item.executor || "未记录")}</span></p></section>`;
-    const logs = logRows(item.logs || []);
-    const inputRows = inputs.map(f => { const snapshot = f.taskId === item.id && f.kind === "input"; return `<div class="task-input-row"><span class="task-input-icon">↳</span><div class="task-input-copy"><button class="task-input-name" type="button" data-task-input-preview="${esc(f.id)}" title="${esc(f.relative_path)}">${esc(f.name)}</button><span>${snapshot ? "快照" : "引用"} · ${bytes(f.bytes)}${f.purpose ? ` · ${esc(f.purpose)}` : ""}</span></div><button class="button ghost" type="button" data-action="reveal" data-id="${esc(f.id)}" data-mode="reveal">Finder</button></div>`; }).join("");
-    const pane = hasMaterials ? `<button class="task-drawer-backdrop" id="taskDrawerBackdrop" type="button" aria-label="关闭任务资料" hidden></button><section class="panel task-delivery-workspace" id="taskDeliveryWorkspace" data-task-id="${esc(item.id)}" data-delivery="${esc(delivery)}" data-file-mode="delivery">
-        <section class="task-delivery-shelf"><header class="task-delivery-head"><div class="task-file-tabs" role="tablist" aria-label="任务文件类型"><button class="active" id="taskDeliveryTab" type="button" role="tab" aria-selected="true" aria-controls="taskDeliveryFiles" data-task-file-mode="delivery">交付文件 <span id="taskDeliveryCount"></span></button><button id="taskInputTab" type="button" role="tab" aria-selected="false" aria-controls="taskInputPanel" data-task-file-mode="input" tabindex="-1">输入资料 <span>${inputs.length}</span></button></div><div class="task-delivery-toolbar"><div class="task-delivery-folder-row"><span class="task-file-selection-status" id="taskFileSelectionStatus"></span></div><div class="task-delivery-action-row"><button class="button ghost" type="button" data-action="reveal-folder" data-id="${esc(item.id)}" data-folder="input"${inputs.some(f => f.taskId === item.id && f.kind === "input") ? "" : " disabled"}>打开输入目录</button><button class="button ghost" type="button" data-action="reveal-folder" data-id="${esc(item.id)}" data-folder="delivery"${outputsOf(item).length ? "" : " disabled"}>打开任务文件夹</button><div class="task-continue-actions"><div class="task-execution-scope" role="radiogroup" aria-label="执行范围"><input id="taskCreateNew" type="checkbox" hidden><button class="active" type="button" role="radio" data-task-scope="current" aria-checked="true">继续任务</button><button type="button" role="radio" data-task-scope="new" aria-checked="false" tabindex="-1">所选文件新建</button></div></div><button class="task-drawer-close" id="taskDrawerClose" type="button" aria-label="关闭任务资料">×</button></div></div></header><div class="task-delivery-files task-file-pane" id="taskDeliveryFiles" role="tabpanel" aria-labelledby="taskDeliveryTab"><div class="task-preview-empty">${delivery ? "正在读取交付文件…" : "当前任务没有可读取的交付目录。"}</div></div><section class="task-input-panel task-file-pane" id="taskInputPanel" role="tabpanel" aria-labelledby="taskInputTab" hidden><div class="task-input-list">${inputRows || `<div class="task-input-empty">当前任务没有登记输入资料。</div>`}</div></section></section>
-        <div class="task-detail-divider" id="taskDetailDivider" role="separator" aria-label="调整交付文件区高度" aria-orientation="horizontal" aria-valuemin="130" aria-valuenow="190" tabindex="0"></div>
-        <section class="task-file-preview-pane"><header class="task-preview-head"><strong id="taskFilePreviewTitle">交付文件预览</strong><div class="task-preview-actions" id="taskFilePreviewActions"></div></header><div class="task-file-preview" id="taskFilePreview"><div class="task-preview-empty">选择上方交付文件后在这里预览。</div></div></section>
-      </section>` : "";
-    main.innerHTML = `<div class="task-detail-workspace ${hasMaterials ? "has-materials" : "no-materials"}"><section class="panel task-current-pane"><header class="task-current-head"><div class="task-current-title-row">${badge(item)}<h1>${esc(item.title)}</h1><div class="task-current-heading-tools">${tools}</div></div><div class="task-current-meta">${project}<span class="task-current-meta-separator">·</span><code class="task-current-id" title="${esc(item.id)}">ID ${esc(item.id)}</code><span class="task-current-meta-separator">·</span><span class="task-current-updated">最近更新 ${esc(stamp(item))}</span></div></header>${parent ? `<div class="task-parent-group-return"><a class="button ghost task-parent-group-link" aria-label="返回任务主线" href="${taskLink(parent)}"><span aria-hidden="true">←</span> 返回任务主线 · ${esc(parent.title)}</a></div>` : ""}<article class="task-current-body article md">${section("任务目标", item.goal)}${section("任务描述", item.description)}${section("当前结果", item.current)}${section("下一步", item.next)}${technical}<section class="task-execution-log" aria-label="执行日志"><h3>执行日志</h3>${logs ? `<ol class="task-log-list">${logs}</ol>` : `<p class="muted">暂无执行日志。</p>`}</section></article>${relatedList}</section>${pane}</div>`;
-    if (hasMaterials) state.taskMaterials = window.EmberTaskDetail.mount(document.getElementById("taskDeliveryWorkspace"), {
+    const workspace = document.getElementById("taskDeliveryWorkspace");
+    state.taskMaterials = workspace ? window.EmberTaskDetail.mount(workspace, {
       ...taskMaterials,
       relatedDeliveries: related.map(t => ({ task_id: t.id, title: t.title, delivery: outputsOf(t).length ? deliveryOf(t) : "", delivery_label: kindName(deliveryOf(t)), status: statusNames[t.status] || t.status })),
-    });
+    }) : null;
   }
 
   /* ---------- 确认执行（任务页） ---------- */

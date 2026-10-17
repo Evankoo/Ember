@@ -25,7 +25,7 @@ where = ["src"]
 namespaces = false
 
 [tool.setuptools.package-data]
-ember = ["web/**/*", "web/*", "examples/**/*", "templates/**/*", "templates/*", "skills/**/*"]
+ember = ["web/**/*", "web/*", "ember_ui/static/*", "ember_ui/README.md", "examples/**/*", "templates/**/*", "templates/*", "skills/**/*"]
 
 [tool.setuptools.exclude-package-data]
 ember = ["**/__pycache__/*", "**/*.pyc"]

@@ -18,6 +18,8 @@ import subprocess
 import sys
 
 WEB = Path(__file__).resolve().parent / "web"
+# The shared interface layer's stylesheets and scripts, served at /ember_ui/<name>.
+SHARED_STATIC = Path(__file__).resolve().parent / "ember_ui" / "static"
 MAX_BODY = 1_048_576
 CSP = ("default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; "
        "font-src 'self'; connect-src 'self'; frame-src 'self'; object-src 'none'; "
@@ -100,6 +102,13 @@ class Handler(BaseHTTPRequestHandler):
                 self.json({"execution_environment": self.server.executor_registry.snapshot(),
                            "skills": [{"name": item["name"], "version": item.get("version", "未登记版本"),
                                       "purpose": item.get("purpose", ""), "registered": True} for item in records]})
+            elif path == "/api/pages/task":
+                # Server-rendered with the shared template; app.js inserts it and wires the materials.
+                from .pages import render_task
+                markup = render_task(self.server.workspace.snapshot(), query.get("id", [""])[0])
+                if markup is None:
+                    raise WorkspaceError("该任务不在当前工作区。", 404)
+                self.json({"html": markup})
             elif path == "/api/update":
                 # Only on the user's click; the result says what is available, it installs nothing.
                 from .updates import check_update
@@ -140,8 +149,11 @@ class Handler(BaseHTTPRequestHandler):
         if any(part in {"..", "."} or part.startswith(".") for part in relative.parts) or "\\" in path:
             raise WorkspaceError("资源路径无效", 404)
         allowed = path in {"/index.html", "/app.js", "/app.css"} or path.startswith(("/assets/", "/fonts/", "/ember_ui/"))
-        target = WEB / relative
-        if not allowed or not target.resolve().is_relative_to(WEB.resolve()):
+        base = WEB
+        if relative.parts[:1] == ("ember_ui",):
+            base, relative = SHARED_STATIC, Path(*relative.parts[1:])
+        target = base / relative
+        if not allowed or not relative.parts or not target.resolve().is_relative_to(base.resolve()):
             raise WorkspaceError("资源不存在", 404)
         if target.is_symlink() or not target.is_file():
             raise WorkspaceError("资源不存在", 404)
