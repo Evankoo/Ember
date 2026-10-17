@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ember"
-version = "0.11.2"
+version = "0.12.0"
 description = "Every conversation rekindles from the last one's embers: local Markdown task cards that people and AI work from together."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -16,6 +16,9 @@ classifiers = [
   "Operating System :: MacOS",
   "Operating System :: POSIX :: Linux",
 ]
+
+[project.optional-dependencies]
+full = ["mcp>=1,<2"]
 
 [project.scripts]
 ember = "ember.cli:main"

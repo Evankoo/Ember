@@ -984,7 +984,7 @@ class Workspace:
                 raise WorkspaceError("任务线仅关联同项目的普通任务。")
         return values
 
-    def create_task(self, payload: dict) -> dict:
+    def _create_task(self, payload: dict) -> dict:
         with self._lock:
             self._require()
             self._payload(payload)
@@ -1037,7 +1037,7 @@ class Workspace:
                 self._atomic_text(relative, self._render_task(metadata, sections), new=True)
             return {"id": identifier, "title": title, "status": "active"}
 
-    def update_task(self, task_id: str, payload: dict) -> dict:
+    def _update_task(self, task_id: str, payload: dict) -> dict:
         with self._lock:
             self._require()
             self._payload(payload)
@@ -1167,7 +1167,7 @@ class Workspace:
         finally:
             shutil.rmtree(stage)
 
-    def promote_task(self, task_id: str, payload: dict) -> dict:
+    def _promote_task(self, task_id: str, payload: dict) -> dict:
         with self._lock:
             self._require()
             self._payload(payload)
@@ -1206,7 +1206,7 @@ class Workspace:
                 raise
             return {"id": task_id, "status": "completed", "formal": self._rel(target), "fingerprint": checksum}
 
-    def complete_task(self, task_id: str, payload: dict) -> dict:
+    def _complete_task(self, task_id: str, payload: dict) -> dict:
         with self._lock:
             self._require()
             self._payload(payload)
@@ -1405,3 +1405,35 @@ class Workspace:
             metadata = {"title": title, "mode": mode, "date": stamp, "related_task_ids": identifiers}
             self._atomic_text(relative, _render_markdown(metadata, content), new=True)
             return {"id": relative, "title": title, "date": stamp, "mode": mode, "content": content, "related_task_ids": identifiers}
+
+    def _task_service(self):
+        from .tasks import TaskService, PortableTaskStorage
+        return TaskService(PortableTaskStorage(self))
+
+    def create_task(self, payload: dict) -> dict:
+        from .tasks import TaskError
+        try:
+            return self._task_service().execute('create', payload)
+        except TaskError as error:
+            raise WorkspaceError(str(error), error.status) from error
+
+    def update_task(self, task_id: str, payload: dict) -> dict:
+        from .tasks import TaskError
+        try:
+            return self._task_service().execute('update', payload, task_id)
+        except TaskError as error:
+            raise WorkspaceError(str(error), error.status) from error
+
+    def promote_task(self, task_id: str, payload: dict) -> dict:
+        from .tasks import TaskError
+        try:
+            return self._task_service().execute('promote', payload, task_id)
+        except TaskError as error:
+            raise WorkspaceError(str(error), error.status) from error
+
+    def complete_task(self, task_id: str, payload: dict) -> dict:
+        from .tasks import TaskError
+        try:
+            return self._task_service().execute('complete', payload, task_id)
+        except TaskError as error:
+            raise WorkspaceError(str(error), error.status) from error

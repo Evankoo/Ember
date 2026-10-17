@@ -70,7 +70,7 @@ bootstrap 完成后的空白业务模式是一个系统项目、零任务；示�
 <真实Python> <Skill目录>/scripts/bootstrap.py --mode empty|example --name <名称> --port 8783 --executor <实际调用工具>
 ```
 
-实际调用工具可为 opencode、codex、claude-code、workbuddy、qianwen-office（千问办公）、doubao-work（豆包工作）等；未知则 manual，不能填模型名。独立初始包含 `ember-init`、`ember`、`ember-project` 三个 Skill 文件夹，init 内含 `assets/ember-0.11.2-py3-none-any.whl`；没有 wheel 时用固定 v0.11.2 地址。开发可传 `--source`。PyYAML 依赖仍须网络或缓存，不声称完全离线。
+实际调用工具可为 opencode、codex、claude-code、workbuddy、qianwen-office（千问办公）、doubao-work（豆包工作）等；未知则 manual，不能填模型名。独立初始包含 `ember-init`、`ember`、`ember-project` 三个 Skill 文件夹，init 内含 `assets/ember-0.12.0-py3-none-any.whl`；没有 wheel 时用固定 v0.12.0 地址。开发可传 `--source`。PyYAML 依赖仍须网络或缓存，不声称完全离线。
 
 ### 4. 保存安装记录，保留空任务列表
 

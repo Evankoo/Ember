@@ -13,6 +13,7 @@ from .store import Workspace, WorkspaceError
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="余烬本地任务工作台")
+    parser.add_argument("--deployment-profile", type=Path, help="显式部署配置；完整能力不推断生产位置")
     parser.add_argument("--version", action="version", version=__version__)
     commands = parser.add_subparsers(dest="command", required=True)
     init = commands.add_parser("init", help="初始化系统目录与文档库，拒绝覆盖非空目录")
@@ -49,11 +50,35 @@ def main(argv=None):
     migrate.add_argument("old", type=Path, help="旧版单目录工作区")
     migrate.add_argument("workspace", type=Path, help="新系统目录（必须为空或不存在）")
     migrate.add_argument("--documents", type=Path, help="新文档库；默认与系统目录同级的“<系统目录名>文档”")
+    runtime = commands.add_parser("runtime", help="调用完整部署的受控兼容命令")
+    runtime.add_argument("tool")
+    runtime.add_argument("arguments", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
     if args.command == "skill-path":
         print(Path(__file__).resolve().parent / "skills" / "ember-init")
         return 0
     try:
+        if args.deployment_profile:
+            from .application import Application
+            from .deployment import DeploymentError
+            try:
+                app = Application(args.deployment_profile)
+                if args.command in {'check', 'serve'} and args.workspace is not None:
+                    raise DeploymentError('Do not combine --workspace with an explicit deployment profile.')
+                if args.command == 'check':
+                    print(json.dumps(app.check(), ensure_ascii=False, indent=2))
+                elif args.command == 'serve':
+                    app.serve(args.port)
+                elif args.command == 'runtime':
+                    return app.run_tool(args.tool, args.arguments)
+                else:
+                    raise DeploymentError('This command does not accept a full deployment profile.')
+                return 0
+            except DeploymentError as error:
+                print(f'余烬：{error}', file=sys.stderr)
+                return 1
+        if args.command == 'runtime':
+            raise WorkspaceError('完整部署命令需要 --deployment-profile。')
         if args.command == "install-skill":
             if args.target:
                 print(json.dumps(install_skill(args.target), ensure_ascii=False))

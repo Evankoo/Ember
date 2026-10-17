@@ -11,7 +11,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - run: python -m pip install .
+      - run: python -m pip install ".[full]"
       - run: python -m unittest discover -s tests -v
       - run: ember init /tmp/ember-example --example
       - run: ember check --workspace /tmp/ember-example
@@ -39,6 +39,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install . playwright==1.60.0
+      - run: python -m pip install ".[full]" playwright==1.60.0
       - run: python -m playwright install --with-deps chromium
       - run: python -m unittest discover -s tests -p test_browser.py -v

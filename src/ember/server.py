@@ -26,11 +26,15 @@ CSP = ("default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self';
        "base-uri 'self'; form-action 'none'; frame-ancestors 'none'")
 
 
+from .tasks import TaskService, PortableTaskStorage, TaskError
+
+
 class LocalServer(ThreadingHTTPServer):
     daemon_threads = True
 
     def __init__(self, workspace, port=8783, *, executor_registry=None):
         self.workspace = workspace
+        self.tasks = TaskService(PortableTaskStorage(workspace))
         self.executor_registry = executor_registry or ExecutorRegistry()
         self.csrf_token = secrets.token_urlsafe(32)
         super().__init__(("127.0.0.1", port), Handler)
@@ -84,7 +88,11 @@ class Handler(BaseHTTPRequestHandler):
             parsed = urlsplit(self.path)
             path = unquote(parsed.path)
             query = parse_qs(parsed.query)
-            if path == "/api/state":
+            if path == "/api/tasks":
+                self.json({"tasks": self.server.tasks.list()})
+            elif path.startswith("/api/tasks/"):
+                self.json(self.server.tasks.get(path[len("/api/tasks/"):]))
+            elif path == "/api/state":
                 result = self.server.workspace.snapshot()
                 result["csrf_token"] = self.server.csrf_token
                 self.json(result)
@@ -178,7 +186,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.error("接口不存在", 404)
             else:
                 self.static(path)
-        except WorkspaceError as error:
+        except (WorkspaceError, TaskError) as error:
             self.error(str(error), getattr(error, "status", 400))
         except (OSError, ValueError) as error:
             self.error("工作区或资源不可读取：" + str(error), 400)
@@ -270,7 +278,7 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 raise WorkspaceError("接口不存在", 404)
             self.json(result)
-        except WorkspaceError as error:
+        except (WorkspaceError, TaskError) as error:
             self.error(str(error), getattr(error, "status", 400))
         except (ValueError, UnicodeError):
             self.error("请求 JSON 无效")
