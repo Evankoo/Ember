@@ -273,8 +273,11 @@ class SettingsBrowserTests(unittest.TestCase):
         self.page.locator('[data-project-category-filter="c:工作室运营"]').click()
         expect(cards).to_have_count(1)
         expect(cards).to_have_attribute("data-project-card", "studio")
+        # Leave and come back; wait for each page so the filter is checked on a freshly rendered view.
         self.page.goto(self.base + "/#review")
+        expect(self.page.locator("#main-content h1")).to_have_text("任务检视")
         self.page.goto(self.base + "/#projects")
+        expect(self.page.locator("#main-content h1")).to_have_text("项目视图")
         expect(cards).to_have_count(1)
         self.page.locator('[data-project-category-filter="all"]').click()
         expect(cards).to_have_count(3)
