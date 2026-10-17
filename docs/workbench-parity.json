@@ -134,6 +134,11 @@
       "reason": "完整版独有：每周整理"
     },
     {
+      "id": "review:only-local:.gstudio-action-trigger > .gstudio-mark",
+      "status": "intentional",
+      "reason": "完整版独有：每周整理区的开始整理按钮"
+    },
+    {
       "id": "settings:only-local:*settings-catalog-section*",
       "status": "intentional",
       "reason": "完整版独有：运行 Agent 与集成目录"
@@ -239,39 +244,14 @@
       "reason": "资料浏览：完整版进入时自动预览第一项并显示文件操作"
     },
     {
-      "id": "review:only-*:*organization-*-preview.panel*",
-      "status": "pending",
-      "reason": "任务检视：完整版右侧检视区带窄屏抽屉（review-responsive-drawer）与关闭按钮"
-    },
-    {
-      "id": "review:only-local:.review-inspector-tabs > .review-drawer-close",
-      "status": "pending",
-      "reason": "任务检视：窄屏抽屉关闭按钮"
-    },
-    {
-      "id": "review:only-local:.organize-task-main > .organize-task-evidence",
-      "status": "pending",
-      "reason": "任务检视：任务行的证据提示（交付、输入）"
-    },
-    {
-      "id": "review:only-local:.organization-report-item > .badge",
-      "status": "pending",
-      "reason": "任务检视：整理报告的状态徽标"
-    },
-    {
       "id": "review:only-local:.organization-report-meta > .organization-report-missing",
-      "status": "pending",
-      "reason": "任务检视：报告缺失提示"
+      "status": "intentional",
+      "reason": "数据：完整版有缺少报告文件的历史整理"
     },
     {
       "id": "review:only-local:.organization-report-tools > .button.ghost",
-      "status": "pending",
-      "reason": "任务检视：报告区工具按钮"
-    },
-    {
-      "id": "review:only-core:*organize-task-footer-actions*",
-      "status": "pending",
-      "reason": "任务检视：底部操作的包裹层与完整版不同"
+      "status": "intentional",
+      "reason": "完整版独有：整理规则与索引入口"
     },
     {
       "id": "settings:only-local:*settings-skill-*",

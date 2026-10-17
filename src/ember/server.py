@@ -22,7 +22,7 @@ WEB = Path(__file__).resolve().parent / "web"
 SHARED_STATIC = Path(__file__).resolve().parent / "ember_ui" / "static"
 MAX_BODY = 1_048_576
 CSP = ("default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; "
-       "font-src 'self'; connect-src 'self'; frame-src 'self'; object-src 'none'; "
+       "font-src 'self' data:; connect-src 'self'; frame-src 'self'; object-src 'none'; "
        "base-uri 'self'; form-action 'none'; frame-ancestors 'none'")
 
 
@@ -118,6 +118,19 @@ class Handler(BaseHTTPRequestHandler):
                 if page is None:
                     raise WorkspaceError("该项目不在当前工作区。", 404)
                 self.json(page)
+            elif path == "/api/pages/review":
+                from .pages import render_review
+                self.json({"html": render_review(self.server.workspace.snapshot())})
+            elif path == "/api/review/search":
+                from .pages import review_search
+                self.json(review_search(self.server.workspace.snapshot(), query.get("q", [""])[0], query.get("project", [""])[0],
+                                        query.get("type", [""])[0], query.get("status", [""])[0]))
+            elif path == "/api/review/report-preview":
+                from .pages import report_preview
+                result = report_preview(self.server.workspace.snapshot(), query.get("id", [""])[0])
+                if result is None:
+                    raise WorkspaceError("该整理报告不在当前工作区。", 404)
+                self.json(result)
             elif path == "/api/home/search":
                 from .pages import home_search
                 self.json(home_search(self.server.workspace.snapshot(), query.get("q", [""])[0]))

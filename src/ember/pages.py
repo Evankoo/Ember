@@ -11,7 +11,9 @@ import re
 from urllib.parse import quote
 
 from .ember_ui.markdown import markdown_to_html
-from .ember_ui.pages import home, project as project_template, system as system_template, task_detail
+from datetime import datetime
+
+from .ember_ui.pages import home, project as project_template, review as review_template, system as system_template, task_detail
 
 STATUS_NAMES = {"active": "进行中", "waiting_user": "待确认", "blocked": "受阻", "completed": "已完成"}
 EXECUTOR_NAMES = {"codex": "Codex", "opencode": "OpenCode", "claude-code": "Claude Code", "workbuddy": "WorkBuddy",
@@ -211,7 +213,8 @@ def task_preview(snapshot: dict, task_id: str) -> dict | None:
     projects = {item["id"]: item for item in snapshot["projects"]}
     return {"task_id": task["id"], "title": task["title"], "project": _project_name(projects, task["project"]),
             "status_label": STATUS_NAMES.get(task["status"], task["status"]), "updated_at": str(task.get("updated_at") or "")[:16] or "未记录",
-            "body_html": markdown_to_html(_body_markdown(task)), "detail_url": task_href(task["id"])}
+            "body_html": markdown_to_html(_body_markdown(task)), "detail_url": task_href(task["id"]),
+            "status": task["status"], "has_delivery": bool(task.get("outputs"))}
 
 
 def file_preview(meta: dict) -> dict:
@@ -355,3 +358,75 @@ def render_project(snapshot: dict, project_id: str) -> dict | None:
     if project.get("kind") == "system":
         return {"kind": "system", "html": system_template.render(system_page(snapshot, project_id))}
     return {"kind": "project", "html": project_template.render(project_page(snapshot, project_id))}
+
+
+def _task_text(task: dict) -> str:
+    logs = " ".join(str(log.get("text") or "") for log in task.get("logs") or [])
+    return " ".join(str(task.get(key) or "") for key in ("title", "goal", "description", "current", "next", "id")) + " " + logs
+
+
+def _epoch(value: str) -> int:
+    try:
+        return int(datetime.fromisoformat(str(value).replace(" ", "T")).timestamp())
+    except ValueError:
+        return 0
+
+
+def review_page_data(snapshot: dict) -> dict:
+    """任务检视: every task, filter choices and the saved organization reports."""
+    projects = {item["id"]: item for item in snapshot["projects"]}
+    tasks = sorted(snapshot["tasks"], key=lambda item: str(item.get("updated_at") or item.get("date") or ""), reverse=True)
+    used_projects = []
+    for task in tasks:
+        if task["project"] not in used_projects:
+            used_projects.append(task["project"])
+    return {
+        "stats": {"tasks": len(tasks), "active": sum(task["status"] == "active" for task in tasks), "focus": sum(bool(task.get("important")) for task in tasks)},
+        # Open-source only: save the organization result as a report in this workspace.
+        "head_html": '<button id="save-report-button" class="button ghost" type="button" data-action="new-report">保存整理报告</button>',
+        "form": {"hidden": []},
+        "projects": [(slug, _project_name(projects, slug)) for slug in used_projects],
+        "types": [(key, label) for key, label in WORK_NAMES.items() if any(task.get("work_type") == key for task in tasks)],
+        "statuses": list(STATUS_NAMES.items()),
+        "tasks": [{"task_id": task["id"], "title": task["title"], "task_line": task.get("kind") == "task_line", "project": task["project"],
+                   "project_label": _project_name(projects, task["project"]), "work_type": task.get("work_type") or "",
+                   "type_label": WORK_NAMES.get(task.get("work_type") or "", task.get("work_type") or ""),
+                   "status": task["status"], "status_label": STATUS_NAMES.get(task["status"], task["status"]),
+                   "updated": str(task.get("updated_at") or task.get("date") or "")[:16] or "未记录",
+                   "updated_sort": _epoch(task.get("updated_at") or task.get("date") or ""), "search": _task_text(task)} for task in tasks],
+        "finder": {"hidden": [("task_id", "")], "attrs": [("data-task-folder-reveal", None)]},
+        "reports": [{"task_id": report["id"], "title": report["title"], "mode": "weekly" if report.get("mode") == "weekly" else "selected",
+                     "mode_label": "按周整理" if report.get("mode") == "weekly" else "按任务整理", "status": "completed", "status_label": "已保存",
+                     "updated": str(report.get("date") or "")[:16] or "未记录", "missing_report": False} for report in snapshot.get("reports") or []],
+    }
+
+
+def render_review(snapshot: dict) -> str:
+    return review_template.render(review_page_data(snapshot))
+
+
+def review_search(snapshot: dict, query: str, project: str = "", work_type: str = "", status: str = "") -> dict:
+    """Tasks matching every word of the query, with the first matching passage as evidence."""
+    words = [word.casefold() for word in str(query or "").split()][:12]
+    items = []
+    for task in snapshot["tasks"]:
+        if (project and task["project"] != project) or (work_type and task.get("work_type") != work_type) or (status and task["status"] != status):
+            continue
+        text = _task_text(task)
+        if not words or not all(word in text.casefold() for word in words):
+            continue
+        in_title = all(word in task["title"].casefold() for word in words)
+        evidence = "" if in_title else next((value for value in [task.get("goal"), task.get("description"), task.get("current"), task.get("next")]
+                                             + [log.get("text") for log in task.get("logs") or []] if value and words[0] in str(value).casefold()), "")
+        items.append({"task_id": task["id"], "score": 2 if in_title else 1, "evidence": str(evidence)[:80]})
+    return {"query": query, "items": items}
+
+
+def report_preview(snapshot: dict, report_id: str) -> dict | None:
+    report = next((item for item in snapshot.get("reports") or [] if item["id"] == report_id), None)
+    if report is None:
+        return None
+    return {"report_available": True, "task_id": report["id"], "title": report["title"],
+            "mode_label": "按周整理" if report.get("mode") == "weekly" else "按任务整理", "updated_at": str(report.get("date") or "")[:16] or "未记录",
+            "status": "completed", "status_label": "已保存", "body_html": markdown_to_html(report.get("content") or ""),
+            "detail_url": "#review", "has_delivery": False}

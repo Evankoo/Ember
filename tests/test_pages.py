@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ember.pages import card_sections, file_preview, home_page_data, home_search, project_page, render_home, render_project, render_task, task_page, task_preview
+from ember.pages import report_preview, review_page_data, review_search, card_sections, file_preview, home_page_data, home_search, project_page, render_home, render_project, render_task, task_page, task_preview
 from ember.store import Workspace
 
 
@@ -120,6 +120,22 @@ class ProjectPageTests(TaskPageTests):
         self.assertIn('data-action="new-task"', markup)
         for forbidden in ("<script", "<style", " style="):
             self.assertNotIn(forbidden, markup)
+
+
+
+class ReviewPageTests(TaskPageTests):
+    def test_review_data_search_and_reports(self):
+        page = review_page_data(self.snapshot)
+        self.assertEqual(page["stats"]["tasks"], len(self.snapshot["tasks"]))
+        self.assertNotIn("group_action", page)
+        self.assertEqual(page["finder"]["attrs"], [("data-task-folder-reveal", None)])
+        found = review_search(self.snapshot, "秋季 方案")["items"]
+        self.assertIn("autumn-plan", [item["task_id"] for item in found])
+        self.assertEqual(review_search(self.snapshot, "秋季", status="completed")["items"], [])
+        report = self.snapshot["reports"][0]
+        preview = report_preview(self.snapshot, report["id"])
+        self.assertTrue(preview["report_available"])
+        self.assertIsNone(report_preview(self.snapshot, "missing"))
 
 
 if __name__ == "__main__":

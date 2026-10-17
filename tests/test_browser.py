@@ -199,6 +199,30 @@ class SettingsBrowserTests(unittest.TestCase):
         self.page.keyboard.press("Escape")
         self.assert_untouched()
 
+    def test_review_searches_previews_and_organizes_with_the_shared_confirmation(self):
+        self.page.goto(self.base + "/#review")
+        rows = self.page.locator("[data-organize-task]:visible")
+        rows.first.wait_for()
+        total = rows.count()
+        self.page.locator("#organizeTaskSearch").fill("秋季")
+        self.page.wait_for_function("() => document.querySelectorAll('[data-organize-task]:not([style*=\"none\"])').length < %d" % total)
+        self.assertIn("q=", self.page.url)
+        self.assertTrue(self.page.url.endswith("#review"))
+        rows.first.locator("[data-organize-preview]").click()
+        expect(self.page.locator("#organizationTaskPreviewTitle")).not_to_be_empty()
+        expect(self.page.locator("#organizationTaskPreviewDetail")).to_have_attribute("href", re.compile("^#task/"))
+        rows.nth(0).locator("input").check()
+        rows.nth(1).locator("input").check()
+        expect(self.page.locator("#organizeTaskCount")).to_have_text("已选 2 项")
+        self.page.locator(".review-organize-trigger").click()
+        expect(self.page.locator("#executionConfirmScope")).to_have_text("所选任务 2 项")
+        expect(self.page.locator("#executionConfirmFixed")).to_contain_text("任务检视")
+        self.page.keyboard.press("Escape")
+        self.page.locator("[data-organization-report]").first.click()
+        expect(self.page.locator("#organizationReportPreviewBody")).not_to_be_empty()
+        self.assertEqual(self.page.locator("#createOrganizeTaskGroup").count(), 0)
+        self.assert_untouched()
+
     def test_update_button_shows_the_release_and_a_copyable_prompt(self):
         newer = {"tag": "v99.0.0", "url": "https://github.com/Evankoo/Ember/releases/tag/v99.0.0",
                  "published_at": "2026-10-20", "notes": "<img src=x onerror=window.bad=1> 新功能"}

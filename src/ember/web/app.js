@@ -8,14 +8,12 @@ const app = (() => {
   const sidebar = document.getElementById("sidebar");
   const dialog = document.getElementById("workbench-dialog");
   const dialogBody = document.getElementById("dialog-body");
-  const state = { data: null, route: "home", id: "", dialogReturn: null, taskMaterials: null, home: null, overview: null, preview: null, settings: null, settingsRequest: 0, contextRequest: 0 };
+  const state = { data: null, route: "home", id: "", dialogReturn: null, taskMaterials: null, home: null, overview: null, review: null, preview: null, settings: null, settingsRequest: 0, contextRequest: 0 };
   const filters = {
-    home: { query: "", project: "", type: "", status: "" },
-    review: { query: "", project: "", type: "", status: "", sort: "updated" },
     library: { query: "", project: "", kind: "delivery", subtype: "" },
     project: { query: "", kind: "tasks", task: "all", subtype: "" }
   };
-  const ui = { review: new Set(), library: new Set(), reviewTask: "", reviewReport: "", reportFilter: "", file: "", projectId: "", projectCategory: "", reviewFilters: false };
+  const ui = { library: new Set(), file: "", projectId: "", projectCategory: "" };
   const software = { entries: [], default: "", editing: false, manual: { label: "", kind: "app", path: "" }, epoch: 0, saving: false };
   const statusNames = { active: "进行中", waiting_user: "待确认", blocked: "受阻", completed: "已完成" };
   const workNames = { text: "文字", image: "图片", video: "视频", audio: "音频", data: "数据", mixed: "混合", system: "系统" };
@@ -158,7 +156,6 @@ const app = (() => {
   async function loadState(render = true) {
     state.data = await api("api/state");
     data().tasks ||= []; data().projects ||= []; data().files ||= []; data().reports ||= [];
-    for (const id of [...ui.review]) if (!task(id)) ui.review.delete(id);
     for (const id of [...ui.library]) if (!file(id)) ui.library.delete(id);
     renderNav();
     if (render) renderRoute();
@@ -204,18 +201,8 @@ const app = (() => {
   }
   function go(hash) { if (location.hash === `#${hash}`) route(); else location.hash = hash; }
 
-  function matchingTasks(key, supplied = data().tasks) {
-    const f = filters[key], query = f.query.trim().toLowerCase();
-    const rows = supplied.filter(t => (!f.project || t.project === f.project) && (!f.type || t.work_type === f.type) && (!f.status || t.status === f.status) && (!query || [t.title, t.goal, t.description, t.current, t.next, t.id, ...(t.logs || []).map(log => log.text)].join(" ").toLowerCase().includes(query)));
-    const order = f.sort === "title" ? (a, b) => a.title.localeCompare(b.title, "zh") : (a, b) => String(b.updated_at || b.date).localeCompare(String(a.updated_at || a.date));
-    return rows.sort(order);
-  }
 
 
-  function statusChips(key) {
-    const current = filters[key].status;
-    return `<div class="chips" role="group" aria-label="任务状态">${[["", "全部"], ["active", "进行中"], ["completed", "已完成"], ["waiting_user", "待确认"], ["blocked", "受阻"]].map(([value, name]) => `<button class="chip${current === value ? " active" : ""}" type="button" data-action="status-filter" data-filter="${key}" data-id="${value}" aria-pressed="${current === value}">${name}</button>`).join("")}</div>`;
-  }
 
   /* ---------- 任务台 ---------- */
   /* Rendered on the server with the full workbench's template (ember_ui/pages/home.py) and driven by
@@ -437,7 +424,7 @@ const app = (() => {
      confirms, the prompt is copied and then the saved software is opened; nothing calls a model. */
   const executionPrompts = new WeakMap();
   async function executionPreview(form, payload, title = "", scope = "") {
-    const [prompt, settings] = await Promise.all([api("api/context", payload), api("api/settings")]);
+    const [prompt, settings] = await Promise.all([payload.review ? api("api/review/context", { task_ids: payload.task_ids }) : api("api/context", payload), api("api/settings")]);
     const environment = settings.execution_environment, software = environment.executors.find(entry => entry.id === environment.default_executor);
     executionPrompts.set(form, { prompt, environment });
     return { fixed_prompt_html: markdown(prompt.fixed), fixed_prompt: prompt.fixed, task: prompt.task, prompt_prefix: prompt.prefix, prompt_suffix: prompt.suffix,
@@ -471,6 +458,8 @@ const app = (() => {
       return { payload: { request: `在「${projectName(projectId)}」中开始一项新工作：先读取${p?.kind === "system" ? "系统" : "项目"}说明，等待我补充具体要求。`, relation: "new", project_id: projectId, file_ids: [], page: "project" },
                title: `新任务 · ${projectName(projectId)}`, scope: `${p?.kind === "system" ? "系统" : "项目"} ${projectId}` };
     }
+    const reviewIds = fields.getAll("selected_task_id").map(String);
+    if (reviewIds.length) return { payload: { task_ids: reviewIds, review: true }, title: "整理所选任务", scope: `所选任务 ${reviewIds.length} 项` };
     const fileIds = fields.getAll("file_id").map(String);
     return { payload: { request: "请先核对所选资料，再按我的要求处理：", relation: "new", file_ids: fileIds, page: "library" },
              title: "基于所选资料新建", scope: `所选资料 ${fileIds.length} 项` };
@@ -547,43 +536,25 @@ const app = (() => {
   }
 
   /* ---------- 任务检视 ---------- */
-  function renderReview() {
-    const f = filters.review, types = [...new Set(data().tasks.map(t => t.work_type))];
-    const activeFilters = [f.project, f.type, f.status].filter(Boolean).length;
+  /* Rendered on the server with the full workbench's template (ember_ui/pages/review.py) and driven by
+     ember_ui/review.js; this page supplies search and the two previews from the local workspace. */
+  const reviewHooks = {
+    search: ({ query, project, type, status }) => api(`api/review/search?${new URLSearchParams({ q: query, project, type, status })}`),
+    taskPreview: id => api(`api/home/task-preview?id=${encodeURIComponent(id)}`),
+    reportPreview: id => api(`api/review/report-preview?id=${encodeURIComponent(id)}`),
+  };
+  async function renderReview() {
     main.className = "shell app-main organization-page paper-management-page";
-    main.innerHTML = `<header class="review-page-head"><div class="review-page-heading"><h1>任务检视</h1><p>${data().tasks.length} 项任务 · ${data().tasks.filter(t => t.status === "active").length} 项进行中 · ${data().tasks.filter(t => t.important).length} 项当前重点</p></div><button id="save-report-button" class="button ghost" type="button" data-action="new-report">保存整理报告</button></header><div class="primary-view-panel"><div class="organization-task-workspace"><section class="panel selected-task-organizer"><div class="review-task-head"><div><h2>任务列表</h2><span id="review-count">0 项</span></div></div><div class="organize-task-form"><div class="organize-task-search"><div class="search-wrap"><span class="search-icon" aria-hidden="true">⌕</span><input id="review-search" type="search" data-filter="review" data-field="query" aria-label="搜索任务" placeholder="搜索任务名称、目标或日志" value="${esc(f.query)}"></div></div><div class="organize-task-filters"><button class="button ghost review-filter-toggle${activeFilters ? " active" : ""}" type="button" data-action="review-filters" aria-expanded="${ui.reviewFilters}" aria-controls="review-filter-fields" aria-label="筛选任务">筛选 <span>${activeFilters}</span></button><div class="review-filter-fields${ui.reviewFilters ? " is-open" : ""}" id="review-filter-fields"><select data-filter="review" data-field="project" aria-label="项目">${projectOptions(f.project)}</select><select data-filter="review" data-field="type" aria-label="任务类型">${option("", "全部任务类型", f.type)}${types.map(type => option(type, workNames[type] || type, f.type)).join("")}</select><select data-filter="review" data-field="status" aria-label="任务状态">${option("", "全部任务状态", f.status)}${Object.entries(statusNames).map(([value, name]) => option(value, name, f.status)).join("")}</select><button class="button ghost review-filter-reset" type="button" data-action="reset-filter" data-id="review">重置筛选</button></div><select class="review-sort-control" data-filter="review" data-field="sort" aria-label="排序">${option("updated", "最近更新优先", f.sort)}${option("title", "按名称", f.sort)}</select></div><div id="review-task-list" class="organize-task-list"></div><div class="organize-task-footer"><span id="review-selection-count" class="organize-task-count">未选择任务</span><div class="organize-task-footer-actions"><button class="button ghost" type="button" data-action="clear-review">清空选择</button>${actionKey("review-context", "准备所选任务整理上下文", 'id="review-context-button"')}</div></div></div></section><section class="panel organization-task-preview review-inspector"><div class="review-inspector-tabs"><strong>任务卡</strong></div><div id="review-task-preview"></div></section></div></div><section class="review-organization-section"><div class="organization-report-workspace"><section class="panel organization-report-list-panel"><div class="organization-card-head"><div><h2>历史整理报告</h2><p>查看历次建议、确认结果与记录。</p></div><div class="organization-report-tools"><span class="mode-mark">${data().reports.length} 份</span></div></div><div class="organization-report-filters">${[["", "全部"], ["weekly", "按周"], ["selected", "按任务"]].map(([value, name]) => `<button class="organization-report-filter${ui.reportFilter === value ? " active" : ""}" type="button" data-action="report-filter" data-id="${value}">${name}</button>`).join("")}</div><div class="organization-report-list">${data().reports.filter(r => !ui.reportFilter || r.mode === ui.reportFilter).map(r => `<button class="organization-report-item${ui.reviewReport === r.id ? " active" : ""}" type="button" data-action="report-read" data-id="${esc(r.id)}"><span><span class="organization-report-title">${esc(r.title)}</span><span class="organization-report-meta">${r.mode === "weekly" ? "按周整理" : "按任务整理"} · ${esc(r.date)}</span></span></button>`).join("") || `<div class="library-empty">还没有保存的整理报告。</div>`}</div></section><section class="panel organization-report-preview"><div class="review-inspector-tabs"><strong>整理报告</strong></div><div id="review-report-preview"></div></section></div></section>`;
-    renderReviewList();
-    renderReviewPreview();
-    renderReportPreview();
+    let page;
+    try { page = await api("api/pages/review"); }
+    catch (error) { if (state.route === "review") main.innerHTML = `<section class="panel load-error"><h1>任务检视读取失败</h1><p class="form-error">${esc(error.message)}</p></section>`; return; }
+    if (state.route !== "review") return;
+    state.review?.destroy();
+    main.innerHTML = page.html;
+    state.review = window.EmberReview.mount(main, reviewHooks);
   }
+  const reviewSelection = () => [...main.querySelectorAll('[name="selected_task_id"]:checked')].map(input => input.value);
 
-  function renderReviewList() {
-    const items = matchingTasks("review");
-    document.getElementById("review-task-list").innerHTML = items.map(t => `<div class="organize-task-item${ui.reviewTask === t.id ? " active" : ""}" data-task-id="${esc(t.id)}"><input type="checkbox" data-select-task="${esc(t.id)}" aria-label="选择 ${esc(t.title)}"${ui.review.has(t.id) ? " checked" : ""}><button type="button" class="organize-task-main" data-action="review-read" data-id="${esc(t.id)}"><span class="organize-task-title-row"><span class="organize-task-title">${esc(t.title)}</span>${t.kind === "task_line" ? `<span class="task-group-tag">任务线</span>` : ""}</span><span class="organize-task-meta">${esc(projectName(t.project))} · ${esc(workType(t))} · 最近修改 ${esc(stamp(t))}</span></button>${badge(t)}</div>`).join("") || `<div class="review-task-empty"><strong>没有匹配任务</strong><span>可以调整搜索词或筛选条件。</span></div>`;
-    document.getElementById("review-count").textContent = `${items.length} 项`;
-    renderReviewSelection();
-  }
-
-  function renderReviewSelection() {
-    const visible = new Set(matchingTasks("review").map(t => t.id));
-    const hidden = [...ui.review].filter(id => !visible.has(id)).length;
-    document.getElementById("review-selection-count").textContent = ui.review.size ? `已选 ${ui.review.size} 项${hidden ? `（${hidden} 项在当前筛选外）` : ""}` : "未选择任务";
-    document.getElementById("review-context-button").disabled = !ui.review.size;
-  }
-
-  function taskPreview(item) {
-    return `<div class="organization-preview-content"><div class="organization-preview-head"><div><h2>${esc(item.title)}</h2><div class="organization-preview-meta">${esc(projectName(item.project))} · ${esc(statusNames[item.status] || item.status)} · 最近更新 ${esc(stamp(item))}</div></div></div><div class="organization-preview-body article md"><h3>任务目标</h3>${markdown(item.goal) || "<p>暂无目标。</p>"}<h3>当前结果</h3>${markdown(item.current) || "<p>尚无结果记录。</p>"}${item.next ? `<h3>下一步</h3>${markdown(item.next)}` : ""}<h3>执行日志</h3>${(item.logs || []).length ? `<ul>${item.logs.slice(0, 8).map(log => `<li>${log.date ? `<b>${esc(log.date)}</b> ` : ""}${inline(log.text)}</li>`).join("")}</ul>` : "<p>暂无执行日志。</p>"}</div><div class="organization-preview-actions"><a class="button ghost" href="${taskLink(item)}">查看完整任务详情</a></div></div>`;
-  }
-
-  function renderReviewPreview() {
-    const node = document.getElementById("review-task-preview"), item = task(ui.reviewTask);
-    node.innerHTML = item ? taskPreview(item) : `<div class="organization-preview-placeholder">点击任务，核对目标、当前结果、执行日志和交付情况。勾选框只用于选择整理范围。</div>`;
-  }
-
-  function renderReportPreview() {
-    const node = document.getElementById("review-report-preview"), report = data().reports.find(r => r.id === ui.reviewReport);
-    node.innerHTML = report ? `<div class="organization-preview-content"><div class="organization-preview-head"><div><h2>${esc(report.title)}</h2><div class="organization-preview-meta">${report.mode === "weekly" ? "按周整理" : "按任务整理"} · ${esc(report.date)}</div></div></div><div class="organization-preview-body article md">${markdown(report.content)}</div></div>` : `<div class="organization-preview-placeholder">选择历史报告，即可查看该轮整理的建议和确认结果。</div>`;
-  }
 
   /* ---------- 设置 ---------- */
   function renderSettings() {
@@ -752,7 +723,7 @@ const app = (() => {
 
   function renderRoute() {
     pageStyle(state.route === "task" ? "task" : "");
-    for (const key of ["taskMaterials", "home", "overview"]) { state[key]?.destroy(); state[key] = null; }
+    for (const key of ["taskMaterials", "home", "overview", "review"]) { state[key]?.destroy(); state[key] = null; }
     document.body.classList.toggle("paper-management-shell", state.route !== "home");
     const renders = { home: renderHome, projects: renderProjects, project: renderProject, task: renderTask, library: renderLibrary, review: renderReview, settings: renderSettings };
     const render = renders[state.route];
@@ -791,7 +762,7 @@ const app = (() => {
   }
 
   function newReport() {
-    openDialog("保存整理报告", `<form id="report-form" class="stack dialog-form" data-form="report"><label>报告名称<input id="report-title" name="title" required></label><label>报告范围<select name="mode"><option value="selected">所选任务</option><option value="weekly">按周整理</option></select></label><p class="muted">当前选择 ${ui.review.size} 项任务。保存的是你填写的报告，不会调整任务结构或生命周期。</p><label>报告内容<textarea id="report-content" name="content" required rows="14"></textarea></label><p class="form-error" role="alert"></p><div class="form-actions"><button id="report-submit" class="button primary" type="submit">保存报告</button><button class="button ghost" type="button" data-action="close-dialog">取消</button></div></form>`);
+    openDialog("保存整理报告", `<form id="report-form" class="stack dialog-form" data-form="report"><label>报告名称<input id="report-title" name="title" required></label><label>报告范围<select name="mode"><option value="selected">所选任务</option><option value="weekly">按周整理</option></select></label><p class="muted">当前选择 ${reviewSelection().length} 项任务。保存的是你填写的报告，不会调整任务结构或生命周期。</p><label>报告内容<textarea id="report-content" name="content" required rows="14"></textarea></label><p class="form-error" role="alert"></p><div class="form-actions"><button id="report-submit" class="button primary" type="submit">保存报告</button><button class="button ghost" type="button" data-action="close-dialog">取消</button></div></form>`);
   }
 
   async function mutate(path, payload) {
@@ -828,7 +799,7 @@ const app = (() => {
         }
         case "complete": await mutate(`api/tasks/${encodeURIComponent(form.dataset.id)}/complete`, { confirmation: fields.has("confirmation") }); closeDialog(); notice("任务已完成，任务记录与资料已保留。"); break;
         case "promote": await mutate(`api/tasks/${encodeURIComponent(form.dataset.id)}/promote`, { confirmation: fields.has("confirmation") }); closeDialog(); notice("正式交付已保存，任务已完成。"); break;
-        case "report": await mutate("api/reports", { ...payload, task_ids: [...ui.review] }); closeDialog(); notice("整理报告已保存。"); break;
+        case "report": await mutate("api/reports", { ...payload, task_ids: reviewSelection() }); closeDialog(); notice("整理报告已保存。"); break;
       }
     } catch (failure) { if (failure.saved) form.dataset.committed = "true"; if (error) error.textContent = failure.message; else notice(failure.message, true); }
     finally { delete form.dataset.busy; controls.forEach(button => { button.disabled = Boolean(form.dataset.committed); button.removeAttribute("aria-busy"); }); }
@@ -863,32 +834,12 @@ const app = (() => {
       case "add-material": addMaterial(id); return;
       case "promote": promote(id); return;
       case "complete": completeTask(id); return;
-      case "status-filter": filters[button.dataset.filter].status = id; renderRoute(); return;
       case "project-category": ui.projectCategory = id; renderProjects(); return;
       case "library-tab": filters.library.kind = id; filters.library.subtype = ""; ui.file = ""; renderLibrary(); return;
-      case "reset-filter": filters[id] = { ...filters[id], query: "", project: "", type: "", status: "" }; renderRoute(); return;
-      case "review-filters": ui.reviewFilters = !ui.reviewFilters; renderReview(); return;
-      case "report-filter": ui.reportFilter = id; renderReview(); return;
-      case "clear-review": ui.review.clear(); renderReviewList(); return;
       case "clear-files": ui.library.clear(); renderLibrary(); return;
-      case "review-project": filters.review = { query: "", project: id, type: "", status: "", sort: "updated" }; ui.reviewFilters = true; go("review"); return;
-      case "review-read": {
-        ui.reviewTask = id;
-        main.querySelectorAll(".organize-task-item").forEach(row => row.classList.toggle("active", row.dataset.taskId === id));
-        if (window.innerWidth > 1180) renderReviewPreview(); else openDialog(task(id).title, taskPreview(task(id)), "drawer");
-        return;
-      }
-      case "report-read": {
-        ui.reviewReport = id; const report = data().reports.find(r => r.id === id);
-        main.querySelectorAll(".organization-report-item").forEach(item => item.classList.toggle("active", item.dataset.id === id));
-        if (window.innerWidth > 1180) renderReportPreview(); else openDialog(report.title, `<div class="article md">${markdown(report.content)}</div>`, "drawer");
-        return;
-      }
+      // The full workbench opens 任务检视 filtered by ?project=; review.js reads it from the address.
+      case "review-project": history.pushState(null, "", `${location.pathname}?project=${encodeURIComponent(id)}#review`); route(); return;
       case "new-report": newReport(); return;
-      case "copy-review":
-        try { await navigator.clipboard.writeText(state.reviewText || ""); notice("提示词已复制。请在 AI 工具里粘贴并确认发送。"); }
-        catch { notice("浏览器没能写入剪贴板，请选中上方文字手动复制。", true); }
-        return;
       case "download": { const link = Object.assign(document.createElement("a"), { href: `api/raw?id=${encodeURIComponent(id)}`, download: "" }); link.click(); return; }
       case "check-update": setMenu(false); await checkUpdate(); return;
       case "copy-update": {
@@ -904,12 +855,6 @@ const app = (() => {
         case "reveal": { const opened = await api("api/reveal", { id, mode: button.dataset.mode }); notice(button.dataset.mode === "open" ? `已用系统应用打开 ${opened.opened}。` : `已在 Finder 中显示 ${opened.opened}。`); break; }
         case "reveal-folder": await api("api/reveal", { task_id: id, folder: button.dataset.folder }); notice("已打开文件夹。"); break;
         case "reveal-location": await api("api/reveal", { project: id, location: button.dataset.location }); notice("已打开目录。"); break;
-        case "review-context": {
-          const result = await api("api/review/context", { task_ids: [...ui.review] });
-          openDialog("整理上下文", `<div class="home-prompt-review"><div id="context-output" class="home-prompt-body article md" tabindex="0">${markdown(result.text)}</div></div><div class="form-actions"><button id="copy-review-button" class="button" type="button" data-action="copy-review">复制提示词</button></div>`);
-          state.reviewText = result.text;
-          break;
-        }
         case "important": await mutate(`api/tasks/${encodeURIComponent(id)}/important`, { important: !task(id).important, revision: data().revision }); notice("重点状态已保存。任务内容与生命周期未改变。"); break;
         case "health-check": {
           const health = await api("api/health");
@@ -940,6 +885,8 @@ const app = (() => {
     const form = event.target.closest("[data-form]");
     if (form) { event.preventDefault(); submit(form); return; }
     // Reached only after the shared confirmation dialog: it intercepts the first submit.
+    const folder = event.target.closest("[data-task-folder-reveal]");
+    if (folder) { event.preventDefault(); api("api/reveal", { task_id: folder.elements.task_id.value, folder: "delivery" }).then(() => notice("已打开文件夹。"), error => notice(error.message, true)); return; }
     const confirmed = event.target.closest("[data-execution-confirm]");
     if (confirmed) { event.preventDefault(); dispatchExecution(confirmed); }
   });
@@ -965,8 +912,7 @@ const app = (() => {
     }
     if (control.dataset.filter) {
       const key = control.dataset.filter; filters[key][control.dataset.field] = control.value;
-      if (key === "review") renderReviewList();
-      else if (key === "project") renderFiles("project");
+      if (key === "project") renderFiles("project");
       else if (key === "library") renderFiles("library");
     }
   });
@@ -987,8 +933,7 @@ const app = (() => {
       document.getElementById("material-reference-path").required = reference;
       document.getElementById("material-purpose").required = reference;
     }
-    if (control.dataset.selectTask) { control.checked ? ui.review.add(control.dataset.selectTask) : ui.review.delete(control.dataset.selectTask); renderReviewSelection(); }
-    else if (control.dataset.selectFile) { control.checked ? ui.library.add(control.dataset.selectFile) : ui.library.delete(control.dataset.selectFile); control.closest(".library-material-row")?.classList.toggle("selected", control.checked); renderFileSelection(); }
+    if (control.dataset.selectFile) { control.checked ? ui.library.add(control.dataset.selectFile) : ui.library.delete(control.dataset.selectFile); control.closest(".library-material-row")?.classList.toggle("selected", control.checked); renderFileSelection(); }
   });
   document.addEventListener("keydown", event => {
   });

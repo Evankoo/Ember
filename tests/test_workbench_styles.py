@@ -43,8 +43,10 @@ class WorkbenchStyleTests(unittest.TestCase):
         for font in fonts:
             self.assertEqual(base64.b64decode(font), bundled)
         self.assertTrue((WEB / "fonts/OFL.txt").is_file())
-        # The page's font-src policy does not load data: fonts, so app.css declares the bundled file last.
-        self.assertIn('src:url("fonts/gstudio-display.woff2")', (WEB / "app.css").read_text(encoding="utf-8"))
+        # The stylesheet's embedded font is allowed by the page policy; nothing else may load data: URLs.
+        from ember.server import CSP
+        self.assertIn("font-src 'self' data:;", CSP)
+        self.assertEqual(CSP.count("data:"), 1)
 
     def test_page_loads_only_local_relative_assets(self):
         html = (WEB / "index.html").read_text(encoding="utf-8")
