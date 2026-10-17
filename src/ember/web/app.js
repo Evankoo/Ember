@@ -8,12 +8,8 @@ const app = (() => {
   const sidebar = document.getElementById("sidebar");
   const dialog = document.getElementById("workbench-dialog");
   const dialogBody = document.getElementById("dialog-body");
-  const state = { data: null, route: "home", id: "", dialogReturn: null, taskMaterials: null, home: null, overview: null, review: null, preview: null, settings: null, settingsRequest: 0, contextRequest: 0 };
-  const filters = {
-    library: { query: "", project: "", kind: "delivery", subtype: "" },
-    project: { query: "", kind: "tasks", task: "all", subtype: "" }
-  };
-  const ui = { library: new Set(), file: "", projectId: "", projectCategory: "" };
+  const state = { data: null, route: "home", id: "", dialogReturn: null, taskMaterials: null, home: null, overview: null, review: null, library: null, preview: null, settings: null, settingsRequest: 0, contextRequest: 0 };
+  const ui = { projectCategory: "" };
   const software = { entries: [], default: "", editing: false, manual: { label: "", kind: "app", path: "" }, epoch: 0, saving: false };
   const statusNames = { active: "进行中", waiting_user: "待确认", blocked: "受阻", completed: "已完成" };
   const workNames = { text: "文字", image: "图片", video: "视频", audio: "音频", data: "数据", mixed: "混合", system: "系统" };
@@ -156,7 +152,6 @@ const app = (() => {
   async function loadState(render = true) {
     state.data = await api("api/state");
     data().tasks ||= []; data().projects ||= []; data().files ||= []; data().reports ||= [];
-    for (const id of [...ui.library]) if (!file(id)) ui.library.delete(id);
     renderNav();
     if (render) renderRoute();
   }
@@ -327,16 +322,6 @@ const app = (() => {
   /* Rendered on the server with the full workbench's template (ember_ui/pages/project.py); the tabs and
      task filters are ember_ui/project.js. The 交付文件 / 输入资料 tabs hand over to this page's own file
      browser through the same hook the full workbench uses. */
-  window.GStudioProjectMaterialSwitch = view => {
-    const pane = main.querySelector('[data-project-panel="materials"]');
-    if (!pane) return;
-    if (filters.project.kind !== view || !pane.childElementCount) {
-      Object.assign(filters.project, { kind: view, query: "", subtype: "" }); ui.file = "";
-      pane.innerHTML = libraryLayout("project");
-      renderFiles("project");
-    }
-  };
-
   async function renderProject() {
     const p = project(state.id), id = state.id;
     main.className = `shell app-main project-workspace-page paper-management-page`;
@@ -345,12 +330,12 @@ const app = (() => {
     try { page = await api(`api/pages/project?id=${encodeURIComponent(id)}`); }
     catch (error) { if (state.route === "project" && state.id === id) main.innerHTML = `<section class="panel load-error"><h1>项目页读取失败</h1><p class="form-error">${esc(error.message)}</p></section>`; return; }
     if (state.route !== "project" || state.id !== id) return;
-    if (ui.projectId !== id) { ui.projectId = id; ui.file = ""; }
-    filters.project = { query: "", kind: "tasks", task: "all", subtype: "" };
     pageStyle(page.kind);
     main.className = `shell app-main ${page.kind === "system" ? "system-workspace-page" : "project-workspace-page"} paper-management-page`;
     main.innerHTML = page.html;
     document.title = `${p.name} · 余烬`;
+    const files = main.querySelector("[data-library-browser]");
+    if (files) state.library = window.EmberLibrary.mount(files, libraryHooks);
     (page.kind === "system" ? window.EmberSystem : window.EmberProject).mount(main);
   }
 
@@ -363,7 +348,6 @@ const app = (() => {
     if (typeof item.text === "string") return { ...base, kind: "markdown", body_html: /\.(md|markdown)$/i.test(item.name) ? markdown(item.text) : `<pre class="library-text-preview">${esc(item.text)}</pre>` };
     return { ...base, kind: item.preview || "file" };
   }
-  const previewBody = item => window.GStudioPreview.html(previewData(item));
 
   /* ---------- 任务详情 ---------- */
   /* The server renders this page with the full workbench's template; ember_ui/task-detail.js runs the
@@ -460,7 +444,7 @@ const app = (() => {
     }
     const reviewIds = fields.getAll("selected_task_id").map(String);
     if (reviewIds.length) return { payload: { task_ids: reviewIds, review: true }, title: "整理所选任务", scope: `所选任务 ${reviewIds.length} 项` };
-    const fileIds = fields.getAll("file_id").map(String);
+    const fileIds = fields.getAll("selection").map(value => { try { return JSON.parse(value).file_id; } catch { return undefined; } }).filter(Boolean);
     return { payload: { request: "请先核对所选资料，再按我的要求处理：", relation: "new", file_ids: fileIds, page: "library" },
              title: "基于所选资料新建", scope: `所选资料 ${fileIds.length} 项` };
   }
@@ -471,68 +455,22 @@ const app = (() => {
   }
 
   /* ---------- 资料浏览 ---------- */
-  function libraryLayout(key) {
-    const f = filters[key], isLibrary = key === "library";
-    const subtypes = f.kind === "input" ? [["", "全部输入类型"], ["snapshot", "快照"], ["reference", "引用"]] : [["", "全部交付状态"], ["draft", "草稿交付"], ["formal", "正式交付"]];
-    return `<section class="library-file-controls${isLibrary ? "" : " project-material-controls"}"><div class="search-wrap"><span class="search-icon" aria-hidden="true">⌕</span><input id="${key}-search" type="search" data-filter="${key}" data-field="query" aria-label="搜索资料" placeholder="搜索文件名、任务或用途" value="${esc(f.query)}"></div>${isLibrary ? `<select id="library-project" data-filter="library" data-field="project" aria-label="项目">${projectOptions(f.project)}</select>` : ""}<select id="${key}-subtype" data-filter="${key}" data-field="subtype" aria-label="资料类型">${subtypes.map(([value, name]) => option(value, name, f.subtype)).join("")}</select></section><div class="library-file-first-layout"><section class="panel library-material-index"><header class="library-column-head"><div><h2>${f.kind === "input" ? "输入资料" : "交付文件"}</h2><span id="${key}-file-count" class="meta"></span></div>${isLibrary ? `<button class="button ghost" type="button" data-action="clear-files" id="library-clear"${ui.library.size ? "" : " hidden"}>清空选择</button>` : ""}</header><div id="${key}-file-list" class="library-material-list"></div>${isLibrary ? `<footer id="library-selection" class="library-selection-bar"${ui.library.size ? "" : " hidden"}></footer>` : ""}</section><section id="${key}-file-preview" class="panel library-material-preview"><header class="library-column-head"><div class="library-preview-title-block"><h2>内容预览</h2><span class="meta">选择文件后查看内容</span></div></header><div class="library-source-strip"><span>尚未选择资料。</span></div><div class="library-preview-body library-full-preview"><div class="library-preview-placeholder">从左侧选择文件或输入资料。</div></div></section></div>`;
-  }
-
-  function renderLibrary() {
-    const f = filters.library;
-    const count = kind => data().files.filter(item => kind === "input" ? item.kind === "input" : ["draft", "formal"].includes(item.kind)).length;
+  /* Rendered on the server with the full workbench's template (ember_ui/pages/library.py) and driven by
+     ember_ui/library.js, here and in the project page's file tabs. Files open and preview from this workspace. */
+  const libraryHooks = {
+    taskHref: id => `#task/${encodeURIComponent(id)}`,
+    preview: item => api(`api/home/file-preview?id=${encodeURIComponent(item.selection.file_id)}`),
+    action: (item, mode, label) => `<button class="button ghost" type="button" data-action="reveal" data-id="${esc(item.selection.file_id)}" data-mode="${mode === "open" ? "open" : "reveal"}">${esc(label)}</button>`,
+  };
+  async function renderLibrary() {
     main.className = "shell app-main library-page paper-management-page";
-    main.innerHTML = `<div class="library-material-page"><header class="library-page-head"><div><h1>资料浏览</h1><p>以文件为主浏览交付与输入资料；项目和任务仅作为来源关系。</p></div><div class="library-kind-tabs" role="tablist" aria-label="资料类型">${[["delivery", "交付文件"], ["input", "输入资料"]].map(([id, title]) => `<button class="${f.kind === id ? "active" : ""}" type="button" role="tab" data-action="library-tab" data-id="${id}" aria-selected="${f.kind === id}">${title}<span>${count(id)}</span></button>`).join("")}</div></header>${libraryLayout("library")}</div>`;
-    renderFiles("library"); renderFileSelection();
-  }
-
-  function matchingFiles(key) {
-    const f = filters[key], q = f.query.trim().toLowerCase();
-    return data().files.filter(item => (key !== "project" || item.project === state.id) && (f.kind === "input" ? item.kind === "input" : ["draft", "formal"].includes(item.kind)) && (!f.project || item.project === f.project) && (!f.subtype || (f.subtype === "snapshot" ? item.storage !== "reference" : f.subtype === "reference" ? item.storage === "reference" : item.kind === f.subtype)) && (!q || [item.name, projectName(item.project), task(item.taskId)?.title || "", item.purpose || ""].join(" ").toLowerCase().includes(q)));
-  }
-
-  function fileRow(item, selectable) {
-    const checked = ui.library.has(item.id), source = task(item.taskId);
-    return `<article class="library-material-row${checked ? " selected" : ""}${ui.file === item.id ? " previewing" : ""}" data-file-id="${esc(item.id)}">${selectable ? `<input type="checkbox" data-select-file="${esc(item.id)}" aria-label="选择 ${esc(item.name)}"${checked ? " checked" : ""}>` : ""}<span class="library-node-icon" aria-hidden="true">${fileIcon(item)}</span><button type="button" data-action="file-read" data-id="${esc(item.id)}"><strong>${esc(item.name)}</strong><small>${esc(kindName(item.kind))} · ${bytes(item.bytes)}${item.purpose ? ` · ${esc(item.purpose)}` : ""}</small><small>${esc(projectName(item.project))}${source ? ` · 关联任务：${esc(source.title)}` : ""}</small></button>${source ? `<a href="${taskLink(source)}" title="查看关联任务">任务</a>` : ""}</article>`;
-  }
-
-  function renderFiles(key) {
-    const items = matchingFiles(key);
-    document.getElementById(`${key}-file-list`).innerHTML = items.map(item => fileRow(item, key === "library")).join("") || `<div class="library-empty">没有符合当前条件的资料。</div>`;
-    document.getElementById(`${key}-file-count`).textContent = `${items.length} 项`;
-    if (state.preview?.id && ui.file && items.some(item => item.id === ui.file)) showPreview(key, state.preview);
-  }
-
-  function renderFileSelection() {
-    const bar = document.getElementById("library-selection");
-    if (!bar) return;
-    bar.hidden = !ui.library.size;
-    document.getElementById("library-clear").hidden = !ui.library.size;
-    bar.innerHTML = ui.library.size ? `<div><strong>已选 ${ui.library.size} 项</strong><span>原资料保持只读</span></div><form class="action-form" data-execution-confirm data-execution-label="用所选资料开始处理">${[...ui.library].map(id => `<input type="hidden" name="file_id" value="${esc(id)}">`).join("")}<button class="gstudio-action-trigger" type="submit" data-execution-confirm-trigger aria-label="基于所选资料准备上下文" title="基于所选资料准备上下文">${actionMark}</button></form>` : "";
-  }
-
-  function filePreviewHtml(item) {
-    const source = task(item.taskId);
-    return `<div class="library-source-strip"><span><strong>${esc(kindName(item.kind))}</strong> ／ ${esc(projectName(item.project))}${source ? ` ／ 关联任务：${esc(source.title)}` : ""}</span>${source ? `<a class="button ghost" href="${taskLink(source)}">查看任务</a>` : ""}</div><div class="library-preview-body library-full-preview">${previewBody(item)}</div>`;
-  }
-
-  const libraryActions = item => `<div class="library-preview-head-actions"><div class="library-preview-toolbar-actions" aria-label="文件操作"><button class="button ghost" type="button" data-action="reveal" data-id="${esc(item.id)}" data-mode="reveal">Finder 中显示</button><button class="button ghost" type="button" data-action="reveal" data-id="${esc(item.id)}" data-mode="open">系统应用打开</button></div></div>`;
-
-  function showPreview(key, item) {
-    const panel = document.getElementById(`${key}-file-preview`);
-    if (!panel) return;
-    panel.innerHTML = `<header class="library-column-head"><div class="library-preview-title-block"><h2>${esc(item.name)}</h2><span class="meta">${esc(kindName(item.kind))} · ${esc(projectName(item.project))}</span></div>${libraryActions(item)}</header>${filePreviewHtml(item)}`;
-  }
-
-  async function readFile(id) {
-    const item = file(id);
-    if (!item) throw new Error("该文件已不在当前工作区，请刷新页面。");
-    const result = await api(`api/file?id=${encodeURIComponent(id)}`);
-    ui.file = id; state.preview = { ...item, ...result };
-    const key = state.route === "project" ? "project" : "library";
-    const panel = document.getElementById(`${key}-file-preview`);
-    main.querySelectorAll(".library-material-row").forEach(row => row.classList.toggle("previewing", row.dataset.fileId === id));
-    if (panel && window.innerWidth > 1180) showPreview(key, state.preview);
-    else openDialog(item.name, libraryActions(state.preview) + filePreviewHtml(state.preview), "drawer");
+    let page;
+    try { page = await api("api/pages/library"); }
+    catch (error) { if (state.route === "library") main.innerHTML = `<section class="panel load-error"><h1>资料浏览读取失败</h1><p class="form-error">${esc(error.message)}</p></section>`; return; }
+    if (state.route !== "library") return;
+    state.library?.destroy();
+    main.innerHTML = page.html;
+    state.library = window.EmberLibrary.mount(main.querySelector("[data-library-browser]"), libraryHooks);
   }
 
   /* ---------- 任务检视 ---------- */
@@ -723,7 +661,7 @@ const app = (() => {
 
   function renderRoute() {
     pageStyle(state.route === "task" ? "task" : "");
-    for (const key of ["taskMaterials", "home", "overview", "review"]) { state[key]?.destroy(); state[key] = null; }
+    for (const key of ["taskMaterials", "home", "overview", "review", "library"]) { state[key]?.destroy(); state[key] = null; }
     document.body.classList.toggle("paper-management-shell", state.route !== "home");
     const renders = { home: renderHome, projects: renderProjects, project: renderProject, task: renderTask, library: renderLibrary, review: renderReview, settings: renderSettings };
     const render = renders[state.route];
@@ -835,8 +773,6 @@ const app = (() => {
       case "promote": promote(id); return;
       case "complete": completeTask(id); return;
       case "project-category": ui.projectCategory = id; renderProjects(); return;
-      case "library-tab": filters.library.kind = id; filters.library.subtype = ""; ui.file = ""; renderLibrary(); return;
-      case "clear-files": ui.library.clear(); renderLibrary(); return;
       // The full workbench opens 任务检视 filtered by ?project=; review.js reads it from the address.
       case "review-project": history.pushState(null, "", `${location.pathname}?project=${encodeURIComponent(id)}#review`); route(); return;
       case "new-report": newReport(); return;
@@ -851,7 +787,6 @@ const app = (() => {
     button.dataset.busy = "true"; button.disabled = true; button.setAttribute("aria-busy", "true");
     try {
       switch (button.dataset.action) {
-        case "file-read": await readFile(id); break;
         case "reveal": { const opened = await api("api/reveal", { id, mode: button.dataset.mode }); notice(button.dataset.mode === "open" ? `已用系统应用打开 ${opened.opened}。` : `已在 Finder 中显示 ${opened.opened}。`); break; }
         case "reveal-folder": await api("api/reveal", { task_id: id, folder: button.dataset.folder }); notice("已打开文件夹。"); break;
         case "reveal-location": await api("api/reveal", { project: id, location: button.dataset.location }); notice("已打开目录。"); break;
@@ -910,11 +845,6 @@ const app = (() => {
       if (control.id === "software-path") software.manual.path = control.value;
       softwareChanged(); return;
     }
-    if (control.dataset.filter) {
-      const key = control.dataset.filter; filters[key][control.dataset.field] = control.value;
-      if (key === "project") renderFiles("project");
-      else if (key === "library") renderFiles("library");
-    }
   });
   document.addEventListener("change", event => {
     const control = event.target;
@@ -933,7 +863,6 @@ const app = (() => {
       document.getElementById("material-reference-path").required = reference;
       document.getElementById("material-purpose").required = reference;
     }
-    if (control.dataset.selectFile) { control.checked ? ui.library.add(control.dataset.selectFile) : ui.library.delete(control.dataset.selectFile); control.closest(".library-material-row")?.classList.toggle("selected", control.checked); renderFileSelection(); }
   });
   document.addEventListener("keydown", event => {
   });

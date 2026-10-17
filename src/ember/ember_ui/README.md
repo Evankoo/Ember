@@ -22,11 +22,13 @@ own export tool and never edits it there.
   task search (`window.EmberSystem.mount`).
 - `static/review.js`: 任务检视 search, filters, selection and previews
   (`window.EmberReview.mount`).
+- `static/library.js`: the file-first material browser of 资料浏览 and the
+  project file tabs (`window.EmberLibrary.mount`).
 - `markdown.py`, `marks.py`: the Markdown subset and the flame mark both
   editions render.
 - `pages/task_detail.py`, `pages/home.py`, `pages/project.py`, `pages/system.py`,
-  `pages/review.py`: the task detail, home, project workspace, system workspace and
-  任务检视 page templates. It takes one page
+  `pages/review.py`, `pages/library.py`: the task detail, home, project workspace,
+  system workspace, 任务检视 and 资料浏览 page templates. It takes one page
   dictionary (documented in the module) and returns markup only; each edition
   builds the dictionary from its own data and wraps the result.
 

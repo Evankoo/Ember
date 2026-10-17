@@ -239,11 +239,6 @@
       "reason": "状态：分类圆点的文字色不可见"
     },
     {
-      "id": "library:only-local:*library-preview-head-actions*",
-      "status": "pending",
-      "reason": "资料浏览：完整版进入时自动预览第一项并显示文件操作"
-    },
-    {
       "id": "review:only-local:.organization-report-meta > .organization-report-missing",
       "status": "intentional",
       "reason": "数据：完整版有缺少报告文件的历史整理"

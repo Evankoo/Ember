@@ -1,4 +1,5 @@
 """Page data for the shared templates comes only from this workspace's snapshot."""
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -115,7 +116,8 @@ class ProjectPageTests(TaskPageTests):
         self.assertTrue(all(row["href"].startswith("#task/") for row in page["rows"]))
         result = render_project(self.snapshot, "chenyu")
         self.assertEqual(result["kind"], "project")
-        markup = result["html"]
+        # The file pane carries its materials as an inert JSON block; nothing else may be a script.
+        markup = re.sub(r'<script id="libraryMaterialData" type="application/json">.*?</script>', "", result["html"], flags=re.S)
         self.assertIn('data-project-panel="materials" hidden', markup)
         self.assertIn('data-action="new-task"', markup)
         for forbidden in ("<script", "<style", " style="):

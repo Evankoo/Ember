@@ -13,7 +13,7 @@ from urllib.parse import quote
 from .ember_ui.markdown import markdown_to_html
 from datetime import datetime
 
-from .ember_ui.pages import home, project as project_template, review as review_template, system as system_template, task_detail
+from .ember_ui.pages import home, library as library_template, project as project_template, review as review_template, system as system_template, task_detail
 
 STATUS_NAMES = {"active": "进行中", "waiting_user": "待确认", "blocked": "受阻", "completed": "已完成"}
 EXECUTOR_NAMES = {"codex": "Codex", "opencode": "OpenCode", "claude-code": "Claude Code", "workbuddy": "WorkBuddy",
@@ -323,7 +323,8 @@ def project_page(snapshot: dict, project_id: str) -> dict | None:
                   "status_label": STATUS_NAMES.get(item["status"], item["status"]), "important": bool(item.get("important")),
                   "group": item.get("kind") == "task_line", "has_delivery": bool(item.get("outputs")),
                   "search": " ".join(str(item.get(key) or "") for key in ("title", "description", "goal", "id")).casefold()} for item in tasks],
-        "materials_html": '<div class="project-material-pane library-material-page" data-project-panel="materials" hidden></div>',
+        "materials_html": library_template.pane({"materials": library_materials(snapshot, project_id), "project": (project_id, project["name"]),
+                                                 "forms": LIBRARY_FORMS, "browser": {"sync_url": False, "controller": "GStudioProjectMaterialSwitch"}}),
     }
 
 
@@ -430,3 +431,44 @@ def report_preview(snapshot: dict, report_id: str) -> dict | None:
             "mode_label": "按周整理" if report.get("mode") == "weekly" else "按任务整理", "updated_at": str(report.get("date") or "")[:16] or "未记录",
             "status": "completed", "status_label": "已保存", "body_html": markdown_to_html(report.get("content") or ""),
             "detail_url": "#review", "has_delivery": False}
+
+
+SUBTYPES = {"draft": ("draft", "草稿交付"), "formal": ("final", "正式交付"), "input": ("snapshot", "快照")}
+LIBRARY_FORMS = [
+    {"kind": "delivery", "hidden": [], "label": "用所选交付文件开始处理", "confirm_label": "核对所选交付文件并开始处理"},
+    {"kind": "input", "hidden": [], "label": "用所选输入资料开始处理", "confirm_label": "核对所选输入资料并开始处理"},
+]
+
+
+def library_materials(snapshot: dict, project_id: str = "") -> list[dict]:
+    """Registered materials in the full workbench's material record shape, newest first."""
+    projects = {item["id"]: item for item in snapshot["projects"]}
+    tasks = {item["id"]: item for item in snapshot["tasks"]}
+    records = []
+    for item in snapshot["files"]:
+        if item["kind"] not in SUBTYPES or not item.get("taskId") or (project_id and item.get("project") != project_id):
+            continue
+        task = tasks.get(item["taskId"], {})
+        subtype, subtype_label = SUBTYPES[item["kind"]]
+        inside = item["id"].split(f"/{item['taskId']}/", 1)[-1]
+        records.append({
+            "kind": "input" if item["kind"] == "input" else "delivery", "name": item["name"], "relative_path": inside,
+            "task_id": item["taskId"], "task_title": task.get("title", item["taskId"]), "project": item.get("project") or "independent",
+            "project_title": _project_name(projects, item.get("project") or ""), "subtype": subtype, "subtype_label": subtype_label,
+            "location": item.get("purpose") or ("输入资料" if item["kind"] == "input" else "交付目录"), "purpose": item.get("purpose") or "",
+            "source_locator": item["relative_path"], "size": item.get("bytes", 0), "suffix": ("." + item["name"].rsplit(".", 1)[-1].lower()) if "." in item["name"] else "",
+            "updated_at": item.get("updated_at") or "", "sort_time": item.get("updated_at") or "", "previewable": True, "selection": {"file_id": item["id"]},
+        })
+    records.sort(key=lambda record: record["sort_time"], reverse=True)
+    return records
+
+
+def render_library(snapshot: dict) -> str:
+    materials = library_materials(snapshot)
+    projects = {item["id"]: item for item in snapshot["projects"]}
+    used = sorted({record["project"] for record in materials})
+    return library_template.render({
+        "materials": materials,
+        "counts": {"delivery": sum(record["kind"] == "delivery" for record in materials), "input": sum(record["kind"] == "input" for record in materials)},
+        "projects": [(slug, _project_name(projects, slug)) for slug in used], "forms": LIBRARY_FORMS, "browser": {"sync_url": True},
+    })
