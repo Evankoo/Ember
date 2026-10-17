@@ -545,27 +545,29 @@ def render_library(snapshot: dict) -> str:
     })
 
 
-SETTINGS_EXECUTION = (
-    '<section id="execution-environment" class="settings-execution-strip"><div class="settings-section-head"><div><h2>执行环境</h2>'
-    '<p>先看当前生效的环境，需要时再修改配置。</p></div><span>仅对这台电脑生效</span></div>'
-    '<div id="software-content" aria-live="polite">正在读取本机已保存的软件清单…</div></section>'
-)
 SETTINGS_HEALTH = (
     '<section id="health-result" class="settings-health-summary"><div class="settings-health-main"><span class="settings-health-state">服务状态</span>'
     '<small>只在点击“检查服务状态”后检查；不会验证软件登录或调用模型。</small></div></section>'
 )
 
 
-def render_settings(skills: list[dict]) -> str:
-    """设置: the shared shell and Skills module around this package's execution software and health sections."""
+# 执行环境 uses the full workbench's editor; saving and checking go through this package's JSON API (app.js).
+EXECUTION_COPY = {"ready_help": "确认执行时可复制提示词并打开这个软件；请在软件中手工粘贴、发送。",
+                  "default_hint": "确认执行时“复制并打开”会使用这里保存的软件。",
+                  "save_hint": "保存才会更新本机余烬配置；不读取或修改软件的模型、登录和权限。"}
+
+
+def render_settings(skills: list[dict], environment: dict) -> str:
+    """设置: the shared shell, Skills module and 执行环境 editor around this package's health section."""
     scroll = lambda target: [("data-action", "scroll-to"), ("data-id", target)]
     return settings_template.render({
         "intro": "本机执行环境与当前文档库的基础 Skill，在这里查看和管理。",
         "actions_html": '<button class="button" type="button" data-action="check-update">检查更新</button>'
                         '<button id="health-check-button" class="button" type="button" data-action="health-check">检查服务状态</button>',
-        "nav": [{"href": "#settings", "label": "执行环境", "attrs": scroll("execution-environment")},
+        "nav": [{"href": "#settings", "label": "执行环境", "attrs": scroll("execution")},
                 {"href": "#settings", "label": "Skills", "attrs": scroll("skills")}],
-        "execution_html": SETTINGS_EXECUTION, "health_html": SETTINGS_HEALTH,
+        "execution_html": settings_template.execution({"environment": environment, "config_path": environment.get("config_path", ""), "copy": EXECUTION_COPY}),
+        "health_html": SETTINGS_HEALTH,
         "skills": {
             # Registration is not proof that a model is signed in or can run; professional Skills are the user's own.
             "summary": "基础 Skill · 登记不代表模型已登录或能够执行",
@@ -581,8 +583,8 @@ def render_settings(skills: list[dict]) -> str:
 # The document and sidebar come from the full workbench's shell template. The workspace list is filled
 # by app.js from render_sidebar(), which takes the favorites the browser keeps for this workspace.
 SHARED_SCRIPTS = ("ember-ui", "sidebar", "execution-confirm", "task-detail", "home", "task-overview", "projects", "project",
-                  "system", "review", "library", "settings")
-PAGE_STYLES = ("task-detail:task", "projects:projects", "project:project", "system:system", "settings:settings")
+                  "system", "review", "library", "settings", "executor-settings")
+PAGE_STYLES = ("task-detail:task", "projects:projects", "project:project", "system:system", "settings:settings", "executor-settings:settings")
 PRIMARY_PAGES = (("home", "任务台"), ("projects", "项目视图"), ("review", "任务检视"), ("library", "资料浏览"), ("settings", "设置"))
 CATEGORY_CLASSES = ("account_operations", "course_teaching", "novel_writing", "system_building")
 WORKBENCH_DIALOG = ('<dialog id="workbench-dialog" class="paper-dialog workbench-dialog" aria-labelledby="dialog-title">'

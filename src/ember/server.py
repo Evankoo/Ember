@@ -97,7 +97,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.json({"execution_environment": self.server.executor_registry.snapshot(), "skills": self.registered_skills()})
             elif path == "/api/pages/settings":
                 from .pages import render_settings
-                self.json({"html": render_settings(self.registered_skills())})
+                environment = self.server.executor_registry.snapshot()
+                self.json({"html": render_settings(self.registered_skills(), environment), "revision": environment.get("revision")})
             elif path == "/api/pages/task":
                 # Server-rendered with the shared template; app.js inserts it and wires the materials.
                 from .pages import render_task

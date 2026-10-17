@@ -1,9 +1,9 @@
 {
   "schema": 2,
-  "source_commit": "21c7acc69887801be0dc546c68fd0dadd2b0163e",
+  "source_commit": "cb0f487cc89a4eb8d60b8c636665fdefd3cfddd6",
   "source_dir": "ui/ember_ui",
   "files": {
-    "README.md": "97fcae607e50928b3949b7da025a4000069a2efefd1f227efaa654424ea52a3b",
+    "README.md": "aadd5937e292aef18f311a010dccdeb60a8064e6443c6a11f6287fd03732127f",
     "__init__.py": "ff3974de64f5a2b1f143799209831a3468c8f6fc8dc3aca2e0e157f672c960b7",
     "markdown.py": "1dea433ab2a8f71719830f2b35fbf4834eaab2b50a5b60180da90e2784b131bc",
     "marks.py": "d5edbaa78309cdc87375ad38de01031f045d41f1e8b30952693e548a510a9b41",
@@ -13,12 +13,14 @@
     "pages/project.py": "5b417926508188a18364ecb1862dbb79d3378928d0d770bb6620b39b102fab14",
     "pages/projects.py": "703ad137bda8437ccf8bfab57ff2be598a44361f4dfcb6f66e90980e58a7d912",
     "pages/review.py": "375c77007b141205e21242c0ba6a07172e3e2be279a8576f70b9726f095825ab",
-    "pages/settings.py": "270d1fd1528e012002c8b414a144ecacd4422393ddd1dbaadf148093ba57bf66",
+    "pages/settings.py": "646201c8e6a187f53be6a46d62cbc5dc1eda08e6d6e4181499a53e2daa63c344",
     "pages/shell.py": "ed8c744174afd0e9dff48108f1de7c1a05eca6c0235c50cefce65f0dace23228",
     "pages/system.py": "889afe0ca29932aae4814229cc99880833b5948b4936d046d4110d94898d1ca0",
     "pages/task_detail.py": "64a22b76311a6ba5b9052690ac39ec1b9a8a696ffc2cb40bf1bca7985dbf4bdc",
     "static/ember-ui.js": "451949fd7e7f0ae3c042fe182876ae2e90a2a4ee3ef2d4a1a98cd42e623ec1e4",
     "static/execution-confirm.js": "82b7dbf47deed067690aa2e0bb12badec8135b37c217c562ed1e40eae55187a5",
+    "static/executor-settings.css": "4c7d18b536c7fa62cde0200a5b18b79d58dc204f0ce6725af11da7fcd8920e34",
+    "static/executor-settings.js": "98066470da4235012874418014e5b7042b43732a7ad3188f36144b9b08ef345f",
     "static/home.js": "f76a0effc9b5ba05a34df79d38f4a71d5250b28cd29e8e14d4494826af8f2cf3",
     "static/library.js": "aac19056bc88a20800d60ad42f64fa8a9633d48cf5624d4262856c656bf74cb6",
     "static/project.css": "65904f9ff4499c289431d0c73db186fd3cb56fc464369c981f5e29bfda8469f9",
@@ -26,7 +28,7 @@
     "static/projects.css": "ea1b5ba417690414c652b78423641914dfa66e405d812a6582cfa96f695e7c2f",
     "static/projects.js": "c09fbb058caa38c8dbed3cbaf5a0f0f0efd6be2380ba248719df4d07fd6aff49",
     "static/review.js": "71f590f79eb79984e336fc049872e1b83e156bc78c451aa508eb76a434303559",
-    "static/settings.css": "747d25efe0e5f64cda7f3f0644166bffd95cc38bad9a4f9f20b15797e8e02f1f",
+    "static/settings.css": "77f622563dac4c01277a7c74b465bea177414a83fe26046d5ca99d0cbb599cc3",
     "static/settings.js": "4ec034971ae30bb41e7bd1521567ce4a266e32880c3eeb06827f8daee7351d38",
     "static/sidebar-state.js": "7552ece209b94856e4c2381c2096c2a782c4c555f8775e6f020ff86a28a5b0ce",
     "static/sidebar.js": "a04aa64f3aa0de00044cec5c5d8f306747334da16478c40dda4988d133058730",
@@ -37,5 +39,5 @@
     "static/task-overview.js": "f6f16b69fc3839849f11ffc51f18c5ec168b78f459f81eeca6a4b6019a7f6412",
     "static/workbench.css": "6630c14f28bcd4a3845249255aee04fe39e06b8eb3fa850bd72a767e52c99698"
   },
-  "page_styles_sha256": "bf8dfd4ec5de0cc81c4f9791a6ed87168a027050760dc7bfe50ac8b1834448bf"
+  "page_styles_sha256": "6098b71e85014d1c05449df92f5b5d0f630caeb0e598fcf799edf41bc872c4e8"
 }

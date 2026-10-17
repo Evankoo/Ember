@@ -42,18 +42,13 @@ fieldset{margin:0;padding:0;border:0;min-width:0}
 
 .library-text-preview{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.75 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 
-.software-candidate{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line-soft)}
-.software-candidate code{display:block;color:var(--muted);font-size:11px;overflow-wrap:anywhere}
-.software-step{display:grid;gap:10px}
 
 @media(max-width:700px){.field-grid{grid-template-columns:minmax(0,1fr)}.project-view-page-head{grid-template-columns:minmax(0,1fr)}.project-view-page-head>button{grid-column:1;grid-row:auto;justify-self:start;margin-top:8px}}
 
 .task-table td.empty{display:table-cell}
 .project-task-filters .chip{flex:none;white-space:nowrap}
 .library-material-row:not(:has(>input)){grid-template-columns:20px minmax(0,1fr) auto}
-#software-candidates{grid-column:1/-1;min-width:0;margin-top:-4px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);box-shadow:0 8px 24px rgba(17,24,39,.08)}
 .executor-discovery-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.executor-discovery-head small{color:var(--muted);font-size:11px;line-height:1.6}.executor-discovery-head .button{flex:none;padding:3px 8px;font-size:11px}
-.software-candidate-list{max-height:260px;overflow-y:auto;overscroll-behavior:contain}.software-candidate-list .software-candidate:last-child{border-bottom:0}.software-candidate.is-added strong::after{content:" · 已在清单";color:var(--muted);font-weight:400}
 .executor-default-field select{transition:box-shadow .2s,border-color .2s}.executor-default-field.is-chosen select{border-color:var(--ink);box-shadow:0 0 0 3px rgba(17,24,39,.12)}.executor-default-field.needs-choice select{border-color:var(--danger);box-shadow:0 0 0 3px rgba(239,68,68,.15)}
 
 /* Task actions the open-source edition performs in the page (the full workbench routes them through AI). */
