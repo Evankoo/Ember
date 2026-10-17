@@ -3322,7 +3322,7 @@ def _layout(
         page_class = ""
     environment = execution_environment()
     return shell_page.document({
-        "title": f"{title} · 余烬 · Ember AI 工作台", "icon": {"href": BRAND_FAVICON},
+        "title": "余烬 · Ember AI 工作台" if title == "任务台" else f"{title} · 余烬 · Ember AI 工作台", "icon": {"href": BRAND_FAVICON},
         "stylesheets": [(f"/assets/workbench.css?v={CSS_VERSION}", ())],
         "body_class": "paper-management-shell" if "paper-management-page" in page_class else "",
         "sidebar_html": sidebar, "sidebar_after_html": sidebar_after,
