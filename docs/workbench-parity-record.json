@@ -1,14 +1,15 @@
 {
   "schema": 1,
-  "checked_at": "2026-10-16T17:44:27+00:00",
-  "source_commit": "8ba276c22ddb1ea9f5293eb144407c402d88cc31",
-  "ui_sha256": "3f10d5ed0e6ccf0d3e49b372ae43e648801f43280ac11021b7cc277a491a39c9",
+  "checked_at": "2026-10-16T21:35:26+00:00",
+  "source_commit": "59a9aef59091f017e7502e72df3dd204151e977d",
+  "ui_sha256": "2f293650a65ed5b4a4133037a7ba2eb37d88a3b982555ab6ddc1430b91f69d9a",
   "pages": [
     "home",
     "projects",
     "project",
     "system",
     "task",
+    "task-confirm",
     "task-line",
     "library",
     "review",
@@ -20,5 +21,5 @@
     390
   ],
   "pending": 86,
-  "intentional": 79
+  "intentional": 70
 }

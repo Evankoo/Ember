@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Compare the open-source pages with the full workbench the maintainer actually uses.
 
-The stylesheet is copied verbatim by sync_workbench_styles.py, but page markup and
-behavior are rebuilt here by hand, so they can drift without anyone noticing. This
+The shared interface layer (stylesheets and scripts) is copied verbatim by
+sync_workbench_styles.py, but most page markup is still rebuilt here by hand, so it can drift
+without anyone noticing. This
 check opens the running full workbench and a fresh fictional example of this package
 side by side, page by page and at several widths, and compares:
 
@@ -40,16 +41,21 @@ ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "src/ember/web"
 CONFIG = ROOT / "docs/workbench-parity.json"
 RECORD = ROOT / "docs/workbench-parity-record.json"
-UI_FILES = ("index.html", "app.js", "app.css", "assets/workbench.css")
+UI_FILES = ("index.html", "app.js", "app.css", "assets/workbench-pages.css")
 
-COLLECT = r"""([ignored, transparent]) => {
+
+def ui_files() -> list[str]:
+    return [*UI_FILES, *sorted(f"ember_ui/{path.name}" for path in (WEB / "ember_ui").iterdir() if path.is_file())]
+
+COLLECT = r"""([ignored, transparent, within]) => {
   // Shapes use class names only: a <form class="action-form"> that posts in the workbench and a
   // plain button here are the same control, so tags and pure wrapper classes are left out.
   const ignore = new RegExp(ignored), skip = new RegExp(transparent);
   const clean = node => [...node.classList].filter(name => !ignore.test(name)).sort().join(".");
   const wrapper = node => [...node.classList].some(name => skip.test(name));
   const out = {};
-  for (const node of document.querySelectorAll("body *")) {
+  const root = within ? document.querySelector(within) : document.body;
+  for (const node of root ? root.querySelectorAll("*") : []) {
     if (!node.getClientRects().length || node.closest("[hidden]") || wrapper(node)) continue;
     const own = clean(node);
     if (!own) continue;
@@ -68,7 +74,7 @@ COLLECT = r"""([ignored, transparent]) => {
 
 def ui_sha256() -> str:
     digest = hashlib.sha256()
-    for name in UI_FILES:
+    for name in ui_files():
         digest.update(name.encode() + b"\0" + (WEB / name).read_bytes())
     return digest.hexdigest()
 
@@ -172,7 +178,11 @@ def run(args) -> int:
                         page.goto(url)
                         page.wait_for_load_state("networkidle")
                         page.wait_for_timeout(400)
-                        sides[side] = page.evaluate(COLLECT, [config["ignore_classes"], config["transparent_classes"]])
+                        if item.get("open"):  # A dialog or drawer the page opens on request; nothing is executed.
+                            page.locator(item["open"]).first.click()
+                            page.wait_for_load_state("networkidle")
+                            page.wait_for_timeout(600)
+                        sides[side] = page.evaluate(COLLECT, [config["ignore_classes"], config["transparent_classes"], item.get("within", "")])
                         page.screenshot(path=str(report / f"{item['name']}-{width}-{side}.png"), full_page=False)
                     for finding in compare(sides["local"], sides["core"], item["name"]):
                         known = findings.setdefault(finding["id"], {**finding, "widths": []})

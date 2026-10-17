@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""Copy the full workbench stylesheet into the open-source web assets.
+"""Copy the full workbench's shared interface layer into the open-source web assets.
 
-The public interface is derived from the full workbench used in practice:
-its stylesheet is copied here verbatim except for the embedded display font,
-which points at the bundled OFL font instead. The source is read as inert
-constants; no workbench service, data or configuration is loaded.
+The public interface is derived from the full workbench used in practice. Its shared
+interface layer (`ui/ember_ui/static/`: stylesheets and scripts) is copied here verbatim
+into `src/ember/web/ember_ui/`; nothing in that folder is edited in this repository. The
+source files are read as inert text; no workbench service, data or configuration is loaded.
 
     python tools/sync_workbench_styles.py --source <workbench checkout>          # update
     python tools/sync_workbench_styles.py --source <workbench checkout> --check  # report drift only
 
-Some workbench pages carry their own <style> blocks. Those are read from the locally running
-workbench (--workbench-url); only the <style> elements are kept, never page content.
+Some workbench pages still carry their own <style> blocks. Those are read from the locally
+running workbench (--workbench-url) into assets/workbench-pages.css; only the <style>
+elements are kept, never page content. Blocks already shipped in the shared layer are skipped.
 """
 from __future__ import annotations
 
@@ -19,7 +20,6 @@ import base64
 import hashlib
 import json
 import re
-import runpy
 import subprocess
 import sys
 import urllib.request
@@ -27,10 +27,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "src/ember/web"
-STYLESHEET = WEB / "assets/workbench.css"
+SHARED = WEB / "ember_ui"
+PAGE_STYLESHEET = WEB / "assets/workbench-pages.css"
 RECORD = ROOT / "docs/workbench-source.json"
-SOURCE_FILE = "scripts/gstudio_workbench_assets.py"
-FONT = "url('../fonts/gstudio-display.woff2')"
+SOURCE_DIR = "ui/ember_ui/static"
+FONT = WEB / "fonts/gstudio-display.woff2"
 # Machine paths and addresses must never reach the public package. Names that are private to the
 # maintainer (people, machines, internal systems) live in a local file outside the repository.
 FORBIDDEN = ("/Users/", "/Volumes/", "/home/", "192.168.", "10.0.", "file://", "http://", "https://")
@@ -48,6 +49,8 @@ def private_markers(path: Path = PRIVATE_MARKERS) -> tuple[str, ...]:
 
 
 def sensitive(text: str, extra: tuple[str, ...] = ()) -> list[str]:
+    # Embedded font data is base64, not text that could carry a private name.
+    text = re.sub(r"url\(data:[^)]*\)", "url(data:)", text)
     return [word for word in FORBIDDEN + extra if word.lower() in text.lower()]
 
 
@@ -59,8 +62,8 @@ def fetch(base: str, path: str) -> str:
         return response.read().decode("utf-8")
 
 
-def page_styles(base: str) -> str:
-    """Return the page-specific <style> blocks, deduplicated, in a stable order."""
+def page_styles(base: str, shipped: set[str]) -> str:
+    """Return the page-specific <style> blocks not already in the shared layer, in a stable order."""
     projects = fetch(base, "/projects")
     project = re.search(r'href="(/projects/[a-z0-9][a-z0-9_-]*)"', projects)
     task_page = None
@@ -72,7 +75,7 @@ def page_styles(base: str) -> str:
     if not project or task_page is None:
         raise SystemExit("could not find a project and a task with materials on the running workbench")
     pages = {"/projects": projects, "project": fetch(base, project.group(1)), "task": task_page, "/settings": fetch(base, "/settings")}
-    blocks, seen = [], set()
+    blocks, seen = [], set(shipped)
     for label, key in PAGE_STYLES:
         for block in re.findall(r"<style[^>]*>(.*?)</style>", pages[key], re.S):
             block = block.strip()
@@ -82,20 +85,33 @@ def page_styles(base: str) -> str:
     return "\n".join(blocks)
 
 
-def extract(source: Path, base: str) -> tuple[str, str]:
-    module = source / SOURCE_FILE
-    if not module.is_file():
-        raise SystemExit(f"not a workbench checkout: {module} is missing")
-    css = runpy.run_path(str(module))["CSS"]
-    font = re.search(r"url\(data:font/woff2;base64,([^)]+)\)", css)
-    if font and sha256(base64.b64decode(font.group(1))) != sha256((WEB / "fonts/gstudio-display.woff2").read_bytes()):
-        raise SystemExit("the workbench display font differs from the bundled OFL font; review licensing before syncing")
-    css = re.sub(r"url\(data:font/woff2;base64,[^)]+\)", FONT, css) + "\n" + page_styles(base)
-    if found := sensitive(css, private_markers()):
-        raise SystemExit(f"stylesheet contains {len(found)} private marker(s), nothing written; check against {PRIVATE_MARKERS}")
+def extract(source: Path, base: str) -> tuple[dict[str, bytes], str, str]:
+    """Shared files (name -> bytes), the page stylesheet and the source revision."""
+    folder = source / SOURCE_DIR
+    if not folder.is_dir():
+        raise SystemExit(f"not a workbench checkout: {folder} is missing")
+    if any(path.is_dir() for path in folder.iterdir()):
+        raise SystemExit(f"unexpected layout in {folder}: expected flat files")
+    files = {path.name: path.read_bytes() for path in sorted(folder.iterdir()) if path.is_file() and not path.name.startswith(".")}
+    if "workbench.css" not in files:
+        raise SystemExit(f"unexpected layout in {folder}: workbench.css is missing")
+    for font in re.findall(r"url\(data:font/woff2;base64,([^)]+)\)", files["workbench.css"].decode("utf-8")):
+        if sha256(base64.b64decode(font)) != sha256(FONT.read_bytes()):
+            raise SystemExit("the workbench display font differs from the bundled OFL font; review licensing before syncing")
+    shipped = {data.decode("utf-8").strip() for name, data in files.items() if name.endswith(".css")}
+    header = "/* Page-level styles read from the running workbench by tools/sync_workbench_styles.py; edit upstream, then resync. */\n"
+    pages = header + page_styles(base, shipped).strip() + "\n"
+    found = []
+    for name, data in {**files, PAGE_STYLESHEET.name: pages.encode()}.items():
+        found += [f"{name}: {word}" for word in sensitive(data.decode("utf-8"), private_markers())]
+    if found:
+        raise SystemExit(f"shared interface contains {len(found)} private marker(s), nothing written; check against {PRIVATE_MARKERS}")
     revision = subprocess.run(["git", "-C", str(source), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
-    header = "/* Copied from the GStudio workbench by tools/sync_workbench_styles.py; edit upstream, then resync. */\n"
-    return header + css.strip() + "\n", revision
+    return files, pages, revision
+
+
+def current_copy() -> dict[str, bytes]:
+    return {path.name: path.read_bytes() for path in sorted(SHARED.iterdir()) if path.is_file()} if SHARED.is_dir() else {}
 
 
 def main(argv=None) -> int:
@@ -104,18 +120,27 @@ def main(argv=None) -> int:
     parser.add_argument("--workbench-url", default="http://127.0.0.1:8765", help="running workbench for page styles")
     parser.add_argument("--check", action="store_true", help="exit 1 when the copy differs; write nothing")
     args = parser.parse_args(argv)
-    css, revision = extract(args.source.expanduser().resolve(), args.workbench_url)
-    current = STYLESHEET.read_text(encoding="utf-8") if STYLESHEET.exists() else ""
+    files, pages, revision = extract(args.source.expanduser().resolve(), args.workbench_url)
+    current_pages = PAGE_STYLESHEET.read_text(encoding="utf-8") if PAGE_STYLESHEET.exists() else ""
     if args.check:
-        if current == css:
-            print("workbench stylesheet is current")
+        if current_copy() == files and current_pages == pages:
+            print("workbench interface files are current")
             return 0
-        print("workbench stylesheet has drifted; review the pages, then run without --check")
+        print("workbench interface files have drifted; review the pages, then run without --check")
         return 1
-    STYLESHEET.write_text(css, encoding="utf-8")
-    RECORD.write_text(json.dumps({"schema": 1, "source_commit": revision, "source_file": SOURCE_FILE,
-                                  "stylesheet_sha256": sha256(css.encode())}, indent=2) + "\n", encoding="utf-8")
-    print(f"copied {len(css)} characters from {revision[:12] or 'unknown revision'}")
+    SHARED.mkdir(exist_ok=True)
+    for path in SHARED.iterdir():
+        if path.is_file() and path.name not in files:
+            path.unlink()
+    for name, data in files.items():
+        (SHARED / name).write_bytes(data)
+    PAGE_STYLESHEET.write_text(pages, encoding="utf-8")
+    RECORD.write_text(json.dumps({
+        "schema": 2, "source_commit": revision, "source_dir": SOURCE_DIR,
+        "files": {name: sha256(data) for name, data in files.items()},
+        "page_styles_sha256": sha256(pages.encode()),
+    }, indent=2) + "\n", encoding="utf-8")
+    print(f"copied {len(files)} shared files and page styles from {revision[:12] or 'unknown revision'}")
     return 0
 
 

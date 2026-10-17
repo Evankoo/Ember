@@ -42,6 +42,16 @@
       }
     },
     {
+      "name": "task-confirm",
+      "core": "#task/autumn-plan",
+      "pick": {
+        "from": "tasks",
+        "when": "() => !!document.querySelector('.task-delivery-file') && !!document.querySelector('.task-input-row') && !document.querySelector('.task-group-related')"
+      },
+      "open": "[data-task-continue-form] [data-execution-confirm-trigger]",
+      "within": "#executionConfirmDialog"
+    },
+    {
       "name": "task-line",
       "core": "#task/chenyu-line",
       "pick": {
@@ -136,11 +146,6 @@
       "id": "settings:only-local:*settings-health-*",
       "status": "intentional",
       "reason": "完整版独有：健康指标与告警入口"
-    },
-    {
-      "id": "*:only-local:.toast",
-      "status": "intentional",
-      "reason": "状态：完整版常驻提示容器，开源版有提示时才出现"
     },
     {
       "id": "*:only-core:.sidebar-children > .sidebar-empty",

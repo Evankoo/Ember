@@ -125,7 +125,7 @@ class SettingsBrowserTests(unittest.TestCase):
         for value in ("", "   "):
             self.page.locator("#context-request").fill(value)
             self.page.locator("#context-prepare").click()
-            expect(self.page.locator("#notice")).to_have_text("请先描述本轮要求")
+            expect(self.page.locator(".toast.show")).to_have_text("请先描述本轮要求")
             self.assertFalse(self.page.locator("#home-confirm-dialog").evaluate("node => node.open"))
         self.page.locator("#context-request").fill("整理活动资料")
         self.page.locator("#context-prepare").click()
@@ -140,20 +140,56 @@ class SettingsBrowserTests(unittest.TestCase):
 
     def test_task_page_previews_files_and_opens_the_drawer_when_narrow(self):
         self.page.goto(self.base + "/#task/autumn-plan")
-        expect(self.page.locator("#task-file-preview-title")).to_have_text("秋季内容方案V0.2草稿.md")
-        expect(self.page.locator(".task-preview-actions")).to_contain_text("Finder 中显示")
-        self.page.locator('[data-action="task-files"][data-id="input"]').click()
+        expect(self.page.locator("#taskFilePreviewTitle")).to_have_text("秋季内容方案V0.2草稿.md")
+        expect(self.page.locator("#taskFilePreviewActions")).to_contain_text("Finder 中显示")
+        expect(self.page.locator("#taskDeliveryCount")).to_contain_text("个文件")
+        self.page.locator("#taskDeliveryFiles [data-task-file-check]").first.check()
+        expect(self.page.locator("#taskFileSelectionStatus")).to_have_text("已选 1 个文件")
+        expect(self.page.locator("[data-task-continue-form] input[name=selection]")).to_have_count(1)
+        self.page.locator("#taskInputTab").click()
         first = self.page.locator(".task-input-row .task-input-name").first
         name = first.inner_text()
         first.click()
-        expect(self.page.locator("#task-file-preview-title")).to_have_text(name)
+        expect(self.page.locator("#taskFilePreviewTitle")).to_have_text(name)
+        expect(self.page.locator("#taskFilePreviewActions")).not_to_contain_text("下载到本机")
+        divider = self.page.locator("#taskDetailDivider")
+        divider.focus()
+        before = int(divider.get_attribute("aria-valuenow"))
+        self.page.keyboard.press("ArrowDown")
+        self.assertEqual(int(divider.get_attribute("aria-valuenow")), min(before + 20, int(divider.get_attribute("aria-valuemax"))))
         self.page.set_viewport_size({"width": 1000, "height": 900})
-        expect(self.page.locator("#task-material-toggle")).to_be_visible()
-        self.page.locator("#task-material-toggle").click()
-        expect(self.page.locator("#task-materials")).to_have_class(re.compile("is-open"))
+        expect(self.page.locator("#taskMaterialToggle")).to_be_visible()
+        self.page.locator("#taskMaterialToggle").click()
+        expect(self.page.locator("#taskDeliveryWorkspace")).to_have_class(re.compile("is-open"))
+        expect(self.page.locator(".task-continue-actions [data-task-continue-form]")).to_have_count(1)
         self.page.keyboard.press("Escape")
-        expect(self.page.locator("#task-materials")).not_to_have_class(re.compile("is-open"))
+        expect(self.page.locator("#taskDeliveryWorkspace")).not_to_have_class(re.compile("is-open"))
+        expect(self.page.locator(".task-current-heading-tools [data-task-continue-form]")).to_have_count(1)
         self.assertTrue(self.page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1"))
+        self.assert_untouched()
+
+    def test_task_continue_uses_the_shared_confirmation_then_copies_and_opens(self):
+        self.save_fixture()
+        opened = {"opened": True, "label": self.entries[1]["label"], "submitted": False, "model_called": False}
+        with patch.object(self.registry, "open_software", return_value=opened) as launch:
+            self.page.goto(self.base + "/#task/autumn-plan")
+            self.page.locator("[data-task-continue-form] [data-execution-confirm-trigger]").click()
+            dialog = self.page.locator("#executionConfirmDialog")
+            expect(dialog).to_have_attribute("open", "")
+            expect(self.page.locator("#executionConfirmFixed")).to_contain_text("授权边界")
+            expect(self.page.locator("#executionConfirmAction")).to_have_text("继续 · 秋季内容方案")
+            expect(self.page.locator("#executionConfirmExecutor")).to_have_attribute("data-state", "ready")
+            launch.assert_not_called()
+            self.page.locator("#executionTaskInput").fill("只核对资料，不要修改。")
+            self.page.locator("#executionConfirmDispatch").click()
+            expect(self.page.locator(".toast.show")).to_contain_text("已复制并打开")
+            launch.assert_called_once()
+            payload, _ = launch.call_args.args
+            self.assertEqual(set(payload), {"executor_id", "expected_revision", "confirmation"})
+            copied = self.page.evaluate("window.__copies")[-1]
+            self.assertTrue(copied.startswith("## 余烬 · Ember 共享任务提示\n\n### 任务\n\n只核对资料，不要修改。\n\n### 上下文"))
+            self.assertIn("本轮路由：继续所选任务", copied)
+            self.assertFalse(dialog.evaluate("node => node.open"))
         self.assert_untouched()
 
     def test_update_button_shows_the_release_and_a_copyable_prompt(self):

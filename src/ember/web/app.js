@@ -1,13 +1,14 @@
 "use strict";
 
 /* Ember open-source workbench. Page markup follows the Ember workbench and is styled by
-   assets/workbench.css; data comes only from this local workspace through /api. */
+   ember_ui/ (copied verbatim from the workbench, including its shared scripts); data comes only from this
+   local workspace through /api. */
 const app = (() => {
   const main = document.getElementById("main-content");
   const sidebar = document.getElementById("sidebar");
   const dialog = document.getElementById("workbench-dialog");
   const dialogBody = document.getElementById("dialog-body");
-  const state = { data: null, route: "home", id: "", dialogReturn: null, toastTimer: null, preview: null, settings: null, settingsRequest: 0, contextRequest: 0 };
+  const state = { data: null, route: "home", id: "", dialogReturn: null, taskMaterials: null, preview: null, settings: null, settingsRequest: 0, contextRequest: 0 };
   const filters = {
     home: { query: "", project: "", type: "", status: "" },
     review: { query: "", project: "", type: "", status: "", sort: "updated" },
@@ -127,22 +128,13 @@ const app = (() => {
     return result.data;
   }
 
+  /* One toast for the whole page, from ember_ui/ember-ui.js as in the full workbench. */
   function notice(message, error = false) {
-    const node = document.getElementById("notice");
-    clearTimeout(state.toastTimer);
-    node.textContent = message;
-    node.classList.toggle("error", error);
-    node.hidden = false;
-    requestAnimationFrame(() => node.classList.add("show"));
-    state.toastTimer = setTimeout(() => { node.classList.remove("show"); node.hidden = true; }, error ? 9000 : 4500);
+    window.GStudioUI.toast(message, error ? "error" : "info", error ? 9000 : 4500);
   }
 
-  function setMenu(open) {
-    sidebar.classList.toggle("mobile-open", open);
-    const toggle = document.getElementById("menu-toggle");
-    toggle.setAttribute("aria-expanded", String(open));
-    toggle.textContent = open ? "收起" : "菜单";
-  }
+  /* The small-screen toggle and saved section/scroll state are ember_ui/sidebar.js. */
+  function setMenu(open) { sidebar.setMobileOpen(open); }
 
   function openDialog(title, html, variant = "") {
     if (!dialog.open) state.dialogReturn = document.activeElement;
@@ -207,6 +199,7 @@ const app = (() => {
       : [["项目", data().projects.filter(p => p.kind !== "system")], ["系统", data().projects.filter(p => p.kind === "system")]];
     const favoriteItems = data().projects.filter(p => saved.has(p.id));
     document.getElementById("workspace-nav").innerHTML = `${section("收藏项目", favoriteItems, "data-sidebar-favorites").replace('class="sidebar-section"', 'class="sidebar-section sidebar-favorites"').replace(`<div class="sidebar-empty">暂无项目</div>`, `<div class="sidebar-empty">点击项目旁的星标收藏</div>`)}${groups.filter(([, items]) => items.length).map(([name, items]) => section(name, items, `data-work-category-section="${esc(name)}"`)).join("")}`;
+    sidebar.restoreNavigation();
     document.getElementById("workspace-state").textContent = data().workspace_name || "本地工作区";
     document.getElementById("workspace-version").textContent = `版本 ${data().version || ""}`;
     for (const link of document.querySelectorAll("[data-nav]")) {
@@ -231,6 +224,8 @@ const app = (() => {
     state.route = name; state.id = id ? decodeURIComponent(id) : "";
     setMenu(false);
     if (dialog.open) closeDialog();
+    const executionDialog = document.getElementById("executionConfirmDialog");
+    if (executionDialog.open) executionDialog.close();
     if (data()) { renderNav(); renderRoute(); main.focus({ preventScroll: true }); window.scrollTo(0, 0); }
   }
   function go(hash) { if (location.hash === `#${hash}`) route(); else location.hash = hash; }
@@ -573,134 +568,110 @@ const app = (() => {
     }).join("") || `<p class="muted project-task-empty">没有匹配的任务。</p>`;
   }
 
+  /* ---------- 文件预览 ---------- */
+  /* Files in the shape the shared preview renderer (ember_ui/ember-ui.js) takes, so the task page and
+     资料浏览 show previews exactly as the full workbench does. */
+  function previewData(item) {
+    const base = { name: item.name, mime: item.media_type || kindName(item.kind), size: item.bytes, updated_at: item.updated_at || "",
+                   relative_path: item.relative_path, raw_url: `api/preview?id=${encodeURIComponent(item.id)}` };
+    if (typeof item.text === "string") return { ...base, kind: "markdown", body_html: /\.(md|markdown)$/i.test(item.name) ? markdown(item.text) : `<pre class="library-text-preview">${esc(item.text)}</pre>` };
+    return { ...base, kind: item.preview || "file" };
+  }
+  const previewBody = item => window.GStudioPreview.html(previewData(item));
+
   /* ---------- 任务详情 ---------- */
-  /* Same structure as the full workbench: task body on the left; on the right the delivery /
-     input file list, a draggable divider and the preview. Below 1180px the right side is a drawer. */
-  const taskUi = { taskId: "", mode: "delivery", scope: "current", selected: new Set(), folders: new Set(), preview: null, split: 0, open: false };
+  /* Same markup as the full workbench: task body on the left; on the right the delivery / input file
+     list, a draggable divider and the preview, a drawer below 1180px. ember_ui/task-detail.js runs
+     those materials; this page supplies the files, previews and file actions from the local workspace. */
   const folderOf = f => f.id.slice(f.id.indexOf(`/${f.taskId}/`) + f.taskId.length + 2);
-
-  function previewBody(item) {
-    const src = `api/preview?id=${encodeURIComponent(item.id)}`;
-    if (typeof item.text === "string") return /\.(md|markdown)$/i.test(item.name) ? `<article class="article md">${markdown(item.text)}</article>` : `<pre class="library-text-preview">${esc(item.text)}</pre>`;
-    if (item.preview === "image") return `<div class="library-preview-media"><img src="${src}" alt="${esc(item.name)}"></div>`;
-    if (item.preview === "video") return `<div class="library-preview-media"><video src="${src}" controls preload="metadata"></video></div>`;
-    if (item.preview === "audio") return `<div class="library-preview-media"><audio src="${src}" controls preload="metadata"></audio></div>`;
-    if (item.preview === "pdf") return `<div class="library-preview-media"><iframe src="${src}" title="${esc(item.name)}"></iframe></div>`;
-    return `<div class="library-file-info"><h3>${esc(item.name)}</h3><div class="library-file-meta"><span>类型</span><span>${esc(item.media_type || kindName(item.kind))}</span><span>大小</span><span>${bytes(item.bytes)}</span><span>更新时间</span><span>${esc(item.updated_at || "")}</span><span>路径</span><span>${esc(item.relative_path)}</span></div><p class="muted">这类文件不在页面中预览，可用系统应用打开或下载到本机。</p></div>`;
-  }
-  const fileActions = item => `<button class="button" type="button" data-action="reveal" data-id="${esc(item.id)}" data-mode="reveal">Finder 中显示</button><button class="button" type="button" data-action="reveal" data-id="${esc(item.id)}" data-mode="open">系统应用打开</button><button class="button" type="button" data-action="download" data-id="${esc(item.id)}">下载到本机</button>`;
-
-  function deliveryTree(files) {
-    const root = { dirs: {}, files: [] };
-    for (const f of files) {
-      const parts = folderOf(f).split("/");
-      let node = root;
-      for (const part of parts.slice(0, -1)) node = node.dirs[part] ||= { dirs: {}, files: [] };
-      node.files.push(f);
-    }
-    return root;
-  }
-  const treeSize = node => node.files.length + Object.values(node.dirs).reduce((sum, child) => sum + treeSize(child), 0);
-  function treeRows(node, depth, key) {
-    const pad = `data-depth="${depth}"`;
-    const folders = Object.keys(node.dirs).sort().map(name => {
-      const id = `${key}/${name}`, open = taskUi.folders.has(id), child = node.dirs[name];
-      return `<div class="task-delivery-file task-delivery-folder${open ? " expanded" : ""}" ${pad}><button class="task-folder-toggle" type="button" data-action="task-folder" data-id="${esc(id)}" aria-expanded="${open}"><span class="task-folder-caret">›</span><span class="task-folder-icon">📁</span><span class="task-folder-name">${esc(name)}</span><span class="task-folder-count">${treeSize(child)} 项</span></button></div><div class="task-folder-children${open ? " expanded" : ""}">${treeRows(child, depth + 1, id)}</div>`;
-    });
-    const files = [...node.files].sort((a, b) => a.name.localeCompare(b.name)).map(f => `<div class="task-delivery-file${taskUi.preview?.id === f.id ? " previewing" : ""}" ${pad}><input type="checkbox" data-task-file-check="${esc(f.id)}" aria-label="选择 ${esc(f.name)}"${taskUi.selected.has(f.id) ? " checked" : ""}><span>${fileKind(f)}</span><button type="button" data-action="task-preview" data-id="${esc(f.id)}" title="${esc(folderOf(f))}">${esc(f.name)}</button></div>`);
-    return folders.concat(files).join("");
-  }
+  const outputsOf = t => t ? data().files.filter(f => (t.outputs || []).includes(f.id)) : [];
+  const deliveryOf = t => outputsOf(t)[0]?.kind || (t?.artifact_mode === "delivery" ? "draft" : "");
+  const outputAt = (taskId, path) => outputsOf(task(taskId)).find(f => folderOf(f) === path);
+  const fileActions = (item, input) => `<button class="button" type="button" data-action="reveal" data-id="${esc(item.id)}" data-mode="reveal">Finder 中显示</button><button class="button" type="button" data-action="reveal" data-id="${esc(item.id)}" data-mode="open">系统应用打开</button>${input ? "" : `<button class="button" type="button" data-action="download" data-id="${esc(item.id)}">下载到本机</button>`}`;
+  const taskMaterials = {
+    // One directory level of a task's delivery files, or all of them when flat.
+    async directory({ task: taskId, path = "", flat }) {
+      const own = outputsOf(task(taskId)), prefix = path ? `${path}/` : "";
+      const entry = f => ({ name: f.name, relative_path: folderOf(f), is_dir: false, suffix: (f.name.match(/\.[^./]+$/) || [""])[0], updated_at: f.updated_at });
+      if (flat) return { entries: own.map(entry) };
+      const folders = new Set(), files = [];
+      for (const f of own) {
+        const rest = folderOf(f).startsWith(prefix) ? folderOf(f).slice(prefix.length) : null;
+        if (rest === null) continue;
+        if (rest.includes("/")) folders.add(rest.slice(0, rest.indexOf("/"))); else files.push(entry(f));
+      }
+      return { entries: [...[...folders].sort().map(name => ({ name, relative_path: prefix + name, is_dir: true })), ...files.sort((a, b) => a.name.localeCompare(b.name))] };
+    },
+    // Input rows carry the file ID as their path.
+    async preview({ task: taskId, path, input }) {
+      const item = input ? file(path) : outputAt(taskId, path);
+      if (!item) throw new Error("该文件已不在当前工作区，请刷新页面。");
+      return { ...previewData({ ...item, ...(await api(`api/file?id=${encodeURIComponent(item.id)}`)) }), id: item.id };
+    },
+    actions: (data, input) => fileActions(data, input),
+    taskHref: id => `#task/${encodeURIComponent(id)}`,
+  };
 
   function renderTask() {
     const item = task(state.id);
     main.className = "shell app-main task-detail-page paper-management-page";
     if (!item) { main.innerHTML = `<section class="panel task-current-pane"><h1>找不到任务</h1><p>该任务不在当前工作区。</p><a href="#home">返回任务台</a></section>`; return; }
-    if (taskUi.taskId !== item.id) Object.assign(taskUi, { taskId: item.id, mode: "delivery", scope: "current", selected: new Set(), folders: new Set(), preview: null, split: 0, open: false });
     const inputIds = new Set(item.inputs || []);
     const inputs = data().files.filter(f => inputIds.has(f.id));
-    const deliveries = data().files.filter(f => (item.outputs || []).includes(f.id));
+    const delivery = deliveryOf(item);
     const related = item.kind === "task_line" ? (item.related || []).map(task).filter(Boolean) : [];
-    const relatedFiles = related.flatMap(t => data().files.filter(f => (t.outputs || []).includes(f.id)));
-    const hasMaterials = inputs.length + deliveries.length + related.length > 0;
-    for (const id of [...taskUi.selected]) if (!file(id)) taskUi.selected.delete(id);
-    if (taskUi.preview && !file(taskUi.preview.id)) taskUi.preview = null;
+    const hasMaterials = Boolean(delivery || inputs.length || related.length);
     const open = item.status !== "completed";
     const project = item.project === "independent" ? `<span>独立任务</span>` : `<a href="#project/${encodeURIComponent(item.project)}">${esc(projectName(item.project))}</a>`;
     const manage = [open ? `<button type="button" role="menuitem" data-action="edit-task" data-id="${esc(item.id)}">更新任务记录</button><button type="button" role="menuitem" data-action="add-material" data-id="${esc(item.id)}">添加资料</button>${item.artifact_mode === "delivery" ? `<button id="promote-task-button" type="button" role="menuitem" data-action="promote" data-id="${esc(item.id)}">正式交付并完成</button>` : `<button id="complete-task-button" type="button" role="menuitem" data-action="complete" data-id="${esc(item.id)}">完成任务</button>`}` : "", `<button type="button" role="menuitem" data-action="important" data-id="${esc(item.id)}" aria-pressed="${Boolean(item.important)}">${item.important ? "移出重点" : "设为重点"}</button>`].join("");
-    const tools = `${hasMaterials ? `<button class="button ghost task-material-toggle" id="task-material-toggle" type="button" data-action="task-drawer" aria-controls="task-materials" aria-expanded="${taskUi.open}">任务资料</button>` : ""}<details class="task-manage-menu"><summary class="button ghost" aria-label="任务操作">任务操作</summary><div class="task-manage-list" role="menu">${manage}</div></details>${actionKey("task-context", open ? "核对提示词并继续任务" : "基于已完成任务新建", `data-id="${esc(item.id)}"`)}`;
+    const continueLabel = open ? "核对提示词并继续任务" : "基于已完成任务新建";
+    const continueForm = `<form class="action-form" data-task-continue-form data-execution-confirm data-execution-label="${open ? "继续当前任务" : "基于已完成任务新建"}"><input type="hidden" name="task_id" value="${esc(item.id)}"><button class="gstudio-action-trigger" type="submit" data-execution-confirm-trigger aria-label="${continueLabel}" title="${continueLabel}">${actionMark}</button></form>`;
+    const tools = `${hasMaterials ? `<button class="button ghost task-material-toggle" id="taskMaterialToggle" type="button" aria-controls="taskDeliveryWorkspace" aria-expanded="false">任务资料</button>` : ""}<details class="task-manage-menu"><summary class="button ghost" aria-label="任务操作">任务操作</summary><div class="task-manage-list" role="menu">${manage}</div></details>${continueForm}`;
     const section = (title, text) => text ? `<h3>${title}</h3>${markdown(text)}` : "";
-    const relatedList = related.length ? `<details class="task-group-related"><summary class="task-group-related-head"><strong>相关任务</strong><span>${related.length} 项 · 展开</span></summary><div class="task-group-related-list">${related.map(t => `<a class="group-related-row ${esc(t.status)}" href="${taskLink(t)}"><span class="group-related-dot" aria-hidden="true"></span><strong>${esc(t.title)}</strong><span class="group-related-status">${esc(statusNames[t.status] || t.status)}</span><span class="group-related-arrow" aria-hidden="true">›</span></a>`).join("")}</div></details>` : "";
+    const relatedList = related.length ? `<details class="task-group-related" aria-label="相关任务索引"><summary class="task-group-related-head"><strong>相关任务</strong><span>${related.length} 项 · 展开</span></summary><div class="task-group-related-list">${related.map(t => `<a class="group-related-row ${esc(t.status)}" href="${taskLink(t)}"><span class="group-related-dot" aria-hidden="true"></span><strong>${esc(t.title)}</strong><span class="group-related-status">${esc(statusNames[t.status] || t.status)}</span><span class="group-related-arrow" aria-hidden="true">›</span></a>`).join("")}</div></details>` : "";
     const parent = data().tasks.find(t => t.kind === "task_line" && (t.related || []).includes(item.id));
     const technical = `<section class="task-technical-info" aria-label="技术信息"><h3>技术信息</h3><p class="task-technical-summary"><span>Skill ${esc((item.skills_used || []).join("、") || "未记录")}</span><span>执行器 ${esc(executorNames[item.executor] || item.executor || "未记录")}</span></p></section>`;
     const logs = logRows(item.logs || []);
-    const inputRows = inputs.map(f => { const snapshot = f.taskId === item.id && f.kind === "input"; return `<div class="task-input-row${taskUi.preview?.id === f.id ? " previewing" : ""}"><span class="task-input-icon">↳</span><div class="task-input-copy"><button class="task-input-name" type="button" data-action="task-preview" data-id="${esc(f.id)}" title="${esc(f.relative_path)}">${esc(f.name)}</button><span>${snapshot ? "快照" : "引用"} · ${bytes(f.bytes)}${f.purpose ? ` · ${esc(f.purpose)}` : ""}</span></div><button class="button ghost" type="button" data-action="reveal" data-id="${esc(f.id)}" data-mode="reveal">Finder</button></div>`; }).join("");
-    const folderCount = (function count(node) { return Object.values(node.dirs).reduce((sum, child) => sum + 1 + count(child), 0); })(deliveryTree(deliveries));
-    const relatedRows = related.length ? `<div class="task-related-delivery-heading"><strong>关联任务交付</strong><span>${related.length} 个任务目录</span></div>${related.map(t => { const own = relatedFiles.filter(f => f.taskId === t.id), id = `related/${t.id}`, expanded = taskUi.folders.has(id); return own.length ? `<div class="task-delivery-file task-delivery-folder task-related-delivery-root${expanded ? " expanded" : ""}"><button class="task-folder-toggle" type="button" data-action="task-folder" data-id="${esc(id)}" aria-expanded="${expanded}"><span class="task-folder-caret">›</span><span class="task-folder-icon">📁</span><span class="task-folder-name">${esc(t.title)}</span><span class="task-folder-count">${own.length} 个文件</span></button><a href="${taskLink(t)}">任务</a></div><div class="task-folder-children${expanded ? " expanded" : ""}">${treeRows(deliveryTree(own), 1, id)}</div>` : `<div class="task-delivery-file task-related-delivery-root unavailable"><div class="task-folder-toggle"><span class="task-folder-caret">·</span><span class="task-folder-icon">📁</span><span class="task-folder-name">${esc(t.title)}</span><span class="task-folder-count">暂无交付</span></div><a href="${taskLink(t)}">任务</a></div>`; }).join("")}` : "";
-    const inputMode = taskUi.mode === "input";
-    const preview = taskUi.preview;
-    const pane = hasMaterials ? `<button class="task-drawer-backdrop" id="task-drawer-backdrop" type="button" data-action="task-drawer-close" aria-label="关闭任务资料"${taskUi.open ? "" : " hidden"}></button><section class="panel task-delivery-workspace${taskUi.selected.size ? " has-selection" : ""}${taskUi.open ? " is-open" : ""}" id="task-materials" data-file-mode="${taskUi.mode}"><section class="task-delivery-shelf"><header class="task-delivery-head"><div class="task-file-tabs" role="tablist" aria-label="任务文件类型">${[["delivery", "交付文件", `${deliveries.length} 个文件${folderCount ? ` · ${folderCount} 个文件夹` : ""}`], ["input", "输入资料", String(inputs.length)]].map(([id, label, count]) => `<button class="${taskUi.mode === id ? "active" : ""}" type="button" role="tab" data-action="task-files" data-id="${id}" aria-selected="${taskUi.mode === id}" tabindex="${taskUi.mode === id ? 0 : -1}">${label} <span>${count}</span></button>`).join("")}</div><div class="task-delivery-toolbar"><div class="task-delivery-folder-row"><span class="task-file-selection-status">${taskUi.selected.size ? `已选 ${taskUi.selected.size} 个文件` : ""}</span></div><div class="task-delivery-action-row"><button class="button ghost" type="button" data-action="reveal-folder" data-id="${esc(item.id)}" data-folder="input"${inputs.some(f => f.taskId === item.id && f.kind === "input") ? "" : " disabled"}>打开输入目录</button><button class="button ghost" type="button" data-action="reveal-folder" data-id="${esc(item.id)}" data-folder="delivery"${deliveries.length ? "" : " disabled"}>打开任务文件夹</button><div class="task-continue-actions"><div class="task-execution-scope" role="radiogroup" aria-label="执行范围">${[["current", "继续任务"], ["new", "所选文件新建"]].map(([id, label]) => `<button class="${taskUi.scope === id ? "active" : ""}" type="button" role="radio" data-action="task-scope" data-id="${id}" aria-checked="${taskUi.scope === id}" tabindex="${taskUi.scope === id ? 0 : -1}">${label}</button>`).join("")}</div></div><button class="task-drawer-close" type="button" data-action="task-drawer-close" aria-label="关闭任务资料">×</button></div></div></header><div class="task-delivery-files task-file-pane" role="tabpanel"${inputMode ? " hidden" : ""}>${deliveries.length ? treeRows(deliveryTree(deliveries), 0, "own") : `<div class="task-preview-empty">${item.artifact_mode === "delivery" ? "交付文件夹为空。" : "当前任务没有交付文件。"}</div>`}${relatedRows}</div><section class="task-input-panel task-file-pane" role="tabpanel"${inputMode ? "" : " hidden"}><div class="task-input-list">${inputRows || `<div class="task-input-empty">当前任务没有登记输入资料。</div>`}</div></section></section><div class="task-detail-divider" id="task-detail-divider" role="separator" aria-label="调整${inputMode ? "输入资料" : "交付文件"}区高度" aria-orientation="horizontal" aria-valuemin="130" aria-valuenow="${taskUi.split || 190}" tabindex="0"></div><section class="task-file-preview-pane"><header class="task-preview-head"><strong id="task-file-preview-title">${preview ? esc(preview.name) : inputMode ? "输入资料预览" : "交付文件预览"}</strong><div class="task-preview-actions">${preview ? fileActions(preview) : ""}</div></header><div class="task-file-preview" id="task-file-preview">${preview ? previewBody(preview) : `<div class="task-preview-empty">${inputMode ? "选择上方输入资料后在这里预览。" : "选择上方交付文件后在这里预览。"}</div>`}</div></section></section>` : "";
+    const inputRows = inputs.map(f => { const snapshot = f.taskId === item.id && f.kind === "input"; return `<div class="task-input-row"><span class="task-input-icon">↳</span><div class="task-input-copy"><button class="task-input-name" type="button" data-task-input-preview="${esc(f.id)}" title="${esc(f.relative_path)}">${esc(f.name)}</button><span>${snapshot ? "快照" : "引用"} · ${bytes(f.bytes)}${f.purpose ? ` · ${esc(f.purpose)}` : ""}</span></div><button class="button ghost" type="button" data-action="reveal" data-id="${esc(f.id)}" data-mode="reveal">Finder</button></div>`; }).join("");
+    const pane = hasMaterials ? `<button class="task-drawer-backdrop" id="taskDrawerBackdrop" type="button" aria-label="关闭任务资料" hidden></button><section class="panel task-delivery-workspace" id="taskDeliveryWorkspace" data-task-id="${esc(item.id)}" data-delivery="${esc(delivery)}" data-file-mode="delivery">
+        <section class="task-delivery-shelf"><header class="task-delivery-head"><div class="task-file-tabs" role="tablist" aria-label="任务文件类型"><button class="active" id="taskDeliveryTab" type="button" role="tab" aria-selected="true" aria-controls="taskDeliveryFiles" data-task-file-mode="delivery">交付文件 <span id="taskDeliveryCount"></span></button><button id="taskInputTab" type="button" role="tab" aria-selected="false" aria-controls="taskInputPanel" data-task-file-mode="input" tabindex="-1">输入资料 <span>${inputs.length}</span></button></div><div class="task-delivery-toolbar"><div class="task-delivery-folder-row"><span class="task-file-selection-status" id="taskFileSelectionStatus"></span></div><div class="task-delivery-action-row"><button class="button ghost" type="button" data-action="reveal-folder" data-id="${esc(item.id)}" data-folder="input"${inputs.some(f => f.taskId === item.id && f.kind === "input") ? "" : " disabled"}>打开输入目录</button><button class="button ghost" type="button" data-action="reveal-folder" data-id="${esc(item.id)}" data-folder="delivery"${outputsOf(item).length ? "" : " disabled"}>打开任务文件夹</button><div class="task-continue-actions"><div class="task-execution-scope" role="radiogroup" aria-label="执行范围"><input id="taskCreateNew" type="checkbox" hidden><button class="active" type="button" role="radio" data-task-scope="current" aria-checked="true">继续任务</button><button type="button" role="radio" data-task-scope="new" aria-checked="false" tabindex="-1">所选文件新建</button></div></div><button class="task-drawer-close" id="taskDrawerClose" type="button" aria-label="关闭任务资料">×</button></div></div></header><div class="task-delivery-files task-file-pane" id="taskDeliveryFiles" role="tabpanel" aria-labelledby="taskDeliveryTab"><div class="task-preview-empty">${delivery ? "正在读取交付文件…" : "当前任务没有可读取的交付目录。"}</div></div><section class="task-input-panel task-file-pane" id="taskInputPanel" role="tabpanel" aria-labelledby="taskInputTab" hidden><div class="task-input-list">${inputRows || `<div class="task-input-empty">当前任务没有登记输入资料。</div>`}</div></section></section>
+        <div class="task-detail-divider" id="taskDetailDivider" role="separator" aria-label="调整交付文件区高度" aria-orientation="horizontal" aria-valuemin="130" aria-valuenow="190" tabindex="0"></div>
+        <section class="task-file-preview-pane"><header class="task-preview-head"><strong id="taskFilePreviewTitle">交付文件预览</strong><div class="task-preview-actions" id="taskFilePreviewActions"></div></header><div class="task-file-preview" id="taskFilePreview"><div class="task-preview-empty">选择上方交付文件后在这里预览。</div></div></section>
+      </section>` : "";
     main.innerHTML = `<div class="task-detail-workspace ${hasMaterials ? "has-materials" : "no-materials"}"><section class="panel task-current-pane"><header class="task-current-head"><div class="task-current-title-row">${badge(item)}<h1>${esc(item.title)}</h1><div class="task-current-heading-tools">${tools}</div></div><div class="task-current-meta">${project}<span class="task-current-meta-separator">·</span><code class="task-current-id" title="${esc(item.id)}">ID ${esc(item.id)}</code><span class="task-current-meta-separator">·</span><span class="task-current-updated">最近更新 ${esc(stamp(item))}</span></div></header>${parent ? `<div class="task-parent-group-return"><a class="button ghost task-parent-group-link" aria-label="返回任务主线" href="${taskLink(parent)}"><span aria-hidden="true">←</span> 返回任务主线 · ${esc(parent.title)}</a></div>` : ""}<article class="task-current-body article md">${section("任务目标", item.goal)}${section("任务描述", item.description)}${section("当前结果", item.current)}${section("下一步", item.next)}${technical}<section class="task-execution-log" aria-label="执行日志"><h3>执行日志</h3>${logs ? `<ol class="task-log-list">${logs}</ol>` : `<p class="muted">暂无执行日志。</p>`}</section></article>${relatedList}</section>${pane}</div>`;
-    document.body.classList.toggle("task-drawer-open", taskUi.open);
-    // Inline style attributes are blocked by the page's CSP; set indentation through the CSSOM.
-    main.querySelectorAll("[data-depth]").forEach(node => { node.style.paddingLeft = `${5 + Number(node.dataset.depth) * 14}px`; });
-    bindTaskDivider();
-    if (!preview && !inputMode && deliveries.length) {
-      const latest = [...deliveries].sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)))[0];
-      showTaskFile(latest.id).catch(() => {});
-    }
-  }
-
-  async function showTaskFile(id) {
-    const item = file(id);
-    if (!item) throw new Error("该文件已不在当前工作区，请刷新页面。");
-    const node = document.getElementById("task-file-preview");
-    if (node) node.innerHTML = `<div class="task-preview-empty">正在加载…</div>`;
-    const result = await api(`api/file?id=${encodeURIComponent(id)}`);
-    if (state.route !== "task" || taskUi.taskId !== state.id) return;
-    taskUi.preview = { ...item, ...result };
-    const pane = document.getElementById("task-file-preview");
-    if (!pane) return;
-    pane.innerHTML = previewBody(taskUi.preview);
-    document.getElementById("task-file-preview-title").textContent = item.name;
-    pane.closest(".task-file-preview-pane").querySelector(".task-preview-actions").innerHTML = fileActions(taskUi.preview);
-    main.querySelectorAll("#task-materials [data-action=task-preview]").forEach(button => button.closest(".task-delivery-file,.task-input-row")?.classList.toggle("previewing", button.dataset.id === id));
-  }
-
-  function setTaskDrawer(open) {
-    const pane = document.getElementById("task-materials");
-    if (!pane) return;
-    taskUi.open = open && matchMedia("(max-width:1180px)").matches;
-    pane.classList.toggle("is-open", taskUi.open);
-    document.getElementById("task-drawer-backdrop").hidden = !taskUi.open;
-    document.body.classList.toggle("task-drawer-open", taskUi.open);
-    document.getElementById("task-material-toggle")?.setAttribute("aria-expanded", String(taskUi.open));
-    (taskUi.open ? pane.querySelector(".task-drawer-close") : document.getElementById("task-material-toggle"))?.focus();
-  }
-
-  function bindTaskDivider() {
-    const divider = document.getElementById("task-detail-divider"), pane = document.getElementById("task-materials");
-    if (!divider || !pane) return;
-    const setTop = value => {
-      const rect = pane.getBoundingClientRect(), max = Math.max(130, Math.floor(rect.height * .5)), top = Math.max(130, Math.min(max, value));
-      taskUi.split = Math.round(top);
-      pane.style.gridTemplateRows = `${taskUi.split}px 7px minmax(0,1fr)`;
-      divider.setAttribute("aria-valuemax", String(max)); divider.setAttribute("aria-valuenow", String(taskUi.split));
-    };
-    if (taskUi.split) pane.style.gridTemplateRows = `${taskUi.split}px 7px minmax(0,1fr)`;
-    else if (taskUi.mode === "delivery") {
-      const head = pane.querySelector(".task-delivery-head"), list = pane.querySelector(".task-delivery-files");
-      const cap = Math.floor(pane.getBoundingClientRect().height * .4);
-      if (cap > 0) { setTop(Math.min(cap, (head?.offsetHeight || 64) + (list?.scrollHeight || 0) + 4)); taskUi.split = 0; }
-    }
-    divider.addEventListener("pointerdown", event => divider.setPointerCapture(event.pointerId));
-    divider.addEventListener("pointermove", event => { if (divider.hasPointerCapture(event.pointerId)) setTop(event.clientY - pane.getBoundingClientRect().top); });
-    divider.addEventListener("pointerup", event => { if (divider.hasPointerCapture(event.pointerId)) divider.releasePointerCapture(event.pointerId); });
-    divider.addEventListener("keydown", event => {
-      const current = Number(divider.getAttribute("aria-valuenow")) || 190;
-      const next = { ArrowUp: current - 20, ArrowDown: current + 20, Home: 130, End: 10000 }[event.key];
-      if (next === undefined) return;
-      event.preventDefault(); setTop(next);
+    if (hasMaterials) state.taskMaterials = window.EmberTaskDetail.mount(document.getElementById("taskDeliveryWorkspace"), {
+      ...taskMaterials,
+      relatedDeliveries: related.map(t => ({ task_id: t.id, title: t.title, delivery: outputsOf(t).length ? deliveryOf(t) : "", delivery_label: kindName(deliveryOf(t)), status: statusNames[t.status] || t.status })),
     });
+  }
+
+  /* ---------- 确认执行（任务页） ---------- */
+  /* The shared confirmation dialog (ember_ui/execution-confirm.js) asks this page for the prompt:
+     the form's task, selected files and "所选文件新建" become a local context request. After the user
+     confirms, the dialog submits the form; here that means copy the prompt, then open the saved software. */
+  const executionPrompts = new WeakMap();
+  window.GStudioRunner.preview = async form => {
+    const t = task(form.elements.task_id.value);
+    if (!t) throw new Error("该任务已不在当前工作区，请刷新页面。");
+    const fileIds = [...form.querySelectorAll('input[name="selection"]')].map(input => { try { const value = JSON.parse(input.value); return outputAt(value.task_id, value.path)?.id; } catch { return undefined; } }).filter(Boolean);
+    const based = t.status === "completed" || Boolean(form.querySelector('input[name="create_new_task"]'));
+    const request = based ? `基于${t.status === "completed" ? "已完成任务" : "所选文件"}准备新工作：${t.title}` : t.next || `继续推进：${t.title}`;
+    const [prompt, settings] = await Promise.all([api("api/context", { request, relation: based ? "based" : "continue", task_id: t.id, file_ids: fileIds, page: "task" }), api("api/settings")]);
+    const environment = settings.execution_environment, software = environment.executors.find(entry => entry.id === environment.default_executor);
+    executionPrompts.set(form, { prompt, environment });
+    return { fixed_prompt_html: markdown(prompt.fixed), fixed_prompt: prompt.fixed, task: prompt.task, prompt_prefix: prompt.prefix, prompt_suffix: prompt.suffix,
+             title: `${based ? "基于" : "继续"} · ${t.title}`, scope: `任务 ${t.id} · 所选文件 ${fileIds.length} 个`,
+             executor_ready: Boolean(environment.ready && software), executor: environment.default_executor || "", executor_label: software?.label || "", executor_path: software?.path || "", executor_error: environment.error || "" };
+  };
+  async function dispatchExecution(form) {
+    const saved = executionPrompts.get(form), edited = form.elements.task_override?.value.trim() || "";
+    if (!saved?.environment.ready || !edited) { notice("提示词还没有生成，或还没有可用的执行软件。", true); return; }
+    // Two separate results, reported in turn: copying, then opening.
+    if (!(await window.GStudioUI.copyPrompt(saved.prompt.prefix + edited + saved.prompt.suffix))) { notice("复制失败：浏览器没能写入剪贴板，因此没有打开软件。请重新打开确认弹窗，用“复制提示词”手动复制。", true); return; }
+    try {
+      const opened = await api("api/executors/open", { executor_id: saved.environment.default_executor, expected_revision: saved.environment.revision, confirmation: true });
+      notice(`已复制并打开 ${opened.label}。请手工粘贴、发送；没有调用模型。`);
+    } catch (error) { notice(`已复制提示词；打开失败：${error.message}`, true); }
   }
 
   /* ---------- 资料浏览 ---------- */
@@ -968,6 +939,8 @@ const app = (() => {
   }
 
   function renderRoute() {
+    state.taskMaterials?.destroy();
+    state.taskMaterials = null;
     document.body.classList.toggle("paper-management-shell", state.route !== "home");
     const renders = { home: renderHome, projects: renderProjects, project: renderProject, task: renderTask, library: renderLibrary, review: renderReview, settings: renderSettings };
     const render = renders[state.route];
@@ -1090,11 +1063,6 @@ const app = (() => {
       case "project-category": ui.projectCategory = id; renderProjects(); return;
       case "project-tab": filters.project.kind = id; filters.project.query = ""; filters.project.subtype = ""; ui.file = ""; renderProject(); return;
       case "project-task-filter": filters.project.task = id; renderProjectScene(); return;
-      case "task-files": taskUi.mode = id; taskUi.preview = null; taskUi.split = 0; renderTask(); main.querySelector(`[data-action=task-files][data-id="${id}"]`)?.focus(); return;
-      case "task-folder": taskUi.folders.has(id) ? taskUi.folders.delete(id) : taskUi.folders.add(id); renderTask(); main.querySelector(`[data-action=task-folder][data-id="${CSS.escape(id)}"]`)?.focus(); return;
-      case "task-scope": taskUi.scope = id; renderTask(); main.querySelector(`[data-action=task-scope][data-id="${id}"]`)?.focus(); return;
-      case "task-drawer": setTaskDrawer(!taskUi.open); return;
-      case "task-drawer-close": setTaskDrawer(false); return;
       case "library-tab": filters.library.kind = id; filters.library.subtype = ""; ui.file = ""; renderLibrary(); return;
       case "reset-filter": filters[id] = { ...filters[id], query: "", project: "", type: "", status: "" }; renderRoute(); return;
       case "review-filters": ui.reviewFilters = !ui.reviewFilters; renderReview(); return;
@@ -1119,12 +1087,6 @@ const app = (() => {
       case "composer-remove-task": composer.task = ""; renderComposer(); return;
       case "composer-remove-file": composer.files = composer.files.filter(value => value !== id); renderComposer(); return;
       case "composer-remove-attachment": composer.attachments.splice(Number(id), 1); renderComposer(); return;
-      case "task-context": {
-        const t = task(id), based = t.status === "completed" || (taskUi.taskId === id && taskUi.selected.size && taskUi.scope === "new");
-        const fileIds = taskUi.taskId === id ? [...taskUi.selected] : [];
-        setTaskDrawer(false);
-        openConfirm({ page: "task", relation: based ? "based" : "continue", taskId: id, fileIds, request: based ? `基于${t.status === "completed" ? "已完成任务" : "所选文件"}准备新工作：${t.title}` : t.next || `继续推进：${t.title}` }); return;
-      }
       case "project-context": openConfirm({ page: "project", projectId: id, request: `在「${projectName(id)}」中开始一项新工作：先读取${project(id).kind === "system" ? "系统" : "项目"}说明，等待我补充具体要求。` }); return;
       case "files-context": openConfirm({ page: "library", fileIds: [...ui.library], request: "请先核对所选资料，再按我的要求处理：" }); return;
       case "new-report": newReport(); return;
@@ -1162,7 +1124,6 @@ const app = (() => {
     try {
       switch (button.dataset.action) {
         case "file-read": await readFile(id); break;
-        case "task-preview": await showTaskFile(id); break;
         case "reveal": { const opened = await api("api/reveal", { id, mode: button.dataset.mode }); notice(button.dataset.mode === "open" ? `已用系统应用打开 ${opened.opened}。` : `已在 Finder 中显示 ${opened.opened}。`); break; }
         case "reveal-folder": await api("api/reveal", { task_id: id, folder: button.dataset.folder }); notice("已打开文件夹。"); break;
         case "reveal-location": await api("api/reveal", { project: id, location: button.dataset.location }); notice("已打开目录。"); break;
@@ -1216,7 +1177,13 @@ const app = (() => {
     }
   }
 
-  document.addEventListener("submit", event => { const form = event.target.closest("[data-form]"); if (form) { event.preventDefault(); submit(form); } });
+  document.addEventListener("submit", event => {
+    const form = event.target.closest("[data-form]");
+    if (form) { event.preventDefault(); submit(form); return; }
+    // Reached only after the shared confirmation dialog: it intercepts the first submit.
+    const confirmed = event.target.closest("[data-execution-confirm]");
+    if (confirmed) { event.preventDefault(); dispatchExecution(confirmed); }
+  });
   document.addEventListener("click", event => {
     const navigation = event.target.closest('.app-sidebar a[href^="#"]');
     if (navigation) { setMenu(false); if (navigation.hash === location.hash) { main.focus({ preventScroll: true }); window.scrollTo(0, 0); } }
@@ -1265,13 +1232,6 @@ const app = (() => {
       document.getElementById("material-purpose").required = reference;
     }
     if (control.dataset.selectTask) { control.checked ? ui.review.add(control.dataset.selectTask) : ui.review.delete(control.dataset.selectTask); renderReviewSelection(); }
-    else if (control.dataset.taskFileCheck) {
-      control.checked ? taskUi.selected.add(control.dataset.taskFileCheck) : taskUi.selected.delete(control.dataset.taskFileCheck);
-      if (!taskUi.selected.size) taskUi.scope = "current";
-      const pane = document.getElementById("task-materials");
-      pane.classList.toggle("has-selection", taskUi.selected.size > 0);
-      pane.querySelector(".task-file-selection-status").textContent = taskUi.selected.size ? `已选 ${taskUi.selected.size} 个文件` : "";
-    }
     else if (control.dataset.selectFile) { control.checked ? ui.library.add(control.dataset.selectFile) : ui.library.delete(control.dataset.selectFile); control.closest(".library-material-row")?.classList.toggle("selected", control.checked); renderFileSelection(); }
   });
   document.addEventListener("keydown", event => {
@@ -1291,11 +1251,8 @@ const app = (() => {
   });
   document.querySelector(".skip-link").addEventListener("click", event => { event.preventDefault(); main.focus(); });
   document.getElementById("dialog-close").addEventListener("click", closeDialog);
-  document.getElementById("menu-toggle").addEventListener("click", () => setMenu(!sidebar.classList.contains("mobile-open")));
   window.addEventListener("hashchange", route);
   document.addEventListener("keydown", event => { if (event.key === "Escape" && event.target.closest?.("#software-candidates")) { event.preventDefault(); closeFoundSoftware(); document.getElementById("find-software")?.focus(); } });
-  window.addEventListener("keydown", event => { if (event.key === "Escape" && !dialog.open && sidebar.classList.contains("mobile-open")) { setMenu(false); document.getElementById("menu-toggle").focus(); } });
-  window.addEventListener("keydown", event => { if (event.key === "Escape" && !dialog.open && taskUi.open) setTaskDrawer(false); });
   // The task header clips overflow, so the actions menu is placed against the viewport.
   document.addEventListener("toggle", event => {
     const menu = event.target;
@@ -1306,7 +1263,6 @@ const app = (() => {
   }, true);
   window.addEventListener("keydown", event => { if (event.key === "Escape") main.querySelectorAll("details.task-manage-menu[open]").forEach(menu => { menu.open = false; menu.querySelector("summary").focus(); }); });
   window.addEventListener("scroll", () => main.querySelectorAll("details.task-manage-menu[open]").forEach(menu => { menu.open = false; }), true);
-  window.addEventListener("resize", () => { if (taskUi.open && !matchMedia("(max-width:1180px)").matches) setTaskDrawer(false); });
 
   route();
   loadState().catch(error => {

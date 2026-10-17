@@ -1,6 +1,9 @@
-/* Ember open-source additions. Page styling comes from assets/workbench.css (copied from the
+/* Ember open-source additions. Page styling comes from ember_ui/ (copied verbatim from the
    workbench); this file only covers pieces the workbench renders differently: dialogs, forms,
    notices and the composer's local search results. */
+/* The shared stylesheet embeds the display font as data, which this page's font-src policy does
+   not load; the same OFL font file is bundled, and a later identical face takes precedence. */
+@font-face{font-family:"GStudio Display";font-style:normal;font-weight:300;font-display:swap;src:url("fonts/gstudio-display.woff2") format("woff2")}
 .app-main:focus{outline:none}
 [hidden]{display:none!important}
 .settings-page>.settings-hub{width:100%}

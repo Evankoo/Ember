@@ -139,7 +139,7 @@ class Handler(BaseHTTPRequestHandler):
         relative = Path(path.lstrip("/"))
         if any(part in {"..", "."} or part.startswith(".") for part in relative.parts) or "\\" in path:
             raise WorkspaceError("资源路径无效", 404)
-        allowed = path in {"/index.html", "/app.js", "/app.css"} or path.startswith(("/assets/", "/fonts/"))
+        allowed = path in {"/index.html", "/app.js", "/app.css"} or path.startswith(("/assets/", "/fonts/", "/ember_ui/"))
         target = WEB / relative
         if not allowed or not target.resolve().is_relative_to(WEB.resolve()):
             raise WorkspaceError("资源不存在", 404)

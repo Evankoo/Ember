@@ -4,7 +4,7 @@
     python tools/release_check.py --source <workbench checkout>
 
 1. unit and browser tests;
-2. the stylesheet is still the full workbench's (sync_workbench_styles.py --check);
+2. the shared interface files are still the full workbench's (sync_workbench_styles.py --check);
 3. every page still matches the full workbench, apart from the differences listed in
    docs/workbench-parity.json (check_workbench_parity.py, which refreshes the record);
 4. the version is named consistently and the changelog has a section for it.
@@ -38,7 +38,7 @@ def main(argv=None) -> int:
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     results = {
         "测试": step("测试（含浏览器）", [python, "-m", "unittest", "discover", "-s", "tests"]),
-        "样式表": step("样式表与完整版一致", [python, "tools/sync_workbench_styles.py", "--source", str(args.source), "--workbench-url", args.workbench_url, "--check"]),
+        "样式表": step("公共界面文件与完整版一致", [python, "tools/sync_workbench_styles.py", "--source", str(args.source), "--workbench-url", args.workbench_url, "--check"]),
         "界面对照": step("逐页界面对照", [python, "tools/check_workbench_parity.py", "--source", str(args.source), "--workbench-url", args.workbench_url, "--write-record"]),
         "版本说明": bool(re.search(rf"(?m)^## {re.escape(__version__)}[：:]", changelog)) and "## 未发布" not in changelog,
     }
