@@ -19,7 +19,7 @@ function mount(root=document,options={}){
   const saveOrder=options.saveOrder===undefined?slugs=>{const body=new URLSearchParams({csrf,return_to:'/projects'});slugs.forEach(slug=>body.append('project_order',slug));return post('/actions/project-order',body)}:options.saveOrder;
   const saved=options.saved||(()=>location.reload());
   const category=options.category||{read:()=>location.hash.slice(1),write:key=>history.replaceState(null,'',location.pathname+location.search+(key==='all'?'':'#'+key))};
-  const notify=options.notify||((message,type='info')=>window.GStudioUI?.toast?.(message,type,5000));
+  const notify=options.notify||((message,type='info')=>window.EmberUI?.toast?.(message,type,5000));
   const categoryButtons=[...root.querySelectorAll('[data-project-category-filter]')];
   const categoryEmpty=root.querySelector('#projectCategoryEmpty');
   function applyCategory(requested){

@@ -22,7 +22,7 @@ def safe_link(match: re.Match[str]) -> str:
 
 
 def markdown_to_html(markdown: str) -> str:
-    """Render the controlled Markdown subset used by GStudio, escaping raw HTML."""
+    """Render the controlled Markdown subset used by Ember, escaping raw HTML."""
     lines = markdown.splitlines()
     out: list[str] = []
     paragraph: list[str] = []

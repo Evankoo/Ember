@@ -55,7 +55,7 @@ function mount(root=document,options={}){
     const submitter=event.submitter,controller=new AbortController(),revision=++checkEpoch,checkedSignature=signature(),originalLabel=submitter.textContent;
     checkRequest=controller;submitter.disabled=true;submitter.setAttribute('aria-busy','true');submitter.textContent='正在检查…';feedback('正在检查软件路径；不会保存或启动软件。','checking');
     const timer=setTimeout(()=>controller.abort(),10000);
-    try{const data=await check(draft(),controller.signal,submitter);if(revision!==checkEpoch||checkedSignature!==signature())return;feedback('路径检查通过，尚未保存。点击「保存配置」才会生效；登录和模型仍在软件内管理。','checked');window.GStudioUI?.toast(data?.notice||'路径检查通过；没有保存配置。');}
+    try{const data=await check(draft(),controller.signal,submitter);if(revision!==checkEpoch||checkedSignature!==signature())return;feedback('路径检查通过，尚未保存。点击「保存配置」才会生效；登录和模型仍在软件内管理。','checked');window.EmberUI?.toast(data?.notice||'路径检查通过；没有保存配置。');}
     catch(error){if(revision===checkEpoch){feedback(error.name==='AbortError'?'路径检查超时，请重试；当前配置没有改变。':error.message||'路径检查失败，请重试；当前配置没有改变。','error');}}
     finally{clearTimeout(timer);if(checkRequest===controller)checkRequest=null;submitter.disabled=false;submitter.removeAttribute('aria-busy');submitter.textContent=originalLabel;}
   },true);

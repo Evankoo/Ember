@@ -1,6 +1,7 @@
 """Page presenters; data and action helpers supplied by the runtime."""
 from __future__ import annotations
-from .. import gstudio_workbench as runtime
+from .runtime.ember_compat import env as ember_env
+from .. import ember_workbench as runtime
 
 def _render_skills_settings(token: str, notice: str = "", error: str = "") -> str:
     health = runtime.check_skill_health.read_snapshot()
@@ -255,12 +256,12 @@ def render_settings(token: str, notice: str = "", error: str = "") -> str:
             )
 
     agent_id = "material-manager"
-    agent_values, _ = runtime.gstudio_agent.agent_definition(agent_id)
+    agent_values, _ = runtime.ember_agent.agent_definition(agent_id)
     agent_model_order = "".join(
-        f"<span>{runtime.html.escape(label)}: {runtime.html.escape(runtime.gstudio_agent.executor_model_policy(agent_values, executor)['primary_model'])} → {runtime.html.escape(str(agent_values['fallback_model']))}</span>"
+        f"<span>{runtime.html.escape(label)}: {runtime.html.escape(runtime.ember_agent.executor_model_policy(agent_values, executor)['primary_model'])} → {runtime.html.escape(str(agent_values['fallback_model']))}</span>"
         for executor, label in (("opencode", "OpenCode"), ("codex", "Codex"), ("hermes", "Hermes"))
     )
-    agent_entry = runtime.gstudio_agent.agent_registry_entry(agent_id)
+    agent_entry = runtime.ember_agent.agent_registry_entry(agent_id)
     agent_adapters = [value.strip() for value in str(agent_values.get("adapters") or "").split(",") if value.strip()]
     adapter_files = agent_entry.get("adapter_files") if isinstance(agent_entry, dict) else {}
     if not isinstance(adapter_files, dict):
@@ -272,7 +273,7 @@ def render_settings(token: str, notice: str = "", error: str = "") -> str:
         and bool(adapter_files.get(adapter))
         and all((runtime.ROOT / str(path)).is_file() for path in adapter_files[adapter])
     )
-    ledger = runtime.gstudio_agent.read_ledger()
+    ledger = runtime.ember_agent.read_ledger()
     agent_runs = [item for item in ledger.get("runs", []) if isinstance(item, dict) and item.get("agent_id") == agent_id]
     stale_run_count = 0
     now = runtime.datetime.datetime.now(runtime.datetime.timezone.utc)
@@ -283,9 +284,9 @@ def render_settings(token: str, notice: str = "", error: str = "") -> str:
             started_at = runtime.datetime.datetime.fromisoformat(str(run.get("started_at") or ""))
         except ValueError:
             continue
-        if started_at.tzinfo is not None and now - started_at.astimezone(runtime.datetime.timezone.utc) > runtime.gstudio_agent.RUN_AUTHORIZATION_MAX_AGE:
+        if started_at.tzinfo is not None and now - started_at.astimezone(runtime.datetime.timezone.utc) > runtime.ember_agent.RUN_AUTHORIZATION_MAX_AGE:
             stale_run_count += 1
-    installed = (runtime.Path.home() / ".hermes" / "profiles" / agent_id / ".gstudio-agent.json").is_file()
+    installed = (runtime.Path.home() / ".hermes" / "profiles" / agent_id / ".ember-agent.json").is_file()
     install_label = "更新 Hermes 适配器" if installed else "安装 Hermes 适配器"
     categories = [
         {"key": category, "label": label, "count": category_counts[category],
@@ -293,7 +294,7 @@ def render_settings(token: str, notice: str = "", error: str = "") -> str:
         for category, label in category_labels.items() if category_counts.get(category, 0)
     ]
     refresh_form = runtime._form("/actions/refresh-settings-health", token, {"return_to": "/settings"}, "运行健康检查", "button")
-    config_path = runtime.Path(runtime.os.environ.get("GSTUDIO_EXECUTOR_CONFIG") or runtime.local_config_root() / "executors.json")
+    config_path = runtime.Path(runtime.ember_env("EMBER_EXECUTOR_CONFIG") or runtime.local_config_root() / "executors.json")
     saved_settings = runtime.executor_settings.read_settings()
     local_executors = list(saved_settings.get("executors") or [])
     executors = {item["id"]: executors.get(item["id"], {}) for item in local_executors}

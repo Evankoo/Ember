@@ -65,7 +65,7 @@ def command_shell(page: dict) -> str:
             </div>
             <div class="home-results" id="homeTaskResults" role="listbox" aria-label="匹配任务与资料，方向键选择，空格预览" hidden></div>
           </div>
-          <button class="home-confirm-open gstudio-action-trigger" id="homeConfirmOpen" type="submit" aria-label="确认 AI 执行" title="确认 AI 执行（Enter）">{brand_mark_svg()}</button>
+          <button class="home-confirm-open ember-action-trigger" id="homeConfirmOpen" type="submit" aria-label="确认 AI 执行" title="确认 AI 执行（Enter）">{brand_mark_svg()}</button>
         </div>
         <div class="home-entry-context"><div class="home-intent-hint" id="homeIntentHint" hidden></div></div>
         <dialog class="paper-dialog home-task-preview-dialog" id="homeTaskPreviewDialog" aria-labelledby="homeTaskPreviewTitle" tabindex="-1">
@@ -85,7 +85,7 @@ def command_shell(page: dict) -> str:
               </div>
             </div>
           </div>
-          <footer class="execution-confirm-foot home-confirm-foot"><button class="button ghost" id="homePromptCopy" type="button">复制提示词</button><button class="button ghost" id="homeConfirmBack" type="button">返回修改</button><div class="execution-confirm-runner"><span class="execution-confirm-runner-name" id="homeConfirmExecutor" role="status">正在读取设置…</span><a class="button ghost execution-confirm-configure" id="homeConfirmConfigure" href="{_esc(page.get("configure_href", "/settings#execution"))}" hidden>去配置</a><button class="button primary gstudio-execute-key" id="homeDispatchConfirm" type="button" aria-label="确认执行" title="确认执行" disabled>{brand_mark_svg()}</button></div></footer>
+          <footer class="execution-confirm-foot home-confirm-foot"><button class="button ghost" id="homePromptCopy" type="button">复制提示词</button><button class="button ghost" id="homeConfirmBack" type="button">返回修改</button><div class="execution-confirm-runner"><span class="execution-confirm-runner-name" id="homeConfirmExecutor" role="status">正在读取设置…</span><a class="button ghost execution-confirm-configure" id="homeConfirmConfigure" href="{_esc(page.get("configure_href", "/settings#execution"))}" hidden>去配置</a><button class="button primary ember-execute-key" id="homeDispatchConfirm" type="button" aria-label="确认执行" title="确认执行" disabled>{brand_mark_svg()}</button></div></footer>
         </dialog>
       </form>
     </section>'''

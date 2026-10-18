@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Executable GStudio task-card necessity gate."""
+"""Executable Ember task-card necessity gate."""
 from __future__ import annotations
 from ..deployment import runtime_root as _deployment_root
 

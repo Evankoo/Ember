@@ -73,7 +73,7 @@ def render(page: dict) -> str:
     group = page.get("group_action")
     fixed = f' data-fixed-executor="{_esc(group["fixed_executor"])}"' if group and group.get("fixed_executor") else ""
     group_button = (
-        f'<button class="gstudio-action-trigger" id="createOrganizeTaskGroup" type="submit" formaction="{_esc(group["action"])}" data-execution-confirm-trigger{fixed}'
+        f'<button class="ember-action-trigger" id="createOrganizeTaskGroup" type="submit" formaction="{_esc(group["action"])}" data-execution-confirm-trigger{fixed}'
         f' aria-label="提炼任务主线并核对提示词" title="提炼任务主线并核对提示词" hidden disabled>{brand_mark_svg()}</button>'
         if group else ""
     )

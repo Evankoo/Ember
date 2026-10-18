@@ -20,9 +20,9 @@ from .workspace_paths import (
     task_input_snapshot_max_bytes,
     task_inputs_root,
 )
-from .gstudio_task_inputs import parse_inputs
-from . import gstudio_agent
-from . import gstudio_task
+from .ember_task_inputs import parse_inputs
+from . import ember_agent
+from . import ember_task
 
 SHARED_WORKSPACE_ROOT = shared_workspace_root()
 SHARED_TASK_ROOT = SHARED_WORKSPACE_ROOT / "tasks"
@@ -153,7 +153,7 @@ def is_within(path: Path, root: Path) -> bool:
 def task_search_roots() -> list[Path]:
     """Return task roots in priority order.
 
-    iCloud Documents is the canonical GStudio task-card workspace. The local task directory is
+    iCloud Documents is the canonical Ember task-card workspace. The local task directory is
     kept as a legacy/fallback runtime mirror so old cards and transition tasks
     remain readable, but new tasks should be created under SHARED_TASK_ROOT.
     """
@@ -258,9 +258,9 @@ def allowed_artifact(
             (SHARED_WORKSPACE_ROOT / "README.md").resolve(),
             (SHARED_WORKSPACE_ROOT / "管理中心" / "README.md").resolve(),
             (SHARED_WORKSPACE_ROOT / "历史工作区" / "README.md").resolve(),
-            (Path.home() / "Library/LaunchAgents/com.gstudio.task-workbench.plist").resolve(),
-            (Path.home() / "Library/LaunchAgents/com.gstudio.system-sync.plist").resolve(),
-            (Path.home() / "Library/LaunchAgents/com.gstudio.weekly-organization.plist").resolve(),
+            (Path.home() / "Library/LaunchAgents/com.ember.task-workbench.plist").resolve(),
+            (Path.home() / "Library/LaunchAgents/com.ember.system-sync.plist").resolve(),
+            (Path.home() / "Library/LaunchAgents/com.ember.weekly-organization.plist").resolve(),
         }
         shared_system_roots = (
             SHARED_WORKSPACE_ROOT / "项目",
@@ -271,10 +271,10 @@ def allowed_artifact(
             SHARED_TASK_ROOT / "项目索引",
             SHARED_TASK_ROOT / "每周整理",
         )
-        if top_value(task_text, "project") != "GStudio":
+        if top_value(task_text, "project") != "Ember":
             # Schema v2 normalizes the project slug.
             if top_value(task_text, "project") != "gstudio":
-                return False, "--system-change requires project: GStudio or gstudio"
+                return False, "--system-change requires project: Ember or gstudio"
         in_system_root = any(is_within(resolved, root.resolve()) for root in system_roots)
         in_shared_system_root = any(is_within(resolved, root.resolve()) for root in shared_system_roots)
         if not in_system_root and not in_shared_system_root and resolved not in system_files:
@@ -287,13 +287,13 @@ def allowed_artifact(
 
     roots = (*LOCAL_OUTPUT_ROOTS, DELIVERY_ROOT, ARCHIVE_ROOT)
     if not any(is_within(resolved, root.resolve()) for root in roots):
-        return False, "path is outside GStudio runtime, delivery, and archive roots"
+        return False, "path is outside Ember runtime, delivery, and archive roots"
 
     local_runtime = is_within(resolved, ROOT.resolve())
     if local_runtime:
         return (
             False,
-            "local GStudio paths are runtime state, not user delivery; "
+            "local Ember paths are runtime state, not user delivery; "
             "copy reviewable drafts to iCloud 交付/草稿 first",
         )
 
@@ -327,7 +327,7 @@ def allowed_artifact(
                 "草稿/<task_id>/ or 正式交付/<task_id>/",
             )
         else:
-            return False, "artifact must use a declared GStudio delivery subfolder"
+            return False, "artifact must use a declared Ember delivery subfolder"
 
     if not any(value in task_text for value in equivalent_path_strings(resolved)):
         return False, "artifact path is not recorded in the task card"
@@ -355,7 +355,7 @@ def validate_task(task_id: str) -> tuple[Path | None, str, list[str]]:
     # Schema v2 uses eight compact fields. Legacy cards remain readable during
     # migration and are identified by primary_goal/current_stage.
     if re.search(r"^  external_results:", fm, re.MULTILINE):
-        from .gstudio_system_bridge import receipts
+        from .ember_system_bridge import receipts
         try:
             receipts(text)
         except (ValueError, json.JSONDecodeError) as exc:
@@ -433,15 +433,15 @@ def validate_task(task_id: str) -> tuple[Path | None, str, list[str]]:
             artifact_mode = top_value(text, "artifact_mode")
             if artifact_mode and artifact_mode not in ARTIFACT_MODES:
                 errors.append(f"invalid artifact_mode: {artifact_mode!r}")
-            if skills_used and skills_used[0] != "gstudio":
-                errors.append("gstudio_task skills_used must start with gstudio")
+            if skills_used and skills_used[0] not in {"gstudio", "ember"}:
+                errors.append("ember_task skills_used must start with ember (legacy gstudio is accepted)")
             if created_at >= STRUCTURED_BODY_REQUIRED_FROM:
                 errors.extend(task_body_structure_errors(text))
             delivery_folder = nested_value(text, "delivery", "folder")
             delivery_state = nested_value(text, "delivery", "state")
             task_kind = top_value(text, "task_kind")
             if artifact_mode != "delivery" and (delivery_folder or delivery_state):
-                errors.append("non-delivery gstudio_task must not declare delivery fields")
+                errors.append("non-delivery ember_task must not declare delivery fields")
             if task_kind == "task_group":
                 expected = f"交付/草稿/{task_id}/" if top_value(text, "status") != "completed" else f"交付/正式交付/{task_id}/"
                 if artifact_mode != "delivery":
@@ -541,9 +541,9 @@ def validate_task(task_id: str) -> tuple[Path | None, str, list[str]]:
 def sync_workbench_index(*task_paths: Path) -> str:
     """Incrementally refresh selected canonical cards after a successful gate."""
     try:
-        from . import gstudio_task_index_sync
+        from . import ember_task_index_sync
 
-        gstudio_task_index_sync.refresh_tasks(list(task_paths))
+        ember_task_index_sync.refresh_tasks(list(task_paths))
     except Exception as exc:  # pragma: no cover - exact OS/filesystem errors vary.
         return f"workbench sync failed: {type(exc).__name__}: {exc}"
     return ""
@@ -602,7 +602,7 @@ def command_promote_delivery(args: argparse.Namespace) -> int:
         errors.append(f"completed task card already exists; refusing to overwrite: {completed_card}")
 
     if errors:
-        print("GStudio task gate: BLOCKED")
+        print("Ember task gate: BLOCKED")
         for error in errors:
             print(f"- {error}")
         return 1
@@ -613,7 +613,7 @@ def command_promote_delivery(args: argparse.Namespace) -> int:
     revised = _replace_nested_value(revised, "delivery", "state", "final")
     revised = _replace_nested_value(revised, "delivery", "folder", f"交付/正式交付/{args.task_id}/")
     revised = revised.replace(f"/交付/草稿/{args.task_id}/", f"/交付/正式交付/{args.task_id}/")
-    revised = gstudio_task.prepend_execution_log_entry(
+    revised = ember_task.prepend_execution_log_entry(
         revised,
         f"{timestamp}：由整理任务 `{args.organization_task_id}` 执行草稿晋级正式交付并完成任务。",
     )
@@ -634,11 +634,11 @@ def command_promote_delivery(args: argparse.Namespace) -> int:
             task_path.write_text(original_text, encoding="utf-8")
         if formal_folder.exists() and not draft_folder.exists():
             shutil.move(str(formal_folder), str(draft_folder))
-        print("GStudio task gate: BLOCKED")
+        print("Ember task gate: BLOCKED")
         print(f"- promotion rolled back: {type(exc).__name__}: {exc}")
         return 1
 
-    print("GStudio task gate: PROMOTE PASS")
+    print("Ember task gate: PROMOTE PASS")
     print(f"- organization task: {organization_path}")
     print(f"- completed task: {completed_card}")
     print(f"- formal delivery: {formal_folder}")
@@ -674,14 +674,14 @@ def command_complete_task(args: argparse.Namespace) -> int:
     if completed_card.exists():
         errors.append(f"completed task card already exists; refusing to overwrite: {completed_card}")
     if errors:
-        print("GStudio task gate: BLOCKED")
+        print("Ember task gate: BLOCKED")
         for error in errors:
             print(f"- {error}")
         return 1
     timestamp = _beijing_now()
     revised = _replace_top_value(text, "status", "completed")
     revised = _replace_top_value(revised, "updated_at", timestamp)
-    revised = gstudio_task.prepend_execution_log_entry(
+    revised = ember_task.prepend_execution_log_entry(
         revised,
         f"{timestamp}：由整理任务 `{args.organization_task_id}` 确认 `{artifact_mode}` 成果验证完成并收口。",
     )
@@ -697,10 +697,10 @@ def command_complete_task(args: argparse.Namespace) -> int:
             shutil.move(str(completed_card), str(task_path))
         if task_path:
             task_path.write_text(original_text, encoding="utf-8")
-        print("GStudio task gate: BLOCKED")
+        print("Ember task gate: BLOCKED")
         print(f"- completion rolled back: {type(exc).__name__}: {exc}")
         return 1
-    print("GStudio task gate: COMPLETE PASS")
+    print("Ember task gate: COMPLETE PASS")
     print(f"- organization task: {organization_path}")
     print(f"- completed task: {completed_card}")
     return 0
@@ -734,14 +734,14 @@ def command_finalize_weekly_organization(args: argparse.Namespace) -> int:
     completion_report = folder / "03_任务整理完成报告.md"
 
     try:
-        run = gstudio_agent.require_run(
+        run = ember_agent.require_run(
             run_id=args.run_id, mode="task_organization", task_id=args.task_id,
         )
         authorization = run.get("authorization") if isinstance(run.get("authorization"), dict) else {}
         authorized_executor = str(authorization.get("executor") or "")
         if not authorized_executor:
             errors.append("authorized Agent run has no executor identity")
-    except gstudio_agent.AgentError as exc:
+    except ember_agent.AgentError as exc:
         authorized_executor = ""
         errors.append(str(exc))
 
@@ -913,13 +913,13 @@ def command_finalize_weekly_organization(args: argparse.Namespace) -> int:
         errors.append(f"weekly completion report is missing: {completion_report}")
 
     if errors:
-        print("GStudio task gate: BLOCKED")
+        print("Ember task gate: BLOCKED")
         for error in errors:
             print(f"- {error}")
         return 1
 
     if already_completed:
-        print("GStudio task gate: WEEKLY ORGANIZATION FINALIZE PASS (already completed)")
+        print("Ember task gate: WEEKLY ORGANIZATION FINALIZE PASS (already completed)")
         print(f"- completed task: {completed_card}")
         print(f"- formal delivery: {formal_folder}")
         print(f"- completion report: {completion_report}")
@@ -932,7 +932,7 @@ def command_finalize_weekly_organization(args: argparse.Namespace) -> int:
     revised = _replace_nested_value(revised, "delivery", "state", "final")
     revised = _replace_nested_value(revised, "delivery", "folder", f"交付/正式交付/{args.task_id}/")
     revised = revised.replace(f"/交付/草稿/{args.task_id}/", f"/交付/正式交付/{args.task_id}/")
-    revised = gstudio_task.prepend_execution_log_entry(
+    revised = ember_task.prepend_execution_log_entry(
         revised,
         f"{timestamp}：已校验全部确认项执行回执，生成完成报告并收口本周整理。",
     )
@@ -961,11 +961,11 @@ def command_finalize_weekly_organization(args: argparse.Namespace) -> int:
             shutil.move(str(formal_folder), str(draft_folder))
         execution_state.parent.mkdir(parents=True, exist_ok=True)
         execution_state.write_text(original_state, encoding="utf-8")
-        print("GStudio task gate: BLOCKED")
+        print("Ember task gate: BLOCKED")
         print(f"- weekly organization finalization rolled back: {type(exc).__name__}: {exc}")
         return 1
 
-    print("GStudio task gate: WEEKLY ORGANIZATION FINALIZE PASS")
+    print("Ember task gate: WEEKLY ORGANIZATION FINALIZE PASS")
     print(f"- completed task: {completed_card}")
     print(f"- formal delivery: {formal_folder}")
     print(f"- completion report: {formal_folder / completion_report.name}")
@@ -1005,7 +1005,7 @@ def command_reopen_for_revision(args: argparse.Namespace) -> int:
             errors.append(f"revision target must be a delivery artifact inside {formal_folder}: {target}")
 
     if errors:
-        print("GStudio task gate: BLOCKED")
+        print("Ember task gate: BLOCKED")
         for error in errors:
             print(f"- {error}")
         return 1
@@ -1017,7 +1017,7 @@ def command_reopen_for_revision(args: argparse.Namespace) -> int:
         revised = _replace_nested_value(revised, "delivery", "state", "draft")
         revised = _replace_nested_value(revised, "delivery", "folder", f"交付/草稿/{args.task_id}/")
         revised = revised.replace(f"/交付/正式交付/{args.task_id}/", f"/交付/草稿/{args.task_id}/")
-    revised = gstudio_task.prepend_execution_log_entry(
+    revised = ember_task.prepend_execution_log_entry(
         revised,
         f"{timestamp}：正式交付因实质修改重开为草稿。原因：{args.reason.strip()}",
     )
@@ -1039,11 +1039,11 @@ def command_reopen_for_revision(args: argparse.Namespace) -> int:
             task_path.write_text(original_text, encoding="utf-8")
         if artifact_mode == "delivery" and draft_folder.exists() and not formal_folder.exists():
             shutil.move(str(draft_folder), str(formal_folder))
-        print("GStudio task gate: BLOCKED")
+        print("Ember task gate: BLOCKED")
         print(f"- reopen rolled back: {type(exc).__name__}: {exc}")
         return 1
 
-    print("GStudio task gate: REOPEN PASS")
+    print("Ember task gate: REOPEN PASS")
     print(f"- task: {active_card}")
     if artifact_mode == "delivery":
         print(f"- delivery: {draft_folder}")
@@ -1061,11 +1061,11 @@ def command_preflight(args: argparse.Namespace) -> int:
         if sync_error := sync_workbench_index(task_path):
             errors.append(sync_error)
     if errors:
-        print("GStudio task gate: BLOCKED")
+        print("Ember task gate: BLOCKED")
         for error in errors:
             print(f"- {error}")
         return 1
-    print("GStudio task gate: PREFLIGHT PASS")
+    print("Ember task gate: PREFLIGHT PASS")
     print(f"- task: {task_path}")
     return 0
 
@@ -1089,17 +1089,17 @@ def command_finalize(args: argparse.Namespace) -> int:
             errors.append(f"{path}: {reason}")
 
     if errors:
-        print("GStudio task gate: BLOCKED")
+        print("Ember task gate: BLOCKED")
         for error in errors:
             print(f"- {error}")
         return 1
 
     if sync_error := sync_workbench_index(task_path):
-        print("GStudio task gate: BLOCKED")
+        print("Ember task gate: BLOCKED")
         print(f"- {sync_error}")
         return 1
 
-    print("GStudio task gate: FINALIZE PASS")
+    print("Ember task gate: FINALIZE PASS")
     print(f"- task: {task_path}")
     for artifact in args.artifact:
         print(f"- artifact: {artifact}")
@@ -1107,7 +1107,7 @@ def command_finalize(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="GStudio task-card execution gate")
+    parser = argparse.ArgumentParser(description="Ember task-card execution gate")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     preflight = subparsers.add_parser("preflight")

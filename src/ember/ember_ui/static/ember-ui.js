@@ -1,6 +1,6 @@
 /* Shared page helpers: one top-right toast, clipboard copy with a fallback for
    browsers that refuse the async clipboard, and file preview rendering. Page
-   scripts use window.GStudioUI and window.GStudioPreview instead of their own copies. */
+   scripts use window.EmberUI and window.EmberPreview instead of their own copies. */
 (function(){
   const toast = document.createElement('div');
   toast.className = 'toast';
@@ -77,6 +77,6 @@
     img.addEventListener('error',()=>{img.classList.remove('loading');showToast('这一页暂时无法生成预览', 'error', 4000)});
     prev.addEventListener('click',()=>updatePage(page-1));next.addEventListener('click',()=>updatePage(page+1));viewer.querySelector('[data-document-zoom-out]').addEventListener('click',()=>updateZoom(zoom-25));viewer.querySelector('[data-document-zoom-in]').addEventListener('click',()=>updateZoom(zoom+25));viewer.querySelector('[data-document-fit]').addEventListener('click',()=>updateZoom(100));canvas.addEventListener('keydown',event=>{if(event.key==='ArrowLeft'){event.preventDefault();updatePage(page-1)}else if(event.key==='ArrowRight'){event.preventDefault();updatePage(page+1)}});new ResizeObserver(fitPage).observe(canvas);updatePage(1);updateZoom(100);
   }
-  window.GStudioUI={toast:showToast,copyPrompt};
-  window.GStudioPreview={html:previewHtml,bind:bindPreview};
+  window.EmberUI={toast:showToast,copyPrompt};
+  window.EmberPreview={html:previewHtml,bind:bindPreview};
 })();

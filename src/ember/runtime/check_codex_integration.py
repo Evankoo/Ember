@@ -6,7 +6,7 @@ import json
 import sys
 from pathlib import Path
 
-from . import gstudio_agent
+from . import ember_agent
 
 ROOT = _deployment_root()
 MANIFEST = ROOT / "skills" / "manifest.json"
@@ -19,7 +19,7 @@ def main() -> int:
     try:
         manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        print(f"GStudio Codex integration: FAIL\n- cannot read skill manifest: {exc}")
+        print(f"Ember Codex integration: FAIL\n- cannot read skill manifest: {exc}")
         return 1
 
     expected: set[str] = set()
@@ -61,17 +61,17 @@ def main() -> int:
         runtime_agents = {}
         errors.append(f"cannot read runtime Agent registry: {exc}")
     for agent_id in runtime_agents:
-        errors.extend(gstudio_agent.validate_agent(agent_id))
+        errors.extend(ember_agent.validate_agent(agent_id))
 
     if errors:
-        print("GStudio Codex integration: FAIL")
+        print("Ember Codex integration: FAIL")
         for error in errors:
             print(f"- {error}")
         return 1
 
-    print("GStudio Codex integration: PASS")
-    print(f"- {len(expected)} canonical GStudio skills exposed to Codex")
-    print(f"- {len(runtime_agents)} canonical GStudio runtime Agents validated")
+    print("Ember Codex integration: PASS")
+    print(f"- {len(expected)} canonical Ember skills exposed to Codex")
+    print(f"- {len(runtime_agents)} canonical Ember runtime Agents validated")
     print(f"- source of truth: {ROOT / 'skills'}")
     print(f"- discovery layer: {CODEX_SKILLS}")
     return 0

@@ -7,7 +7,7 @@ own export tool and never edits it there.
 - `static/workbench.css`, `static/task-detail.css`: the workbench stylesheet and
   the task detail layout.
 - `static/ember-ui.js`: toast, clipboard copy and file preview rendering
-  (`window.GStudioUI`, `window.GStudioPreview`).
+  (`window.EmberUI`, `window.EmberPreview`).
 - `static/sidebar-state.js`, `static/sidebar.js`: sidebar section/scroll state
   and the small-screen toggle.
 - `static/execution-confirm.js`: the execution confirmation dialog.

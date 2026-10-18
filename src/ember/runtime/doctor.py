@@ -15,8 +15,8 @@ ROOT = _deployment_root()
 from .path_config import archive_root, map_archive_path
 from .workspace_paths import shared_workspace_root
 
-ICLOUD_GSTUDIO_ROOT = shared_workspace_root()
-SHARED_TASK_ROOT = ICLOUD_GSTUDIO_ROOT / "tasks"
+ICLOUD_EMBER_ROOT = shared_workspace_root()
+SHARED_TASK_ROOT = ICLOUD_EMBER_ROOT / "tasks"
 EVAN4T_ROOT = archive_root()
 
 
@@ -134,7 +134,7 @@ def is_active_task(path: Path) -> bool:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="GStudio workspace health check")
+    parser = argparse.ArgumentParser(description="Ember workspace health check")
     parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON only")
     parser.add_argument(
         "--scope",
@@ -158,7 +158,7 @@ def main() -> int:
             findings.append(Finding("FAIL", "conformance", output or "static conformance failed"))
 
     if args.scope in {"all", "paths"}:
-        for name, path in [("iCloud GStudio root", ICLOUD_GSTUDIO_ROOT), ("Evan4T archive root", EVAN4T_ROOT)]:
+        for name, path in [("iCloud Ember root", ICLOUD_EMBER_ROOT), ("Evan4T archive root", EVAN4T_ROOT)]:
             if path.exists() and path.is_dir():
                 findings.append(Finding("PASS", "storage", f"{name} is accessible: {path}"))
             else:
@@ -185,8 +185,8 @@ def main() -> int:
         if args.scope in {"all", "tasks"}:
             if finished_looking and "/active/" in str(task):
                 findings.append(Finding("WARN", "task-location", f"finished-looking task remains active: {rel}", "Review and move to the completed task root when no action remains."))
-            if keys.get("system_boundary") in {"llm", "ebrain"} or "EBrain skill extracted from GStudio" in text or "LLM_WIKI skill extracted from GStudio" in text:
-                findings.append(Finding("WARN", "task-location", f"migrated EBrain task can be closed or ignored by GStudio doctor: {rel}", "Move to completed after verifying the EBrain runtime owns follow-up work."))
+            if keys.get("system_boundary") in {"llm", "ebrain"} or "EBrain skill extracted from Ember" in text or "LLM_WIKI skill extracted from Ember" in text:
+                findings.append(Finding("WARN", "task-location", f"migrated EBrain task can be closed or ignored by Ember doctor: {rel}", "Move to completed after verifying the EBrain runtime owns follow-up work."))
         if args.scope in {"all", "paths"} and is_active_task(task) and not finished_looking:
             for path in sorted(set(extract_abs_paths(fm)), key=str):
                 if str(path).startswith(str(ROOT)):
@@ -206,7 +206,7 @@ def main() -> int:
         for task in tasks:
             text = read(task)
             rel = display_task_path(task)
-            for path in re.findall(r"/Users/(?:buttercup|evan)/GStudio/handoffs/[^\"`\n\s]+", text):
+            for path in re.findall(r"/Users/(?:buttercup|evan)/Ember/handoffs/[^\"`\n\s]+", text):
                 cleaned = path.strip().rstrip(",.]，。；：、)")
                 if cleaned not in handoff_names and not Path(cleaned).exists():
                     findings.append(Finding("WARN", "handoff", f"task references missing handoff: {rel} -> {cleaned}"))
@@ -280,7 +280,7 @@ def main() -> int:
     if args.json:
         print(json.dumps(summary, ensure_ascii=False, indent=2))
     else:
-        print(f"GStudio doctor: {status} ({pass_count} pass, {warn_count} warn, {fail_count} fail)")
+        print(f"Ember doctor: {status} ({pass_count} pass, {warn_count} warn, {fail_count} fail)")
         for finding in findings:
             print(f"[{finding.level}] {finding.check}: {finding.message}")
             if args.fix_suggestions and finding.suggestion:

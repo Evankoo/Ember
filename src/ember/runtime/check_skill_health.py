@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Machine-local health snapshot for registered GStudio Skills."""
+"""Machine-local health snapshot for registered Ember Skills."""
 from __future__ import annotations
+from .ember_compat import env as ember_env
 from ..deployment import runtime_root as _deployment_root
 
 import argparse
@@ -18,7 +19,7 @@ ROOT = _deployment_root()
 MANIFEST_PATH = ROOT / "skills" / "manifest.json"
 EXECUTION_REGISTRY_PATH = ROOT / "config" / "mcp-integrations" / "registry.json"
 SNAPSHOT_PATH = Path(
-    os.environ.get("GSTUDIO_SKILL_HEALTH_PATH")
+    ember_env("EMBER_SKILL_HEALTH_PATH")
     or workspace_paths.local_config_root() / "skill-health.json"
 ).expanduser()
 
@@ -140,9 +141,9 @@ def profile_status(profile: str) -> dict[str, object]:
         if not _service("127.0.0.1", 5244):
             missing.append("AList service")
         return _result("available" if not missing else "unavailable", missing)
-    if profile == "gstudio-task-bridge":
-        script = Path(__file__).with_name("gstudio_mcp_server.py")
-        return _result("available" if script.is_file() else "unavailable", [] if script.is_file() else ["GStudio MCP server"])
+    if profile == "ember-task-bridge":
+        script = Path(__file__).with_name("ember_mcp_server.py")
+        return _result("available" if script.is_file() else "unavailable", [] if script.is_file() else ["Ember MCP server"])
     if profile == "justoneapi-mcp":
         ok = _codex_mcp_configured("justoneapi")
         return _result("available" if ok else "unavailable", [] if ok else ["JustOneAPI MCP connection"])
@@ -207,7 +208,7 @@ def collect_health() -> dict[str, object]:
         }
     return {
         "schema_version": 2,
-        "machine": os.environ.get("GSTUDIO_MACHINE") or os.uname().nodename,
+        "machine": ember_env("EMBER_MACHINE") or os.uname().nodename,
         "checked_at": _now().isoformat(timespec="seconds"),
         "entries": entries,
         "profiles": profiles,
@@ -252,7 +253,7 @@ def load_snapshot(max_age_seconds: int = 900) -> dict[str, object]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check machine-local GStudio Skill health")
+    parser = argparse.ArgumentParser(description="Check machine-local Ember Skill health")
     parser.add_argument("--json", action="store_true", help="Print the full JSON snapshot")
     parser.add_argument("--write", action="store_true", help=f"Write {SNAPSHOT_PATH}")
     args = parser.parse_args()
@@ -263,7 +264,7 @@ def main() -> int:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
         counts = {status: sum(1 for item in payload["entries"].values() if item["status"] == status) for status in ("available", "conditional", "unavailable")}
-        print(f"GStudio Skill health: {counts['available']} available, {counts['conditional']} conditional, {counts['unavailable']} unavailable")
+        print(f"Ember Skill health: {counts['available']} available, {counts['conditional']} conditional, {counts['unavailable']} unavailable")
         print(f"- checked_at: {payload['checked_at']}")
         if args.write:
             print(f"- snapshot: {SNAPSHOT_PATH}")

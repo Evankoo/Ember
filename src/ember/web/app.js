@@ -23,8 +23,8 @@ const app = (() => {
   const file = id => data().files.find(item => item.id === id);
   const projectName = id => id === "independent" ? "独立任务" : project(id)?.name || id || "独立任务";
   const badge = item => `<span class="badge ${esc(item.status)}">${esc(statusNames[item.status] || item.status)}</span>`;
-  const actionMark = brandMark.replace('class="brand-mark"', 'class="gstudio-mark"');
-  const actionKey = (action, label, attrs = "", extra = "") => `<button class="gstudio-action-trigger ${extra}" type="button" data-action="${action}" title="${esc(label)}" aria-label="${esc(label)}" ${attrs}>${actionMark}</button>`;
+  const actionMark = brandMark.replace('class="brand-mark"', 'class="ember-mark"');
+  const actionKey = (action, label, attrs = "", extra = "") => `<button class="ember-action-trigger ${extra}" type="button" data-action="${action}" title="${esc(label)}" aria-label="${esc(label)}" ${attrs}>${actionMark}</button>`;
   const option = (value, name, current) => `<option value="${esc(value)}"${value === current ? " selected" : ""}>${esc(name)}</option>`;
   const projectOptions = (current = "", all = true) => `${all ? option("", "全部项目", current) : ""}${data().projects.map(p => option(p.id, p.name, current)).join("")}${option("independent", "独立任务", current)}`;
   const kindName = kind => ({ input: "输入资料", draft: "草稿交付", formal: "正式交付", inbox: "收件箱" }[kind] || kind);
@@ -93,7 +93,7 @@ const app = (() => {
 
   /* One toast for the whole page, from ember_ui/ember-ui.js as in the full workbench. */
   function notice(message, error = false) {
-    window.GStudioUI.toast(message, error ? "error" : "info", error ? 9000 : 4500);
+    window.EmberUI.toast(message, error ? "error" : "info", error ? 9000 : 4500);
   }
 
   /* The small-screen toggle and saved section/scroll state are ember_ui/sidebar.js. */
@@ -402,7 +402,7 @@ const app = (() => {
   // Two separate results, reported in turn: copying, then opening.
   async function openWithPrompt(text, environment) {
     if (!environment?.ready || !text.trim()) { notice("提示词还没有生成，或还没有可用的执行软件。", true); return; }
-    if (!(await window.GStudioUI.copyPrompt(text))) { notice("复制失败：浏览器没能写入剪贴板，因此没有打开软件。请重新打开确认弹窗，用“复制提示词”手动复制。", true); return; }
+    if (!(await window.EmberUI.copyPrompt(text))) { notice("复制失败：浏览器没能写入剪贴板，因此没有打开软件。请重新打开确认弹窗，用“复制提示词”手动复制。", true); return; }
     try {
       const opened = await api("api/executors/open", { executor_id: environment.default_executor, expected_revision: environment.revision, confirmation: true });
       notice(`已复制并打开 ${opened.label}。请手工粘贴、发送；没有调用模型。`);
@@ -432,7 +432,7 @@ const app = (() => {
     return { payload: { request: "请先核对所选资料，再按我的要求处理：", relation: "new", file_ids: fileIds, page: "library" },
              title: "基于所选资料新建", scope: `所选资料 ${fileIds.length} 项` };
   }
-  window.GStudioRunner.preview = async form => { const request = executionRequest(form); return executionPreview(form, request.payload, request.title, request.scope); };
+  window.EmberRunner.preview = async form => { const request = executionRequest(form); return executionPreview(form, request.payload, request.title, request.scope); };
   function dispatchExecution(form) {
     const saved = executionPrompts.get(form), edited = form.elements.task_override?.value.trim() || "";
     openWithPrompt(saved && edited ? saved.prompt.prefix + edited + saved.prompt.suffix : "", saved?.environment);
@@ -685,7 +685,7 @@ const app = (() => {
   document.addEventListener("click", async event => {
     const button = event.target.closest("[data-project-entry-copy]");
     if (!button) return;
-    const copied = await window.GStudioUI.copyPrompt(button.dataset.projectEntryCopy);
+    const copied = await window.EmberUI.copyPrompt(button.dataset.projectEntryCopy);
     notice(copied ? "入口已复制" : "复制失败，请选择路径或网址手动复制", !copied);
   });
 

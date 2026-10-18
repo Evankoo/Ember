@@ -1,5 +1,6 @@
 """Application entry for explicitly configured full-capability deployments."""
 from __future__ import annotations
+from .runtime.ember_compat import env as ember_env
 
 import importlib
 from contextlib import contextmanager
@@ -21,32 +22,32 @@ RUNTIME_TOOLS = frozenset({
     'copy_board',
     'doctor',
     'ensure_monthly_publish_ledger',
-    'gstudio_agent',
-    'gstudio_archive_backup_audit',
-    'gstudio_archive_index',
-    'gstudio_archive_queue',
-    'gstudio_daily_report',
-    'gstudio_execution_bridge',
-    'gstudio_mcp_server',
-    'gstudio_organization',
+    'ember_agent',
+    'ember_archive_backup_audit',
+    'ember_archive_index',
+    'ember_archive_queue',
+    'ember_daily_report',
+    'ember_execution_bridge',
+    'ember_mcp_server',
+    'ember_organization',
     'gstudio_project',
-    'gstudio_system_sync',
+    'ember_system_sync',
     'gstudio_task',
-    'gstudio_task_index_sync',
-    'gstudio_task_inputs',
-    'gstudio_task_organization',
-    'gstudio_weekly_organization',
-    'gstudio_weekly_report',
-    'gstudio_workbench_service',
-    'gstudio_workspace_layout',
-    'install_gstudio_execution_bridge',
-    'install_gstudio_mcp',
-    'install_gstudio_mount',
-    'install_gstudio_sync',
-    'install_gstudio_task_index_sync',
-    'install_gstudio_webdav',
-    'install_gstudio_weekly_organization',
-    'install_gstudio_workbench',
+    'ember_task_index_sync',
+    'ember_task_inputs',
+    'ember_task_organization',
+    'ember_weekly_organization',
+    'ember_weekly_report',
+    'ember_workbench_service',
+    'ember_workspace_layout',
+    'install_ember_execution_bridge',
+    'install_ember_mcp',
+    'install_ember_mount',
+    'install_ember_sync',
+    'install_ember_task_index_sync',
+    'install_ember_webdav',
+    'install_ember_weekly_organization',
+    'install_ember_workbench',
     'migrate_task_execution_metadata',
     'migrate_task_navigation',
     'migrate_task_titles',
@@ -57,29 +58,32 @@ RUNTIME_TOOLS = frozenset({
 })
 
 
+RUNTIME_TOOLS = RUNTIME_TOOLS | frozenset(name.replace("gstudio", "ember") for name in RUNTIME_TOOLS) | frozenset(name.replace("ember", "gstudio") for name in RUNTIME_TOOLS)
+
 class Application:
     def __init__(self, profile: Path | str):
         deployment = Deployment.load(profile)
         if current_deployment.cache_info().currsize and current_deployment() != deployment:
             raise DeploymentError('A process cannot switch deployment roots after loading application modules.')
         roots = {
-            'GSTUDIO_SHARED_WORKSPACE_ROOT': deployment.shared_root,
-            'GSTUDIO_TASK_INPUTS_ROOT': deployment.shared_root / '任务资料',
-            'GSTUDIO_ARCHIVE_INBOX_ROOT': deployment.inbox_root,
-            'GSTUDIO_PROJECT_ARCHIVE_ROOT': deployment.archive_root,
-            'GSTUDIO_ARCHIVE_ROOT': deployment.archive_root,
-            'GSTUDIO_LOCAL_CONFIG_ROOT': deployment.local_config_root,
+            'EMBER_SHARED_WORKSPACE_ROOT': deployment.shared_root,
+            'EMBER_TASK_INPUTS_ROOT': deployment.shared_root / '任务资料',
+            'EMBER_ARCHIVE_INBOX_ROOT': deployment.inbox_root,
+            'EMBER_PROJECT_ARCHIVE_ROOT': deployment.archive_root,
+            'EMBER_ARCHIVE_ROOT': deployment.archive_root,
+            'EMBER_LOCAL_CONFIG_ROOT': deployment.local_config_root,
         }
         for key, target in roots.items():
-            value = os.environ.get(key)
-            if value and Path(value).expanduser().resolve() != target:
-                raise DeploymentError(f'{key} conflicts with the explicit deployment profile.')
+            for alias in (key, key.replace('EMBER_', 'GSTUDIO_', 1)):
+                value = os.environ.get(alias)
+                if value and Path(value).expanduser().resolve() != target:
+                    raise DeploymentError(f'{alias} conflicts with the explicit deployment profile.')
         if deployment.isolation_root:
-            value = os.environ.get('GSTUDIO_WORKSPACE_INBOX_ROOT')
+            value = ember_env('EMBER_WORKSPACE_INBOX_ROOT')
             if value:
                 path = Path(value).expanduser().resolve()
                 if path != deployment.isolation_root and deployment.isolation_root not in path.parents:
-                    raise DeploymentError('GSTUDIO_WORKSPACE_INBOX_ROOT escapes the isolated deployment.')
+                    raise DeploymentError('EMBER_WORKSPACE_INBOX_ROOT escapes the isolated deployment.')
         os.environ['EMBER_DEPLOYMENT_PROFILE'] = str(deployment.profile)
         self.deployment = current_deployment()
 
@@ -111,8 +115,8 @@ class Application:
         for lifecycle in ('active', 'completed'):
             if not (self.deployment.shared_root / 'tasks' / lifecycle).is_dir():
                 raise DeploymentError('Canonical task directory unavailable; refusing fallback.')
-        from .runtime import gstudio_project, gstudio_task
-        problems = gstudio_project.validate_registry(gstudio_project.load_registry(), require_cards=True)
+        from .runtime import ember_project, ember_task
+        problems = ember_project.validate_registry(ember_project.load_registry(), require_cards=True)
         if problems:
             raise DeploymentError('Project registry validation failed: ' + '; '.join(problems))
         from .tasks import TaskError
@@ -124,7 +128,7 @@ class Application:
         if len(ids) != len(set(ids)):
             raise DeploymentError('Duplicate task IDs in canonical deployment metadata.')
         return {'status': 'ready', 'environment': self.deployment.environment,
-                'projects': len(gstudio_project.load_registry()['projects']), 'tasks': len(records),
+                'projects': len(ember_project.load_registry()['projects']), 'tasks': len(records),
                 'shared_root': str(self.deployment.shared_root), 'production_switch': False}
 
     def run_tool(self, name: str, arguments: list[str]) -> int:
@@ -145,9 +149,9 @@ class Application:
             raise DeploymentError('An isolated candidate cannot claim production or retired trial ports.')
         with self.service_lock():
             self.check()
-            from .runtime import gstudio_task, gstudio_workbench_service
-            gstudio_task.sync_index_records(publish_shared=False)
-            server = gstudio_workbench_service.WorkbenchServer(('127.0.0.1', port))
+            from .runtime import ember_task, ember_workbench_service
+            ember_task.sync_index_records(publish_shared=False)
+            server = ember_workbench_service.WorkbenchServer(('127.0.0.1', port))
             print(json.dumps({'url': f'http://127.0.0.1:{server.server_port}/', 'deployment': str(self.deployment.profile)}, ensure_ascii=False), flush=True)
             try:
                 server.serve_forever()

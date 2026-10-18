@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a proposal-only weekly review for GStudio task cards.
+"""Generate a proposal-only weekly review for Ember task cards.
 
 This command may refresh derived indexes and write a review Markdown file. It
 never edits, closes, or moves canonical task cards.
@@ -17,9 +17,9 @@ from difflib import SequenceMatcher
 from pathlib import Path
 
 ROOT = _deployment_root()
-from . import gstudio_task as tasks
-from . import gstudio_archive_index as archive_index
-from . import gstudio_archive_backup_audit as archive_backup_audit
+from . import ember_task as tasks
+from . import ember_archive_index as archive_index
+from . import ember_archive_backup_audit as archive_backup_audit
 from .workspace_paths import equivalent_path_strings
 
 REVIEW_ROOT = tasks.SHARED_TASK_ROOT / "每周整理"

@@ -33,7 +33,7 @@ PAGE_STYLESHEET = WEB / "assets/workbench-pages.css"
 RECORD = ROOT / "docs/workbench-source.json"
 SOURCE_DIR = "ui/ember_ui"
 COPIED = (".py", ".css", ".js", ".md")
-FONT = WEB / "fonts/gstudio-display.woff2"
+FONT = WEB / "fonts/ember-display.woff2"
 # Machine paths and addresses must never reach the public package. Names that are private to the
 # maintainer (people, machines, internal systems) live in a local file outside the repository.
 FORBIDDEN = ("/Users/", "/Volumes/", "/home/", "192.168.", "10.0.", "file://", "http://", "https://")

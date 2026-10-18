@@ -124,7 +124,7 @@
       "reason": "完整版独有：每周整理"
     },
     {
-      "id": "review:only-local:.gstudio-action-trigger > .gstudio-mark",
+      "id": "review:only-local:.ember-action-trigger > .ember-mark",
       "status": "intentional",
       "reason": "完整版独有：每周整理区的开始整理按钮"
     },
@@ -242,6 +242,36 @@
       "id": "settings:style:.compact-skill-row > .skill-status",
       "status": "intentional",
       "reason": "状态：完整版的能力检测结果过期时，所有 Skill 徽标显示为中性色"
+    },
+    {
+      "id": "task:only-local:.article.md > .md-table",
+      "status": "intentional",
+      "reason": "数据：真实任务正文含Markdown表格，虚构对照任务没有表格；不属于任务结构差异"
+    },
+    {
+      "id": "task:only-core:.panel.task-current-pane > .task-parent-group-return",
+      "status": "intentional",
+      "reason": "数据：虚构任务有任务线关联，当前真实对照任务没有此关联"
+    },
+    {
+      "id": "task:only-core:.task-parent-group-return > .button.ghost.task-parent-group-link",
+      "status": "intentional",
+      "reason": "数据：虚构任务线返回入口随关联出现，真实对照任务没有关联"
+    },
+    {
+      "id": "task-confirm:only-local:.execution-confirm-runner > .button.execution-confirm-configure.ghost",
+      "status": "intentional",
+      "reason": "配置：真实部署缺少已保存执行器时显示配置入口；虚构演示使用预设执行器"
+    },
+    {
+      "id": "task-confirm:style:.execution-confirm-runner > .execution-confirm-runner-name",
+      "status": "intentional",
+      "reason": "配置：真实部署未配置执行器使用提示色和常规字重，虚构演示已配置显示选中名称"
+    },
+    {
+      "id": "settings:only-local:.compact-skill-row > .skill-status.unverified",
+      "status": "intentional",
+      "reason": "状态：新命名Skill尚无本机健康快照时显示待验证，虚构演示使用固定能力状态"
     }
   ],
   "transparent_classes": "^(action-form)$"

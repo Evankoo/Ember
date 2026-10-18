@@ -1,6 +1,6 @@
 """Page presenters; data and action helpers supplied by the runtime."""
 from __future__ import annotations
-from .. import gstudio_workbench as runtime
+from .. import ember_workbench as runtime
 
 def library_document_viewer_html(task_id: str, delivery_key: str, relative_path: str) -> str | None:
     payload = runtime.library_file_preview_payload(task_id, delivery_key, relative_path)

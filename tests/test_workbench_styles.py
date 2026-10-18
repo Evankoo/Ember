@@ -39,7 +39,7 @@ class WorkbenchStyleTests(unittest.TestCase):
         css = self.files["static/workbench.css"].decode("utf-8")
         fonts = re.findall(r"url\(data:font/woff2;base64,([^)]+)\)", css)
         self.assertTrue(fonts)
-        bundled = (WEB / "fonts/gstudio-display.woff2").read_bytes()
+        bundled = (WEB / "fonts/ember-display.woff2").read_bytes()
         for font in fonts:
             self.assertEqual(base64.b64decode(font), bundled)
         self.assertTrue((WEB / "fonts/OFL.txt").is_file())

@@ -91,7 +91,7 @@ def execution_dialog(dialog: dict | None = None) -> str:
             '<div class="execution-confirm-facts"><div class="execution-confirm-fact"><small>选择范围</small><span id="executionConfirmScope">—</span></div></div></aside></div>'
             '<footer class="execution-confirm-foot"><button class="button ghost" id="executionConfirmCopy" type="button" disabled>复制提示词</button><button class="button ghost" id="executionConfirmBack" type="button">返回修改</button>'
             f'<div class="execution-confirm-runner"><span class="execution-confirm-runner-name" id="executionConfirmExecutor" role="status">正在读取设置…</span><a class="button ghost execution-confirm-configure" id="executionConfirmConfigure" href="{_esc(dialog.get("configure_href", "/settings#execution"))}" hidden>去配置</a>'
-            f'<button class="button primary gstudio-execute-key" id="executionConfirmDispatch" type="button" aria-label="确认执行" title="确认执行" disabled>{brand_mark_svg()}</button></div></footer></div></dialog>')
+            f'<button class="button primary ember-execute-key" id="executionConfirmDispatch" type="button" aria-label="确认执行" title="确认执行" disabled>{brand_mark_svg()}</button></div></footer></div></dialog>')
 
 
 def document(page: dict) -> str:

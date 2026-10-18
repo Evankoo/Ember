@@ -11,8 +11,8 @@ from runtime_fixture import make_runtime_fixture
 
 class PackageLauncherTests(unittest.TestCase):
     def test_modules_are_quoted_as_arguments_never_shell(self):
-        self.assertEqual(process.module_command('ember.runtime.gstudio_task','a b;$(x)',python='/path with space/python'),
-                         ['/path with space/python','-m','ember.runtime.gstudio_task','a b;$(x)'])
+        self.assertEqual(process.module_command('ember.runtime.ember_task','a b;$(x)',python='/path with space/python'),
+                         ['/path with space/python','-m','ember.runtime.ember_task','a b;$(x)'])
         with self.assertRaises(ValueError):
             process.module_command('os.system')
 

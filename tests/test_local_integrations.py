@@ -22,26 +22,26 @@ class LocalIntegrationTests(unittest.TestCase):
         self.patch = patch.object(integrations, 'current_deployment', return_value=SimpleNamespace(runtime_root=self.root))
         self.patch.start()
         self.addCleanup(self.patch.stop)
-        self.fullname = 'ember.runtime.gstudio_system_sync'
+        self.fullname = 'ember.runtime.ember_system_sync'
         previous = sys.modules.get(self.fullname)
         self.addCleanup(lambda: sys.modules.pop(self.fullname, None) if previous is None else sys.modules.__setitem__(self.fullname, previous))
         self.write()
 
     def write(self):
-        (self.root / 'integrations/manifest.json').write_text(json.dumps({'schema_version':1,'modules':{'gstudio_system_sync':self.entry}}))
+        (self.root / 'integrations/manifest.json').write_text(json.dumps({'schema_version':1,'modules':{'ember_system_sync':self.entry}}))
 
     def test_explicit_hash_registered_module_can_load(self):
-        self.assertEqual(integrations.load_runtime_extension('gstudio_system_sync').VALUE, 'private only')
+        self.assertEqual(integrations.load_runtime_extension('ember_system_sync').VALUE, 'private only')
 
     def test_missing_configuration_does_not_discover_host_modules(self):
         (self.root / 'integrations/manifest.json').unlink()
         with self.assertRaises(integrations.IntegrationError):
-            integrations.load_runtime_extension('gstudio_system_sync')
+            integrations.load_runtime_extension('ember_system_sync')
 
     def test_tamper_and_unregistered_names_fail_closed(self):
         self.source.write_text('raise AssertionError("must not execute")')
         with self.assertRaises(integrations.IntegrationError):
-            integrations.load_runtime_extension('gstudio_system_sync')
+            integrations.load_runtime_extension('ember_system_sync')
         with self.assertRaises(integrations.IntegrationError):
             integrations.load_runtime_extension('os')
 
@@ -49,10 +49,10 @@ class LocalIntegrationTests(unittest.TestCase):
         self.entry['path'] = '../outside.py'
         self.write()
         with self.assertRaises(integrations.IntegrationError):
-            integrations.load_runtime_extension('gstudio_system_sync')
+            integrations.load_runtime_extension('ember_system_sync')
         link = self.directory / 'escape.py'
         link.symlink_to('/tmp/outside.py')
         self.entry['path'] = 'integrations/private/escape.py'
         self.write()
         with self.assertRaises(integrations.IntegrationError):
-            integrations.load_runtime_extension('gstudio_system_sync')
+            integrations.load_runtime_extension('ember_system_sync')

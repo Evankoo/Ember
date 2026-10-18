@@ -308,7 +308,7 @@ def project_page(snapshot: dict, project_id: str) -> dict | None:
                   "group": item.get("kind") == "task_line", "has_delivery": bool(item.get("outputs")),
                   "search": " ".join(str(item.get(key) or "") for key in ("title", "description", "goal", "id")).casefold()} for item in tasks],
         "materials_html": library_template.pane({"materials": library_materials(snapshot, project_id), "project": (project_id, project["name"]),
-                                                 "forms": LIBRARY_FORMS, "browser": {"sync_url": False, "controller": "GStudioProjectMaterialSwitch"}}),
+                                                 "forms": LIBRARY_FORMS, "browser": {"sync_url": False, "controller": "EmberProjectMaterialSwitch"}}),
     }
 
 

@@ -7,9 +7,9 @@ from pathlib import Path
 import sys
 from .deployment import current_deployment
 
-PRIVATE_RUNTIME_MODULES = frozenset({'gstudio_system_sync', 'install_gstudio_sync',
-                                    'install_gstudio_mount', 'install_gstudio_webdav',
-                                    'gstudio_workspace_layout'})
+PRIVATE_RUNTIME_MODULES = frozenset({'ember_system_sync', 'install_ember_sync',
+                                    'install_ember_mount', 'install_ember_webdav',
+                                    'ember_workspace_layout'})
 
 
 class IntegrationError(RuntimeError):

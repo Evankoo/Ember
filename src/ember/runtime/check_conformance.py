@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 
-from . import gstudio_agent
+from . import ember_agent
 
 ROOT = _deployment_root()
 SKILL_CATEGORIES = {
@@ -72,8 +72,8 @@ def main() -> int:
         "scripts/check_conformance.py",
         "scripts/check_codex_integration.py",
         "scripts/doctor.py",
-        "scripts/gstudio_task.py",
-        "scripts/gstudio_agent.py",
+        "scripts/ember_task.py",
+        "scripts/ember_agent.py",
         "scripts/task_gate.py",
     ]
     for rel in required_root:
@@ -99,7 +99,7 @@ def main() -> int:
     if forbidden_output.exists() and any(forbidden_output.iterdir()):
         errors.append(
             "forbidden non-empty directory: output/ "
-            "(use outputs/drafts/<task_id>/ or the iCloud GStudio delivery root)"
+            "(use outputs/drafts/<task_id>/ or the iCloud Ember delivery root)"
         )
 
     manifest_path = ROOT / "skills/manifest.json"
@@ -217,7 +217,7 @@ def main() -> int:
                 errors.append(f"agent role references unknown local skill: {role} -> {skill_name}")
 
     for agent_id in runtime_agents:
-        errors.extend(gstudio_agent.validate_agent(agent_id))
+        errors.extend(ember_agent.validate_agent(agent_id))
 
     for task_type, route in routing.items():
         owner = route.get("owner")
@@ -241,12 +241,12 @@ def main() -> int:
                 errors.append(f"task route has invalid external Skill reference: {task_type} -> {external_skill}")
 
     if errors:
-        print("GStudio conformance: FAIL")
+        print("Ember conformance: FAIL")
         for error in errors:
             print(f"- {error}")
         return 1
 
-    print("GStudio conformance: PASS")
+    print("Ember conformance: PASS")
     print("Checked root specs, routing roles, runtime Agents, adapters, and Skill catalog.")
     if warnings:
         print(f"Skill structure warnings: {len(warnings)}")

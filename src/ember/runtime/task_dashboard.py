@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render a self-contained local HTML dashboard from GStudio task records."""
+"""Render a self-contained local HTML dashboard from Ember task records."""
 from __future__ import annotations
 from ..deployment import runtime_root as _deployment_root
 

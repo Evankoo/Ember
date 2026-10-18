@@ -1,6 +1,7 @@
 """Page presenters; data and action helpers supplied by the runtime."""
 from __future__ import annotations
-from .. import gstudio_workbench as runtime
+from .runtime.ember_compat import env as ember_env
+from .. import ember_workbench as runtime
 
 def task_overview_data(records: list[dict[str, object]]) -> dict[str, object]:
     """Rows and filter choices for the homepage's read-only, cross-project task browser."""
@@ -54,7 +55,7 @@ def render_task(task_id: str, token: str, notice: str = "", error: str = "", *, 
     return_to = f"/tasks/{runtime.quote(task_id)}"
     delivery = runtime.library_task_delivery(record) or {}
     delivery_key = str(delivery.get("key") or "")
-    is_central = runtime.os.environ.get("GSTUDIO_CENTRAL_MODE") == "1"
+    is_central = runtime.ember_env("EMBER_CENTRAL_MODE") == "1"
     skills = record.get("skills_used") if isinstance(record.get("skills_used"), list) else []
     skill_display = "、".join(str(item) for item in skills if str(item)) or "未记录"
     model_families = record.get("model_families") if isinstance(record.get("model_families"), list) else []
@@ -249,7 +250,7 @@ def render_project_tasks(project: str, token: str) -> str | None:
     if str(item.get("project_type") or "") == "ai_system":
         return runtime._render_system_workspace(project, item, records, token)
     capabilities = set(map(str, item.get("capabilities") or []))
-    has_delivery = "gstudio_delivery" in capabilities
+    has_delivery = "ember_delivery" in capabilities
     return_to = f"/projects/{runtime.quote(project)}"
     if has_delivery:
         material_pane, delivery_count, input_count = runtime.project_material_browser(project, token, return_to)

@@ -4,6 +4,7 @@ The portable workspace CLI does not load a deployment profile. Full capabilities
 require an explicit profile; importing a module never discovers production data.
 """
 from __future__ import annotations
+from .runtime.ember_compat import env as ember_env
 
 from dataclasses import dataclass
 from functools import lru_cache
@@ -67,7 +68,7 @@ class Deployment:
 
 @lru_cache(maxsize=1)
 def current_deployment() -> Deployment:
-    filename = os.environ.get('EMBER_DEPLOYMENT_PROFILE')
+    filename = ember_env('EMBER_DEPLOYMENT_PROFILE')
     if not filename:
         raise DeploymentError('Full capabilities require EMBER_DEPLOYMENT_PROFILE; no production root is inferred.')
     return Deployment.load(filename)

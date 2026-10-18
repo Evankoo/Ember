@@ -13,12 +13,12 @@ class MCPClientConfigurationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary).resolve();profile=make_runtime_fixture(root)
             code='''from pathlib import Path
-from ember.runtime import install_gstudio_mcp as installer
+from ember.runtime import install_ember_mcp as installer
 root=Path.cwd();path=root/'codex/config.toml';path.parent.mkdir();path.write_text('[other]\\nkeep = true\\n')
 installer.CODEX_CONFIG=path
 installer.install_codex();first=path.read_text();installer.install_codex();assert path.read_text()==first
 assert '[other]\\nkeep = true' in first
-assert first.count('[mcp_servers.gstudio]')==1
+assert first.count('[mcp_servers.ember]')==1
 path.write_text('[mcp_servers."gstudio"]\\ncommand = "custom"\\n')
 try:installer.install_codex()
 except RuntimeError:pass
@@ -34,11 +34,11 @@ receipt={'schema_version':1,'profile':str(current_deployment().profile),'directo
 (release/'prepared.json').write_text(json.dumps(receipt))
 client=root/'kimi/.kimi-code/mcp.json';client.parent.mkdir(parents=True)
 expected={'command':str(python),'args':['-m','ember.launch','mcp'],'env':{'EMBER_DEPLOYMENT_PROFILE':str(current_deployment().profile)}}
-client.write_text(json.dumps({'mcpServers':{'gstudio':expected,'unrelated':{'command':'keep'}}}))
+client.write_text(json.dumps({'mcpServers':{'ember':expected,'unrelated':{'command':'keep'}}}))
 installer.install_kimi(root/'kimi')
-updated=json.loads(client.read_text());assert updated['mcpServers']['gstudio']['command']==str(installer.PYTHON)
+updated=json.loads(client.read_text());assert updated['mcpServers']['ember']['command']==str(installer.PYTHON)
 assert updated['mcpServers']['unrelated']=={'command':'keep'}
-expected['command']='/custom/interpreter';client.write_text(json.dumps({'mcpServers':{'gstudio':expected}}))
+expected['command']='/custom/interpreter';client.write_text(json.dumps({'mcpServers':{'ember':expected}}))
 try:installer.install_kimi(root/'kimi')
 except RuntimeError:pass
 else:raise AssertionError('unmanaged interpreter overwritten')

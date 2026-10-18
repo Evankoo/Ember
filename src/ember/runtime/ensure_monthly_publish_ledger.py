@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Ensure monthly publish archive ledger exists for GStudio projects.
+"""Ensure monthly publish archive ledger exists for Ember projects.
 
 The ledger is prepared in a local archive-index mirror, then uploaded through
 project-intake to the matching `bypy:/100项目` target. The local file is not the

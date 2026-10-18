@@ -80,7 +80,7 @@ else:raise AssertionError('duplicate hidden by legacy reader')
 
     def test_common_read_api_and_existing_search_route(self):
         self.run_case('''import threading,urllib.request
-from ember.runtime.gstudio_workbench_service import WorkbenchServer
+from ember.runtime.ember_workbench_service import WorkbenchServer
 server=WorkbenchServer(('127.0.0.1',0))
 thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
 base=f'http://127.0.0.1:{server.server_port}'

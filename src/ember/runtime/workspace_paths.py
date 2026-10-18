@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+from .ember_compat import env as ember_env
 from ..deployment import current_deployment
 from ..deployment import runtime_root as _deployment_root
 
@@ -22,11 +23,11 @@ def _config() -> dict:
 
 def _test_sandbox(name: str) -> Path | None:
     """Unit tests never reach a real shared root unless a test names one explicitly."""
-    if "unittest" not in sys.modules or os.environ.get("GSTUDIO_ALLOW_REAL_ROOTS_IN_TESTS") == "1":
+    if "unittest" not in sys.modules or ember_env("EMBER_ALLOW_REAL_ROOTS_IN_TESTS") == "1":
         return None
     global _TEST_SANDBOX
     if _TEST_SANDBOX is None:
-        _TEST_SANDBOX = Path(tempfile.mkdtemp(prefix="gstudio-test-roots-")).resolve()
+        _TEST_SANDBOX = Path(tempfile.mkdtemp(prefix="ember-test-roots-")).resolve()
         atexit.register(shutil.rmtree, _TEST_SANDBOX, ignore_errors=True)
     path = _TEST_SANDBOX / name
     path.mkdir(exist_ok=True)
@@ -34,7 +35,7 @@ def _test_sandbox(name: str) -> Path | None:
 
 
 def current_environment_name() -> str:
-    return os.environ.get("GSTUDIO_ENVIRONMENT") or current_deployment().environment
+    return ember_env("EMBER_ENVIRONMENT") or current_deployment().environment
 
 
 def current_environment() -> dict:
@@ -44,20 +45,20 @@ def current_environment() -> dict:
         return environments[name]
 
     raise RuntimeError(
-        f"Unregistered GStudio environment: {name!r} (home={Path.home()})"
+        f"Unregistered Ember environment: {name!r} (home={Path.home()})"
     )
 
 
 def shared_workspace_root() -> Path:
     """Return the writable primary root; never silently fall back for writes."""
-    configured = os.environ.get("GSTUDIO_SHARED_WORKSPACE_ROOT")
+    configured = ember_env("EMBER_SHARED_WORKSPACE_ROOT")
     if configured:
         return Path(configured).expanduser()
     return _test_sandbox("shared") or current_deployment().shared_root
 
 
 def readable_shared_workspace_root() -> Path:
-    """Return the registered shared root; GStudio has no secondary fallback."""
+    """Return the registered shared root; Ember has no secondary fallback."""
     return shared_workspace_root()
 
 
@@ -82,21 +83,21 @@ def delivery_root() -> Path:
 
 
 def task_inputs_root() -> Path:
-    configured = os.environ.get("GSTUDIO_TASK_INPUTS_ROOT")
+    configured = ember_env("EMBER_TASK_INPUTS_ROOT")
     if configured:
         return Path(configured).expanduser()
     return _test_sandbox("task-inputs") or (shared_workspace_root() / "任务资料")
 
 
 def task_input_snapshot_max_bytes() -> int:
-    configured = os.environ.get("GSTUDIO_TASK_INPUT_SNAPSHOT_MAX_BYTES")
+    configured = ember_env("EMBER_TASK_INPUT_SNAPSHOT_MAX_BYTES")
     if configured:
         try:
             value = int(configured)
         except ValueError as exc:
-            raise ValueError("GSTUDIO_TASK_INPUT_SNAPSHOT_MAX_BYTES must be an integer") from exc
+            raise ValueError("EMBER_TASK_INPUT_SNAPSHOT_MAX_BYTES must be an integer") from exc
         if value <= 0:
-            raise ValueError("GSTUDIO_TASK_INPUT_SNAPSHOT_MAX_BYTES must be positive")
+            raise ValueError("EMBER_TASK_INPUT_SNAPSHOT_MAX_BYTES must be positive")
         return value
     value = int(current_environment().get("task_input_snapshot_max_bytes") or 209_715_200)
     if value <= 0:
@@ -105,14 +106,14 @@ def task_input_snapshot_max_bytes() -> int:
 
 
 def workspace_inbox_root() -> Path:
-    configured = os.environ.get("GSTUDIO_WORKSPACE_INBOX_ROOT")
+    configured = ember_env("EMBER_WORKSPACE_INBOX_ROOT")
     if configured:
         return Path(configured).expanduser()
     return _test_sandbox("workspace-inbox") or Path(current_environment()["workspace_inbox_root"])
 
 
 def archive_inbox_root() -> Path:
-    configured = os.environ.get("GSTUDIO_ARCHIVE_INBOX_ROOT")
+    configured = ember_env("EMBER_ARCHIVE_INBOX_ROOT")
     if configured:
         return Path(configured).expanduser()
     return _test_sandbox("archive-inbox") or current_deployment().inbox_root
@@ -120,19 +121,19 @@ def archive_inbox_root() -> Path:
 
 def project_archive_root() -> Path:
     """Return the canonical NAS project archive; never fall back locally."""
-    configured = os.environ.get("GSTUDIO_PROJECT_ARCHIVE_ROOT")
+    configured = ember_env("EMBER_PROJECT_ARCHIVE_ROOT")
     if configured:
         return Path(configured).expanduser()
     return _test_sandbox("project-archive") or current_deployment().archive_root
 
 
 def local_config_root() -> Path:
-    configured = os.environ.get("GSTUDIO_LOCAL_CONFIG_ROOT")
+    configured = ember_env("EMBER_LOCAL_CONFIG_ROOT")
     return Path(configured).expanduser() if configured else (_test_sandbox("local-config") or current_deployment().local_config_root)
 
 
 def downloads_root() -> Path:
-    configured = os.environ.get("GSTUDIO_DOWNLOADS_ROOT")
+    configured = ember_env("EMBER_DOWNLOADS_ROOT")
     if configured:
         return Path(configured).expanduser()
     return _test_sandbox("downloads") or Path(current_environment().get("downloads_root") or (Path.home() / "Downloads"))

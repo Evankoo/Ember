@@ -8,12 +8,12 @@ from .package_update import active
 from .process import module_command
 
 SERVICES = {
-    'workbench': 'ember.runtime.gstudio_workbench_service',
-    'task-index': 'ember.runtime.gstudio_task_index_sync',
-    'system-sync': 'ember.runtime.gstudio_system_sync',
-    'weekly': 'ember.runtime.gstudio_weekly_organization',
-    'execution-bridge': 'ember.runtime.gstudio_execution_bridge',
-    'mcp': 'ember.runtime.gstudio_mcp_server',
+    'workbench': 'ember.runtime.ember_workbench_service',
+    'task-index': 'ember.runtime.ember_task_index_sync',
+    'system-sync': 'ember.runtime.ember_system_sync',
+    'weekly': 'ember.runtime.ember_weekly_organization',
+    'execution-bridge': 'ember.runtime.ember_execution_bridge',
+    'mcp': 'ember.runtime.ember_mcp_server',
 }
 
 

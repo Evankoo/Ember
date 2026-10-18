@@ -1,12 +1,12 @@
 """Page presenters; data and action helpers supplied by the runtime."""
 from __future__ import annotations
-from .. import gstudio_workbench as runtime
+from .. import ember_workbench as runtime
 
 def render_agents(token: str, notice: str = "", error: str = "") -> str:
     agent_id = "material-manager"
-    values, _ = runtime.gstudio_agent.agent_definition(agent_id)
-    statuses = runtime.gstudio_agent.executor_status(agent_id)
-    ledger = runtime.gstudio_agent.read_ledger()
+    values, _ = runtime.ember_agent.agent_definition(agent_id)
+    statuses = runtime.ember_agent.executor_status(agent_id)
+    ledger = runtime.ember_agent.read_ledger()
     runs = [
         item for item in ledger.get("runs", [])
         if isinstance(item, dict) and item.get("agent_id") == agent_id
@@ -22,7 +22,7 @@ def render_agents(token: str, notice: str = "", error: str = "") -> str:
     executor_rows: list[str] = []
     for executor, status in statuses.items():
         label, css = state_labels.get(str(status.get("state") or ""), ("未验证", "needs-config"))
-        policy = runtime.gstudio_agent.executor_model_policy(values, executor)
+        policy = runtime.ember_agent.executor_model_policy(values, executor)
         model = policy["primary_model"] if status.get("primary_ready") else policy["fallback_model"] if status.get("fallback_ready") else "未配置"
         executor_rows.append(
             f'''<article class="integration-row"><span class="integration-kind">Agent</span>
@@ -38,7 +38,7 @@ def render_agents(token: str, notice: str = "", error: str = "") -> str:
     install_label = "更新 Hermes 适配器" if installed else "安装 Hermes 适配器"
     mode_reasoning = runtime.html.escape(str(values.get("mode_reasoning") or "未配置"))
     model_order = "；".join(
-        f"{executor_labels[executor]}: {runtime.gstudio_agent.executor_model_policy(values, executor)['primary_model']} → {values['fallback_model']}"
+        f"{executor_labels[executor]}: {runtime.ember_agent.executor_model_policy(values, executor)['primary_model']} → {values['fallback_model']}"
         for executor in executor_labels
     )
     content = runtime.flash_message(notice, error) + f'''<section class="settings-page execution-settings">
@@ -46,7 +46,7 @@ def render_agents(token: str, notice: str = "", error: str = "") -> str:
     <section class="settings-section"><div class="settings-section-head"><div><h2>资料管理员</h2><p>{runtime.html.escape(values['description'])}</p><p>它是受治理流程的后台执行 Agent，不在任务与资料页面提供独立入口；只有归档、来源入库或已确认整理真正进入执行阶段时，系统才会调用。</p></div><span>由流程调用</span></div>
       <article class="panel executor-card"><div class="executor-card-head"><div><h2>material-manager</h2><p>文件管理、项目归档、EBrain 来源原始入库与已确认任务整理</p></div><span class="skill-status available">已启用</span></div>
        <div class="executor-card-facts"><span><small>模型顺序</small>{runtime.html.escape(model_order)}</span><span><small>模式推理</small>{mode_reasoning}</span><span><small>canonical</small>agents/material-manager/AGENT.md</span></div>
-      <div class="model-list"><div class="model-row">普通文件管理 · 余烬 · Ember <code>gstudio</code></div><div class="model-row">项目归档 · 余烬 · Ember <code>project-intake</code></div><div class="model-row">来源入库 · EBrain <code>ebrain-in</code>（外部引用）</div><div class="model-row">已确认任务整理 · 余烬 · Ember <code>gstudio-organization</code></div></div>
+      <div class="model-list"><div class="model-row">普通文件管理 · 余烬 · Ember <code>gstudio</code></div><div class="model-row">项目归档 · 余烬 · Ember <code>project-intake</code></div><div class="model-row">来源入库 · EBrain <code>ebrain-in</code>（外部引用）</div><div class="model-row">已确认任务整理 · 余烬 · Ember <code>ember-organization</code></div></div>
        <div class="settings-overview-actions"><form method="post" action="/actions/agent-install"><input type="hidden" name="csrf" value="{runtime.html.escape(token, quote=True)}"><input type="hidden" name="agent_id" value="material-manager"><input type="hidden" name="return_to" value="/settings/agents"><button class="button" type="submit">{install_label}</button></form><form method="post" action="/actions/agent-verify"><input type="hidden" name="csrf" value="{runtime.html.escape(token, quote=True)}"><input type="hidden" name="agent_id" value="material-manager"><input type="hidden" name="return_to" value="/settings/agents"><button class="button ghost" type="submit">验证 Agent</button></form><form method="post" action="/actions/agent-expire-runs"><input type="hidden" name="csrf" value="{runtime.html.escape(token, quote=True)}"><input type="hidden" name="return_to" value="/settings/agents"><button class="button ghost" type="submit">收口过期运行</button></form></div></article>
     </section>
     <section class="settings-section"><div class="settings-section-head"><div><h2>执行器适配</h2><p>缺少对应执行器的主模型时只允许显式降级到 DeepSeek，不使用执行器默认模型。</p></div></div><div class="integration-table">{''.join(executor_rows)}</div></section>

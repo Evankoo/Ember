@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+from .ember_compat import env as ember_env
 import json
 from ..deployment import runtime_root as _deployment_root
 
@@ -15,14 +16,14 @@ BYPY_ARCHIVE_URI_ROOT = "bypy:/100项目"
 BYPY_DISPLAY_ROOT = "/apps/bypy/100项目"
 
 # Retained only to interpret historical task cards created before 2026-07-14.
-LEGACY_EVAN4T_ARCHIVE_ROOT = Path(os.environ.get("GSTUDIO_LEGACY_ARCHIVE_ROOT", "/nonexistent/legacy-archive"))
+LEGACY_EVAN4T_ARCHIVE_ROOT = Path(ember_env("EMBER_LEGACY_ARCHIVE_ROOT", "/nonexistent/legacy-archive"))
 
 PROJECT_ARCHIVE_NAMES = json.loads((_deployment_root() / "config" / "archive-names.json").read_text())
 
 
 def archive_root() -> Path:
     """Return the canonical NAS project archive root."""
-    configured = os.environ.get("GSTUDIO_ARCHIVE_ROOT")
+    configured = ember_env("EMBER_ARCHIVE_ROOT")
     if configured:
         return Path(configured).expanduser()
 

@@ -96,8 +96,8 @@ class PortableTaskStorage:
 
 class RuntimeTaskStorage:
     def __init__(self):
-        from .runtime import gstudio_task
-        self.reader = gstudio_task
+        from .runtime import ember_task
+        self.reader = ember_task
 
     def records(self) -> list[dict]:
         result = []
@@ -124,12 +124,12 @@ class RuntimeTaskStorage:
         return result
 
     def execute(self, operation: str, task_id: str, payload: dict) -> dict:
-        from .runtime import gstudio_mcp_server, task_gate
+        from .runtime import ember_mcp_server, task_gate
         if operation == 'create':
             required = {'external_system', 'correlation_id', 'title', 'goal'}
             if not required <= payload.keys() or payload.keys() - (required | {'project', 'existing_task_id'}):
                 raise TaskError('Runtime creation requires the existing idempotent ensure contract.')
-            return gstudio_mcp_server.gstudio_task_ensure(external_system=payload['external_system'], correlation_id=payload['correlation_id'],
+            return ember_mcp_server.ember_task_ensure(external_system=payload['external_system'], correlation_id=payload['correlation_id'],
                 title=payload['title'], objective=payload['goal'], project=payload.get('project', 'independent'), existing_task_id=payload.get('existing_task_id', ''))
         if operation == 'update':
             return self._update_result(task_id, payload)
@@ -147,8 +147,8 @@ class RuntimeTaskStorage:
 
     def _update_result(self, task_id: str, payload: dict) -> dict:
         from .runtime import task_gate
-        from .runtime.gstudio_central_store import _locked
-        from .runtime.gstudio_system_bridge import summary
+        from .runtime.ember_central_store import _locked
+        from .runtime.ember_system_bridge import summary
         allowed = {'current', 'next', 'log_entry', 'expected_sha256'}
         if set(payload) - allowed or not any(key in payload for key in ('current', 'next', 'log_entry')):
             raise TaskError('Only bounded current/next/log_entry fields can be updated through this service.')

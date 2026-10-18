@@ -1,6 +1,7 @@
 """Page presenters; data and action helpers supplied by the runtime."""
 from __future__ import annotations
-from .. import gstudio_workbench as runtime
+from .runtime.ember_compat import env as ember_env
+from .. import ember_workbench as runtime
 
 def _context_current_markdown(value: str, *, project: bool = False) -> str:
     """Return only EBrain 2.0's reader-facing current projection."""
@@ -144,7 +145,7 @@ def render_weekly(token: str, notice: str = "", error: str = "", *, mode: str = 
             "status": status_name, "status_label": runtime.STATUS_LABEL.get(status_name, status_name),
             "updated": runtime.format_display_time(record.get("updated_at")) or "未记录", "missing_report": not record.get("report_path"),
         })
-    index_link = runtime._form('/actions/open-organization-center', token, {'return_to':'/review?mode=weekly'}, '整理规则与索引', css='button ghost') if runtime.gstudio_organization.INDEX_PATH.exists() else '<span class="badge waiting_user">首次整理后生成索引</span>'
+    index_link = runtime._form('/actions/open-organization-center', token, {'return_to':'/review?mode=weekly'}, '整理规则与索引', css='button ghost') if runtime.ember_organization.INDEX_PATH.exists() else '<span class="badge waiting_user">首次整理后生成索引</span>'
     page = {
         "stats": {"tasks": len(records), "active": sum(1 for record in records if str(record.get("status") or "") == "active"), "focus": len(focus_ids)},
         "head_html": f'<div class="review-weekly-summary"><span class="review-weekly-label">上周整理</span><div class="weekly-state">{weekly_state}</div>{weekly_action}</div>',
@@ -230,14 +231,14 @@ def render_executors(
             )
 
     checked_at = runtime.html.escape(runtime.format_display_time(str(snapshot.get("checked_at") or "")) or "未记录")
-    config_path = runtime.Path(runtime.os.environ.get("GSTUDIO_EXECUTOR_CONFIG") or runtime.local_config_root() / "executors.json")
+    config_path = runtime.Path(runtime.ember_env("EMBER_EXECUTOR_CONFIG") or runtime.local_config_root() / "executors.json")
     total_integrations = len(integration_rows)
     total_components = len(executor_items) + total_integrations
     total_ready = ready_executors + integration_ready
     total_issues = total_components - total_ready
     executor_hint = (
         "中央工作台默认复制完整提示词；选择在线 Mac 后才通过远程执行桥派发。"
-        if runtime.os.environ.get("GSTUDIO_CENTRAL_MODE") == "1"
+        if runtime.ember_env("EMBER_CENTRAL_MODE") == "1"
         else "执行器负责承接任务，MCP 与工具为具体 Skill 提供外部能力。"
     )
     refresh_form = runtime._form(

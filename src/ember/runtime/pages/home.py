@@ -1,6 +1,6 @@
 """Page presenters; data and action helpers supplied by the runtime."""
 from __future__ import annotations
-from .. import gstudio_workbench as runtime
+from .. import ember_workbench as runtime
 
 def _legacy_render_home(token: str, notice: str = "", error: str = "") -> str:
     records = runtime.collect_records()
