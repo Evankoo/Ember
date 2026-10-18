@@ -1,6 +1,6 @@
 """Page presenters; data and action helpers supplied by the runtime."""
 from __future__ import annotations
-from .runtime.ember_compat import env as ember_env
+from ..ember_compat import env as ember_env
 from .. import ember_workbench as runtime
 
 def task_overview_data(records: list[dict[str, object]]) -> dict[str, object]:

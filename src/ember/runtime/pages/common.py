@@ -1,6 +1,6 @@
 """Page presenters; data and action helpers supplied by the runtime."""
 from __future__ import annotations
-from .runtime.ember_compat import env as ember_env
+from ..ember_compat import env as ember_env
 from .. import ember_workbench as runtime
 
 def _context_current_markdown(value: str, *, project: bool = False) -> str:
