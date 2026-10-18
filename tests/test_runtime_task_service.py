@@ -34,6 +34,8 @@ assert not (app.deployment.runtime_root/'integrations').exists()
 first=app.tasks.execute('create',payload)
 second=app.tasks.execute('create',payload)
 assert first['task_id'] == second['task_id']
+raw=(app.deployment.shared_root/'tasks/active'/f"{first['task_id']}.md").read_text()
+assert 'skills_used:\\n  - ember\\n' in raw
 rows=app.tasks.list(); assert len(rows)==1
 row=rows[0]; assert row['project']=='demo' and row['source']['format']=='gstudio_task'
 assert app.tasks.get(row['id'])['goal']=='验证同一入口'

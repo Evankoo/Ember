@@ -196,7 +196,7 @@ executor: external
 created_at: "{timestamp}"
 updated_at: "{timestamp}"
 skills_used:
-  - gstudio
+  - ember
 artifact_mode: {artifact_mode}
 external:
   system: {json.dumps(external_system)}

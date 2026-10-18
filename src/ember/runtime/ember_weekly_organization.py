@@ -154,7 +154,7 @@ executor: external
 created_at: "{stamp}"
 updated_at: "{stamp}"
 skills_used:
-  - gstudio
+  - ember
   - ember-daily-report
   - ember-organization
 artifact_mode: delivery
