@@ -3,6 +3,60 @@ from __future__ import annotations
 from ..ember_compat import env as ember_env
 from .. import ember_workbench as runtime
 
+def _agent_catalog(token: str) -> tuple[str, int, int, int]:
+    """Render registered Agents without running model checks on a page request."""
+    escape = runtime.html.escape
+    entries = runtime.ember_agent.registry().get("runtime_agents", {})
+    if not isinstance(entries, dict):
+        raise runtime.ember_agent.AgentError("Invalid runtime Agent registry")
+    ledger = runtime.ember_agent.read_ledger()
+    runs = [item for item in ledger.get("runs", []) if isinstance(item, dict)]
+    cards = []
+    ready = total = 0
+    for agent_id, entry in entries.items():
+        try:
+            values, _ = runtime.ember_agent.agent_definition(agent_id)
+        except runtime.ember_agent.AgentError:
+            cards.append(f'<article class="settings-agent-card"><header><h3>{escape(agent_id)}</h3><span class="skill-status unavailable">定义不可读</span></header><p>登记仍在，请检查 Agent 正本；未将读取失败视作未登记。</p></article>')
+            continue
+        adapters = [part.strip() for part in values.get("adapters", "").split(",") if part.strip()]
+        files = entry.get("adapter_files", {}) if isinstance(entry, dict) else {}
+        if not isinstance(files, dict):
+            files = {}
+        registered = sum(bool(files.get(adapter)) and isinstance(files.get(adapter), list)
+                         and all((runtime.ROOT / path).is_file() for path in files[adapter])
+                         for adapter in adapters)
+        ready += registered
+        total += len(adapters)
+        models = []
+        for adapter in adapters:
+            policy = runtime.ember_agent.executor_model_policy(values, adapter)
+            primary = policy["primary_model"]
+            fallback = policy.get("fallback_model", "none")
+            label = "DeepSeek V4.1 Flash" if primary == "deepseek-flash" else primary
+            order = f"{adapter.title() if adapter != 'opencode' else 'OpenCode'} · {label}"
+            if fallback and fallback != "none":
+                order += f" → {fallback}"
+            models.append(f"<span>{escape(order)}</span>")
+        own_runs = [item for item in runs if item.get("agent_id") == agent_id]
+        latest = max((str(item.get("updated_at") or "") for item in own_runs), default="")
+        recent = runtime.format_display_time(latest) if latest else "尚无记录"
+        actions = ""
+        if agent_id == "material-manager":
+            if "hermes" in adapters:
+                installed = (runtime.Path.home() / ".hermes" / "profiles" / agent_id / ".ember-agent.json").is_file()
+                actions += runtime._form("/actions/agent-install", token, {"agent_id": agent_id, "return_to": "/settings#agents"}, "更新 Hermes 适配器" if installed else "安装 Hermes 适配器", "button")
+            actions += runtime._form("/actions/agent-verify", token, {"agent_id": agent_id, "return_to": "/settings#agents"}, "验证 Agent", "button ghost")
+        active = values.get("status") == "active"
+        state = "已登记" if active and registered == len(adapters) and adapters else "适配待核对" if active else "未启用"
+        css = "registered" if state == "已登记" else "needs-config"
+        fallback_note = "无模型回退" if values.get("fallback_model") == "none" else "仅技术失败时允许模型回退"
+        cards.append(f'''<article class="settings-agent-card" data-agent-id="{escape(agent_id, quote=True)}"><header><div><small>{escape(agent_id)}</small><h3>{escape(values.get('display_name') or agent_id)}</h3></div><span class="skill-status {css}">{state}</span></header>
+        <p>{escape(values.get('description') or '用途未登记')}</p><dl><div><dt>执行器与模型</dt><dd class="agent-model-order">{''.join(models) or '未声明'}</dd></div><div><dt>最近运行</dt><dd>{escape(recent)}</dd></div><div><dt>适配登记</dt><dd>{registered}/{len(adapters)} · 按需调用</dd></div></dl>
+        <div class="settings-agent-actions">{actions}</div><small class="agent-verification-note">{fallback_note}。登记不代表实时可用；执行能力按需验证。</small><footer><details><summary>技术信息</summary><code>{escape(str(entry.get('manifest') or ''))}</code></details></footer></article>''')
+    body = ''.join(cards) or '<p class="empty" style="display:block">尚无已登记 Agent。</p>'
+    return body, len(entries), ready, total
+
 def _render_skills_settings(token: str, notice: str = "", error: str = "") -> str:
     health = runtime.check_skill_health.read_snapshot()
     catalog = runtime.skill_catalog()
@@ -255,26 +309,8 @@ def render_settings(token: str, notice: str = "", error: str = "") -> str:
                 <strong>{runtime.html.escape(str(item.get('display_name') or item.get('id')))}</strong><p>{runtime.html.escape(str(item.get('description') or '用途未登记'))}</p>{f'<p class="integration-issue">{runtime.html.escape(presented["detail"])}</p>' if issue else ''}<small>归属 {runtime.html.escape(owner)}</small></article>'''
             )
 
-    agent_id = "material-manager"
-    agent_values, _ = runtime.ember_agent.agent_definition(agent_id)
-    agent_model_order = "".join(
-        f"<span>{runtime.html.escape(label)}: {runtime.html.escape(runtime.ember_agent.executor_model_policy(agent_values, executor)['primary_model'])} → {runtime.html.escape(str(agent_values['fallback_model']))}</span>"
-        for executor, label in (("opencode", "OpenCode"), ("codex", "Codex"), ("hermes", "Hermes"))
-    )
-    agent_entry = runtime.ember_agent.agent_registry_entry(agent_id)
-    agent_adapters = [value.strip() for value in str(agent_values.get("adapters") or "").split(",") if value.strip()]
-    adapter_files = agent_entry.get("adapter_files") if isinstance(agent_entry, dict) else {}
-    if not isinstance(adapter_files, dict):
-        adapter_files = {}
-    agent_ready = sum(
-        1
-        for adapter in agent_adapters
-        if isinstance(adapter_files.get(adapter), list)
-        and bool(adapter_files.get(adapter))
-        and all((runtime.ROOT / str(path)).is_file() for path in adapter_files[adapter])
-    )
+    agent_cards, agent_count, agent_ready, adapter_count = _agent_catalog(token)
     ledger = runtime.ember_agent.read_ledger()
-    agent_runs = [item for item in ledger.get("runs", []) if isinstance(item, dict) and item.get("agent_id") == agent_id]
     stale_run_count = 0
     now = runtime.datetime.datetime.now(runtime.datetime.timezone.utc)
     for run in ledger.get("runs", []):
@@ -286,8 +322,6 @@ def render_settings(token: str, notice: str = "", error: str = "") -> str:
             continue
         if started_at.tzinfo is not None and now - started_at.astimezone(runtime.datetime.timezone.utc) > runtime.ember_agent.RUN_AUTHORIZATION_MAX_AGE:
             stale_run_count += 1
-    installed = (runtime.Path.home() / ".hermes" / "profiles" / agent_id / ".ember-agent.json").is_file()
-    install_label = "更新 Hermes 适配器" if installed else "安装 Hermes 适配器"
     categories = [
         {"key": category, "label": label, "count": category_counts[category],
          "note": f"{category_issues[category]} 待核对" if category_issues.get(category) else "上次检测无异常" if snapshot_state == "stale" else "检测无异常"}
@@ -341,11 +375,11 @@ def render_settings(token: str, notice: str = "", error: str = "") -> str:
 
     {execution_html}
 
-    <section class="settings-health-summary" data-settings-health aria-live="polite"><div class="settings-health-main"><span class="settings-health-state" id="settingsHealthState">正在读取系统状态</span><small id="settingsHealthDetail">检查共享空间、索引、运行源码与核心页面。</small></div><div class="settings-health-metrics"><span><b>{environment_metric}</b> 执行器已安装</span><span><b>{agent_ready}/{len(agent_adapters)}</b> Agent 适配器已登记</span><span><b>{integration_total}</b> 集成已登记</span><span><b>{len(catalog)}</b> Skills</span>{issue_status}</div></section>
+    <section class="settings-health-summary" data-settings-health aria-live="polite"><div class="settings-health-main"><span class="settings-health-state" id="settingsHealthState">正在读取系统状态</span><small id="settingsHealthDetail">检查共享空间、索引、运行源码与核心页面。</small></div><div class="settings-health-metrics"><span><b>{environment_metric}</b> 执行器已安装</span><span><b>{agent_ready}/{adapter_count}</b> Agent 适配器已登记</span><span><b>{integration_total}</b> 集成已登记</span><span><b>{len(catalog)}</b> Skills</span>{issue_status}</div></section>
 
     {runtime.settings_page.skills(skills_data)}
 
-    <section class="settings-catalog-section" id="agents"><div class="settings-section-head"><div><h2>Agents</h2><p>状态、用途、正本和维护动作直接展示。</p></div><span>1 个 Agent · {agent_ready}/{len(agent_adapters)} 适配器已登记</span></div><div class="settings-agent-grid"><article class="settings-agent-card"><header><div><small>RUNTIME AGENT</small><h3>material-manager</h3></div><span class="skill-status registered">已登记</span></header><p>{runtime.html.escape(str(agent_values.get('description') or ''))}</p><dl><div><dt>模型顺序</dt><dd class="agent-model-order">{agent_model_order}</dd></div><div><dt>最近运行</dt><dd>{runtime.html.escape(runtime.format_display_time(str(agent_runs[-1].get('updated_at') or '')) if agent_runs else '尚无记录')}</dd></div><div><dt>主要用途</dt><dd>文件管理、项目归档、EBrain 入库与任务整理</dd></div></dl><div class="settings-agent-actions"><form class="action-form" method="post" action="/actions/agent-install"><input type="hidden" name="csrf" value="{runtime.html.escape(token, quote=True)}"><input type="hidden" name="agent_id" value="material-manager"><input type="hidden" name="return_to" value="/settings#agents"><button class="button" type="submit">{install_label}</button></form><form class="action-form" method="post" action="/actions/agent-verify"><input type="hidden" name="csrf" value="{runtime.html.escape(token, quote=True)}"><input type="hidden" name="agent_id" value="material-manager"><input type="hidden" name="return_to" value="/settings#agents"><button class="button ghost" type="submit">验证 Agent</button></form><form class="action-form" method="post" action="/actions/agent-expire-runs"><input type="hidden" name="csrf" value="{runtime.html.escape(token, quote=True)}"><input type="hidden" name="return_to" value="/settings#agents"><button class="button ghost" type="submit">关闭过期运行记录（{stale_run_count}）</button></form></div><small class="agent-verification-note">适配器已登记，执行能力需按需验证。关闭过期记录保留原始审计历史。</small><footer>正本 <code>agents/material-manager/AGENT.md</code></footer></article></div></section>
+    <section class="settings-catalog-section" id="agents"><div class="settings-section-head"><div><h2>Agents</h2><p>按需工作的执行 Agent；用途与模型分别登记。</p></div><span>{agent_count} 个 Agent · {agent_ready}/{adapter_count} 适配器已登记</span></div><div class="settings-agent-grid">{agent_cards}</div>{runtime._form('/actions/agent-expire-runs', token, {'return_to': '/settings#agents'}, f'关闭过期运行记录（{stale_run_count}）', 'button ghost') if stale_run_count else ''}</section>
 
     <section class="settings-catalog-section" id="integrations" data-capability-snapshot="{snapshot_state}"><div class="settings-section-head"><div><h2>集成能力</h2><p>MCP 与本机工具保持独立登记。</p></div><span>{integration_total} 项已登记 · {integration_issues} 项待核对</span></div><div class="settings-integration-grid">{''.join(integration_cards)}</div></section>
 
