@@ -278,13 +278,28 @@ def executor_status(agent_id: str) -> dict[str, object]:
     values, _ = agent_definition(agent_id)
     adapters = _adapter_paths(agent_id)
 
-    codex = _command_path("codex", [Path("/Applications/ChatGPT.app/Contents/Resources/codex")])
+    if agent_id == "ai-network-guardian":
+        opencode = _command_path("opencode", [Path.home() / ".opencode" / "bin" / "opencode"])
+        models = _run_text([opencode, "models"], timeout=25) if opencode else ""
+        installed = bool(opencode and all(path.is_file() for path in adapters.get("opencode", [])))
+        # Catalog availability is not an authenticated generation/health receipt.
+        ready = installed and "deepseek/deepseek-flash" in models.splitlines()
+        return {"opencode": {
+            "installed": installed, "state": "available" if ready else "needs_configuration",
+            "primary_ready": ready, "fallback_ready": False, "resolved": opencode,
+            "generation_verified": False,
+        }}
+
+    # ChatGPT.app moved its bundled CLI into codex-cli/bin; the older location stays as a fallback.
+    codex = _command_path("codex", [Path("/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex"),
+                                    Path("/Applications/ChatGPT.app/Contents/Resources/codex")])
     codex_ready = bool(codex and all(path.is_file() for path in adapters.get("codex", [])))
 
     opencode = _command_path("opencode", [Path.home() / ".opencode" / "bin" / "opencode"])
     opencode_auth = _run_text([opencode, "auth", "list"]) if opencode else ""
     opencode_policy = executor_model_policy(values, "opencode")
-    opencode_models = _run_text([opencode, "models", opencode_policy["primary_provider"]], timeout=25) if opencode else ""
+    # Current OpenCode prints help for `models <provider>`; list the whole catalog and match provider/model.
+    opencode_models = _run_text([opencode, "models"], timeout=25) if opencode else ""
     opencode_model_id = f"{opencode_policy['primary_provider']}/{opencode_policy['primary_model']}"
     opencode_primary = opencode_model_id in opencode_models.splitlines() and "OpenCode Go" in opencode_auth
     opencode_fallback = "DeepSeek" in opencode_auth or bool(os.environ.get("DEEPSEEK_API_KEY"))
