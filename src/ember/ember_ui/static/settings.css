@@ -30,6 +30,8 @@
 @media(max-width:650px){.settings-dependency-summary{padding:10px 12px}.settings-dependency-row{align-items:flex-start;flex-direction:column;gap:6px}}
 
 /* Simplified settings (full workbench): one status bar, technical facts in 技术信息, the Skill inventory behind 查看全部. */
+/* An auto-margined grid item shrinks to its content; keep the hub at full width now that the inventory starts collapsed. */
+.settings-hub{width:100%}
 .settings-health-metrics{gap:12px}.settings-health-metrics>small{color:var(--muted);font-size:10px}.settings-health-metrics form{margin:0}.settings-health-metrics .settings-attention-link,.settings-health-metrics .settings-ready-label{margin-left:0;font-size:10px}
 .settings-health-main small[hidden]{display:none}
 .settings-tech-detail{min-width:0;color:var(--muted);font-size:9px}.settings-tech-detail>summary{width:max-content;cursor:pointer;color:var(--muted);font-size:9px}.settings-tech-detail[open]>summary{margin-bottom:5px}
