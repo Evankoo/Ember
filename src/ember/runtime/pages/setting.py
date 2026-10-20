@@ -4,7 +4,7 @@ from ..ember_compat import env as ember_env
 from .. import ember_workbench as runtime
 
 def _agent_catalog(token: str) -> tuple[str, int, int, int]:
-    """Render registered Agents without running model checks on a page request."""
+    """Render registered Agents without running model checks; model order, adapters and manifest stay in 技术信息."""
     escape = runtime.html.escape
     entries = runtime.ember_agent.registry().get("runtime_agents", {})
     if not isinstance(entries, dict):
@@ -53,8 +53,8 @@ def _agent_catalog(token: str) -> tuple[str, int, int, int]:
         fallback_note = "无模型回退" if values.get("fallback_model") == "none" else "仅技术失败时允许模型回退"
         actions_html = f'<div class="settings-agent-actions">{actions}</div>' if actions else ""
         cards.append(f'''<article class="settings-agent-card" data-agent-id="{escape(agent_id, quote=True)}"><header><div><h3>{escape(values.get('display_name') or agent_id)}</h3></div><span class="skill-status {css}">{state}</span></header>
-        <p>{escape(values.get('description') or '用途未登记')}</p><dl><div><dt>执行器与模型</dt><dd class="agent-model-order">{''.join(models) or '未声明'}</dd></div><div><dt>最近运行</dt><dd>{escape(recent)}</dd></div><div><dt>适配登记</dt><dd>{registered}/{len(adapters)} · {fallback_note}</dd></div></dl>
-        {actions_html}<footer><details><summary>技术信息</summary><code>{escape(str(entry.get('manifest') or ''))}</code></details></footer></article>''')
+        <p>{escape(values.get('description') or '用途未登记')}</p><small class="settings-agent-meta">最近运行 {escape(recent)}</small>
+        {actions_html}<footer><details class="settings-tech-detail"><summary>技术信息</summary><dl><div><dt>执行器与模型</dt><dd class="agent-model-order">{''.join(models) or '未声明'}</dd></div><div><dt>适配登记</dt><dd>{registered}/{len(adapters)} · {fallback_note}</dd></div><div><dt>正本</dt><dd><code>{escape(str(entry.get('manifest') or ''))}</code></dd></div></dl></details></footer></article>''')
     body = ''.join(cards) or '<p class="empty" style="display:block">尚无已登记 Agent。</p>'
     return body, len(entries), ready, total
 
@@ -223,14 +223,41 @@ def _render_skills_settings(token: str, notice: str = "", error: str = "") -> st
     return runtime._layout("Skills", content, token)
 
 
+SETTINGS_HEALTH_SCRIPT = r'''<script>(()=>{
+      const summary=document.querySelector('[data-settings-health]'),state=document.getElementById('settingsHealthState'),detail=document.getElementById('settingsHealthDetail');
+      if(!summary||!state||!detail)return;
+      const maxReads=6,retryDelay=2000;let reads=0;
+      const indexUpdating=item=>['stale','refreshing'].includes(item.state)||item.refreshing===true;
+      const show=parts=>{detail.textContent=parts.join(' · ');detail.hidden=!parts.length};
+      async function readHealth(){
+        if(!summary.isConnected)return;
+        reads++;
+        try{
+          const response=await fetch('/health',{headers:{Accept:'application/json'},signal:AbortSignal.timeout(5000)});
+          if(!response.ok)throw new Error('health request failed');
+          const payload=await response.json(),readiness=payload.readiness||{},checks=readiness.checks||{},ready=readiness.status==='ready';
+          const root=checks.shared_root||{},task=checks.task_index||{},search=checks.home_search_index||{},source=checks.runtime_source||{},routes=checks.page_routes||{};
+          const updating=indexUpdating(task)||indexUpdating(search),otherIssue=!root.available||source.state!=='ready'||(!indexUpdating(task)&&!['ok','ready'].includes(task.state))||(!indexUpdating(search)&&search.state!=='ready')||['stalled','error'].includes(routes.state)||checks.pdf_preview&&checks.pdf_preview.state!=='ready';
+          summary.dataset.healthState=ready?'ready':updating&&!otherIssue?'updating':'degraded';
+          state.textContent=ready?'系统运行正常':updating&&!otherIssue?'索引更新中':'系统部分能力异常';
+          // Only what needs attention is listed; a healthy system shows the state alone.
+          const parts=[];
+          if(!root.available)parts.push('共享空间不可用');
+          if(indexUpdating(task))parts.push('任务索引更新中');else if(!['ok','ready'].includes(task.state))parts.push('任务索引异常');
+          if(indexUpdating(search))parts.push('搜索索引更新中');else if(search.state!=='ready')parts.push('搜索索引异常');
+          if(source.state!=='ready')parts.push('运行源码需重载');
+          if(['stalled','error'].includes(routes.state))parts.push('核心页面异常');
+          if(updating&&reads>=maxReads)parts.push('稍后刷新查看最新状态');
+          show(ready?[]:parts);
+          if(updating&&reads<maxReads)setTimeout(readHealth,retryDelay);
+        }catch(error){summary.dataset.healthState='unknown';state.textContent='系统状态暂时无法读取';show(['能力检测仍可单独运行，请稍后重试。'])}
+      }
+      readHealth();
+    })();</script>'''
+
+
 def render_settings(token: str, notice: str = "", error: str = "") -> str:
     """Render the single compact settings surface for runtime capabilities."""
-    executors = runtime.executor_status()
-    ready_executors = 0
-    for item in executors.values():
-        available = bool(item.get("configured"))
-        ready_executors += int(available)
-
     catalog = runtime.skill_catalog()
     health = runtime.check_skill_health.read_snapshot()
     snapshot_state = str(health.get("snapshot_state") or ("stale" if health.get("checked_at") else "missing"))
@@ -238,15 +265,16 @@ def render_settings(token: str, notice: str = "", error: str = "") -> str:
         snapshot_state = "missing"
     checked_at = runtime.html.escape(runtime.format_display_time(str(health.get("checked_at") or "")) or "未记录")
     snapshot_copy = {
-        "fresh": f"上次能力检测 {checked_at} · 结果在 15 分钟有效期内",
-        "stale": f"上次能力检测 {checked_at} · 结果已过期，请重新检测",
-        "missing": "尚无能力检测结果，请运行健康检查",
+        "fresh": f"能力检测 {checked_at}",
+        "stale": f"能力检测 {checked_at} · 已过期",
+        "missing": "尚无能力检测结果",
     }[snapshot_state]
 
     def capability_presentation(state: dict[str, object] | None, profile: str) -> dict[str, str]:
         presented = runtime.health_presentation(state if snapshot_state != "missing" else None, health_profile=profile)
         if snapshot_state == "stale" and presented["key"] != "unverified":
-            presented = {**presented, "label": f"上次{presented['label']}", "detail": f"上次检测结果：{presented['detail']}；结果已过期，需重新检测"}
+            # The stale warning is shown once in the status bar, not on every row.
+            presented = {**presented, "label": f"上次{presented['label']}", "detail": f"上次检测：{presented['detail']}"}
         return presented
 
     catalog_profiles = {str(item.get("name")): str(item.get("health_profile") or "always") for item in catalog}
@@ -279,15 +307,13 @@ def render_settings(token: str, notice: str = "", error: str = "") -> str:
             group["count"] = int(group["count"]) + 1
             if presented["detail"] not in group["details"]:
                 group["details"].append(presented["detail"])
-        description = str(item.get("description") or "")
-        search_text = " ".join((name, display_name, category_label, description)).lower()
         skill_rows.append({
-            "name": name, "display_name": display_name, "description": description, "category": category, "category_label": category_label,
+            "name": name, "display_name": display_name, "description": str(item.get("description") or ""), "category": category, "category_label": category_label,
             "profile": profile, "state": presented["key"], "state_label": presented["label"],
             "details": [("登记名", name), ("", presented["detail"]), ("健康配置", profile), ("登记文件", str(item.get("path") or ""))],
         })
 
-    integration_cards: list[str] = []
+    integration_rows: list[str] = []
     integration_issues = 0
     integration_total = 0
     registry = runtime.native_execution_registry()
@@ -304,17 +330,16 @@ def render_settings(token: str, notice: str = "", error: str = "") -> str:
             presented = capability_presentation(state, profile)
             issue = presented["key"] in {"needs-config", "unavailable", "unverified"}
             integration_issues += int(issue)
-            integration_cards.append(
+            purpose = runtime.re.sub(r"^余烬 · Ember 登记的", "", str(item.get("description") or "用途未登记"))
+            integration_rows.append(
                 f'''<article class="integration-card" data-integration data-integration-kind="{runtime.html.escape(kind_label, quote=True)}" data-setting-state="{runtime.html.escape(presented['key'], quote=True)}">
-                <div class="integration-card-head"><span>{runtime.html.escape(kind_label)}</span><span class="skill-status {runtime.html.escape(presented['key'], quote=True)}">{runtime.html.escape(presented['label'])}</span></div>
-                <strong>{runtime.html.escape(str(item.get('display_name') or item.get('id')))}</strong><p>{runtime.html.escape(str(item.get('description') or '用途未登记'))}</p>{f'<p class="integration-issue">{runtime.html.escape(presented["detail"])}</p>' if issue else ''}<small>归属 {runtime.html.escape(owner)}</small></article>'''
+                <div class="integration-card-head"><strong>{runtime.html.escape(str(item.get('display_name') or item.get('id')))}</strong><span class="skill-status {runtime.html.escape(presented['key'], quote=True)}">{runtime.html.escape(presented['label'])}</span></div>{f'<p class="integration-issue">{runtime.html.escape(presented["detail"])}</p>' if issue else ''}<details class="settings-tech-detail"><summary>技术信息</summary><p>{runtime.html.escape(kind_label)} · {runtime.html.escape(purpose)}</p><small>归属 {runtime.html.escape(owner)}</small></details></article>'''
             )
 
-    agent_cards, agent_count, agent_ready, adapter_count = _agent_catalog(token)
-    ledger = runtime.ember_agent.read_ledger()
+    agent_cards, agent_count = _agent_catalog(token)[:2]
     stale_run_count = 0
     now = runtime.datetime.datetime.now(runtime.datetime.timezone.utc)
-    for run in ledger.get("runs", []):
+    for run in runtime.ember_agent.read_ledger().get("runs", []):
         if not isinstance(run, dict) or run.get("state") != "running":
             continue
         try:
@@ -329,15 +354,8 @@ def render_settings(token: str, notice: str = "", error: str = "") -> str:
         for category, label in category_labels.items() if category_counts.get(category, 0)
     ]
     refresh_form = runtime._form("/actions/refresh-settings-health", token, {"return_to": "/settings"}, "运行健康检查", "button")
-    config_path = runtime.Path(runtime.ember_env("EMBER_EXECUTOR_CONFIG") or runtime.local_config_root() / "executors.json")
-    saved_settings = runtime.executor_settings.read_settings()
-    local_executors = list(saved_settings.get("executors") or [])
-    executors = {item["id"]: executors.get(item["id"], {}) for item in local_executors}
-    ready_executors = sum(bool(item.get("configured")) for item in executors.values())
-    registry_readable = bool(saved_settings.get("registry_readable", True))
-    environment_metric = f"{ready_executors}/{len(executors)}" if registry_readable else "未知"
     execution_html = runtime.settings_page.execution({
-        "environment": saved_settings, "config_path": config_path,
+        "environment": runtime.executor_settings.read_settings(), "compact": True,
         "form": {"action": "/actions/save-executor-settings", "check_action": "/actions/check-executor-settings",
                  "hidden": [("csrf", token), ("return_to", "/settings#execution")]},
     })
@@ -346,9 +364,9 @@ def render_settings(token: str, notice: str = "", error: str = "") -> str:
         f"{skill_counts[key]} 项{label}"
         for key, label in (("needs-config", "待配置"), ("unavailable", "依赖待核对"), ("unverified", "待检测"))
         if skill_counts[key]
-    ) or ("尚无能力检测结果" if snapshot_state == "missing" else "上次能力检测无异常 · 结果已过期" if snapshot_state == "stale" else "能力检测无异常")
+    ) or ("尚无能力检测结果" if snapshot_state == "missing" else "能力检测无异常")
     issue_status = (
-        f'<a class="settings-attention-link" href="#skills" data-skill-issues-link>{"上次检测：" if snapshot_state == "stale" else ""}{capability_summary}</a>'
+        f'<a class="settings-attention-link" href="#skills" data-skill-issues-link>{skill_issue_count} 项待核对</a>'
         if skill_issue_count else f'<span class="settings-ready-label">{capability_summary}</span>'
     )
     dependency_copy = {
@@ -361,53 +379,28 @@ def render_settings(token: str, notice: str = "", error: str = "") -> str:
         dependency_groups_data.append({"profile": profile, "title": title, "guidance": guidance, "detail": "；".join(group["details"]), "count": group["count"]})
     skills_data = {
         "snapshot": snapshot_state, "summary": capability_summary, "categories": categories, "rows": skill_rows,
-        "dependencies": {"note": "上次检测已过期，需重新检测。" if snapshot_state == "stale" else "按共同依赖归类。",
-                         "groups": dependency_groups_data},
+        "dependencies": {"note": "", "groups": dependency_groups_data}, "browse_collapsed": True,
     }
     head_page = {
-        "actions_html": f'{refresh_form}<small data-capability-snapshot="{snapshot_state}">{snapshot_copy}</small>',
-        "nav": [{"href": "#execution", "label": "执行环境"}, {"href": "#skills", "label": "Skills"}, {"href": "#agents", "label": "Agents"}, {"href": "#integrations", "label": "集成能力"}],
+        "nav": [{"href": "#execution", "label": "执行环境"}, {"href": "#agents", "label": "Agents"}, {"href": "#skills", "label": "Skills"}, {"href": "#integrations", "label": "集成能力"}],
     }
+    integration_count = f"{integration_total} 项" + (f" · {integration_issues} 项待核对" if integration_issues else "")
+    expire_form = runtime._form('/actions/agent-expire-runs', token, {'return_to': '/settings#agents'}, f'关闭过期运行记录（{stale_run_count}）', 'button ghost') if stale_run_count else ''
 
     content = runtime.flash_message(notice, error) + f'''<section class="settings-hub paper-management-page">
     {runtime.settings_page.head(head_page)}
 
+    <section class="settings-health-summary" data-settings-health aria-live="polite"><div class="settings-health-main"><span class="settings-health-state" id="settingsHealthState">正在读取系统状态</span><small id="settingsHealthDetail" hidden></small></div><div class="settings-health-metrics"><small data-capability-snapshot="{snapshot_state}">{snapshot_copy}</small>{issue_status}{refresh_form}</div></section>
+
     {execution_html}
 
-    <section class="settings-health-summary" data-settings-health aria-live="polite"><div class="settings-health-main"><span class="settings-health-state" id="settingsHealthState">正在读取系统状态</span><small id="settingsHealthDetail">检查共享空间、索引、运行源码与核心页面。</small></div><div class="settings-health-metrics"><span><b>{environment_metric}</b> 执行器已安装</span><span><b>{agent_ready}/{adapter_count}</b> Agent 适配器已登记</span>{issue_status}</div></section>
+    <section class="settings-catalog-section" id="agents"><div class="settings-section-head"><div><h2>Agents</h2></div><span>{agent_count} 个</span></div><div class="settings-agent-grid">{agent_cards}</div>{expire_form}</section>
 
     {runtime.settings_page.skills(skills_data)}
 
-    <section class="settings-catalog-section" id="agents"><div class="settings-section-head"><div><h2>Agents</h2></div><span>{agent_count} 个 Agent · {agent_ready}/{adapter_count} 适配器已登记</span></div><div class="settings-agent-grid">{agent_cards}</div>{runtime._form('/actions/agent-expire-runs', token, {'return_to': '/settings#agents'}, f'关闭过期运行记录（{stale_run_count}）', 'button ghost') if stale_run_count else ''}</section>
-
-    <section class="settings-catalog-section" id="integrations" data-capability-snapshot="{snapshot_state}"><div class="settings-section-head"><div><h2>集成能力</h2></div><span>{integration_total} 项已登记 · {integration_issues} 项待核对</span></div><div class="settings-integration-grid">{''.join(integration_cards)}</div></section>
-
-
+    <section class="settings-catalog-section" id="integrations" data-capability-snapshot="{snapshot_state}"><div class="settings-section-head"><div><h2>集成能力</h2></div><span>{integration_count}</span></div><div class="settings-integration-grid">{''.join(integration_rows)}</div></section>
     </section>'''
     content += f'<style>{runtime.SETTINGS_STYLE}</style><script src="/assets/settings.js?v={runtime.SETTINGS_VERSION}"></script>'
-    content += r'''<script>(()=>{
-      const summary=document.querySelector('[data-settings-health]'),state=document.getElementById('settingsHealthState'),detail=document.getElementById('settingsHealthDetail');
-      if(!summary||!state||!detail)return;
-      const maxReads=6,retryDelay=2000;let reads=0;
-      const label=(ready,ok,bad)=>ready?ok:bad,indexUpdating=item=>['stale','refreshing'].includes(item.state)||item.refreshing===true;
-      async function readHealth(){
-        if(!summary.isConnected)return;
-        reads++;
-        try{
-          const response=await fetch('/health',{headers:{Accept:'application/json'},signal:AbortSignal.timeout(5000)});
-          if(!response.ok)throw new Error('health request failed');
-          const payload=await response.json(),readiness=payload.readiness||{},checks=readiness.checks||{},ready=readiness.status==='ready';
-          const root=checks.shared_root||{},task=checks.task_index||{},search=checks.home_search_index||{},source=checks.runtime_source||{},routes=checks.page_routes||{};
-          const updating=indexUpdating(task)||indexUpdating(search),otherIssue=!root.available||source.state!=='ready'||(!indexUpdating(task)&&!['ok','ready'].includes(task.state))||(!indexUpdating(search)&&search.state!=='ready')||['stalled','error'].includes(routes.state)||checks.pdf_preview&&checks.pdf_preview.state!=='ready';
-          summary.dataset.healthState=ready?'ready':updating&&!otherIssue?'updating':'degraded';
-          state.textContent=ready?'系统运行正常':updating&&!otherIssue?'索引更新中':'系统部分能力异常';
-          detail.textContent=[label(root.available,'共享空间正常','共享空间不可用'),indexUpdating(task)?'任务索引更新中':label(['ok','ready'].includes(task.state),'任务索引正常','任务索引异常'),indexUpdating(search)?'搜索索引更新中':label(search.state==='ready','搜索索引正常','搜索索引异常'),label(source.state==='ready','运行源码一致','运行源码需重载'),label(!['stalled','error'].includes(routes.state),'核心页面正常','核心页面异常')].join(' · ');
-          if(updating&&reads<maxReads)setTimeout(readHealth,retryDelay);
-          else if(updating)detail.textContent+=' · 稍后刷新查看最新状态';
-        }catch(error){summary.dataset.healthState='unknown';state.textContent='系统状态暂时无法读取';detail.textContent='能力检测仍可单独运行，请稍后重试。'}
-      }
-      readHealth();
-    })();</script>'''
-
+    content += SETTINGS_HEALTH_SCRIPT
     content += f'<style>{runtime.EXECUTOR_SETTINGS_STYLE}</style><script src="/assets/executor-settings.js?v={runtime.EXECUTOR_SETTINGS_VERSION}"></script>'
     return runtime._layout("设置", content, token)

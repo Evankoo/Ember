@@ -46,7 +46,7 @@ with patch.object(r.ember_agent, 'registry', return_value={'runtime_agents': ent
     assert '/actions/agent-install' not in guardian and '/actions/agent-verify' not in guardian
     assert '尚无记录' not in guardian and '&lt;只读&gt;' in guardian
     assert '/actions/agent-install' in markup and '/actions/agent-verify' in markup
-    assert '<details><summary>技术信息</summary>' in markup
+    assert '<details class="settings-tech-detail"><summary>技术信息</summary>' in markup
     (r.ROOT / 'two.md').unlink()
     markup, count, ready, total = setting._agent_catalog('test-token')
     assert (count, ready, total) == (2, 1, 2) and '适配待核对' in markup
