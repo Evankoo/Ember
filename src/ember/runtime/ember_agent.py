@@ -27,7 +27,7 @@ SKILL_MANIFEST = ROOT / "skills" / "manifest.json"
 LEDGER_RELATIVE = Path("管理中心") / "运行状态" / "Agent记录" / "agent-runs.json"
 LEDGER_VERSION = 1
 ALLOWED_STATES = {"running", "completed", "needs_input", "failed", "needs_configuration", "expired"}
-ALLOWED_MODES = {"file_management", "project_archive", "ebrain_raw_registration", "task_organization"}
+ALLOWED_MODES = {"file_management", "project_archive", "ebrain_raw_registration", "task_organization", "network_diagnosis"}
 ALLOWED_EXECUTORS = {"codex", "opencode", "hermes"}
 REASONING_LEVELS = {"low", "medium", "high", "xhigh", "max"}
 TECHNICAL_FALLBACK_REASONS = {
@@ -202,8 +202,22 @@ def validate_agent(agent_id: str) -> list[str]:
                 errors.append(f"Agent adapter is missing: {adapter}")
                 continue
             text = adapter.read_text(encoding="utf-8")
-            if executor != "hermes" and "agents/material-manager/AGENT.md" not in text:
+            if executor != "hermes" and f"agents/{agent_id}/AGENT.md" not in text:
                 errors.append(f"Agent adapter does not reference canonical manifest: {adapter}")
+
+    if agent_id == "ai-network-guardian":
+        if (values.get("primary_provider"), values.get("primary_model")) != ("deepseek", "deepseek-flash"):
+            errors.append("Network guardian must pin deepseek/deepseek-flash")
+        if values.get("fallback_provider") != "none" or values.get("fallback_model") != "none":
+            errors.append("Network guardian must not declare a fallback model")
+        if set(adapters) != {"opencode"} or _csv(values.get("adapters", "")) != ["opencode"]:
+            errors.append("Network guardian currently supports OpenCode only")
+        for adapter in adapters.get("opencode", []):
+            if adapter.is_file():
+                fields, _ = parse_frontmatter(adapter)
+                if fields.get("model") != "deepseek/deepseek-flash#high":
+                    errors.append("Network adapter must pin the canonical model and variant")
+        return errors
 
     expected = {
         "gpt-5.6-luna": values.get("primary_model"),
@@ -478,10 +492,16 @@ def start_run(*, agent_id: str, executor: str, model: str, mode: str, task_id: s
     values, _ = agent_definition(agent_id)
     if executor not in ALLOWED_EXECUTORS:
         raise AgentError(f"unsupported Agent executor: {executor}")
+    if executor not in _csv(values.get("adapters", "")):
+        raise AgentError(f"Agent does not support executor: {executor}")
     if mode not in ALLOWED_MODES:
         raise AgentError(f"unsupported Agent mode: {mode}")
+    if (agent_id == "ai-network-guardian") != (mode == "network_diagnosis"):
+        raise AgentError("Agent mode is not allowed for this identity")
     values = executor_model_policy(values, executor)
-    allowed_models = {values["primary_model"], values["fallback_model"]}
+    allowed_models = {values["primary_model"]}
+    if values["fallback_model"] != "none":
+        allowed_models.add(values["fallback_model"])
     if model not in allowed_models:
         raise AgentError(f"model is not allowed for {agent_id}: {model}")
     if model == values["fallback_model"]:
@@ -524,7 +544,7 @@ def start_run(*, agent_id: str, executor: str, model: str, mode: str, task_id: s
         return {"run": run, "ledger_revision": payload["revision"]}
 
 
-def require_run(*, run_id: str, mode: str, task_id: str = "") -> dict[str, object]:
+def require_run(*, run_id: str, mode: str, task_id: str = "", agent_id: str = "material-manager") -> dict[str, object]:
     if mode not in ALLOWED_MODES:
         raise AgentError(f"unsupported Agent mode: {mode}")
     now = datetime.now(timezone.utc)
@@ -538,8 +558,8 @@ def require_run(*, run_id: str, mode: str, task_id: str = "") -> dict[str, objec
         )
         if run is None:
             raise AgentError(f"Agent run not found: {run_id}")
-        if run.get("agent_id") != "material-manager":
-            raise AgentError(f"Agent run is not material-manager: {run_id}")
+        if run.get("agent_id") != agent_id:
+            raise AgentError(f"Agent run is not {agent_id}: {run_id}")
         if run.get("state") != "running":
             raise AgentError(f"Agent run is not running: {run_id}")
         if run.get("mode") != mode:
@@ -563,7 +583,7 @@ def require_run(*, run_id: str, mode: str, task_id: str = "") -> dict[str, objec
             "ok": True,
             "authorization": {
                 "run_id": run_id,
-                "agent_id": "material-manager",
+                "agent_id": agent_id,
                 "mode": mode,
                 "task_id": str(run.get("task_id") or ""),
                 "executor": str(run.get("executor") or ""),
@@ -662,6 +682,7 @@ def main() -> int:
     finish.add_argument("--result-ref", action="append", default=[])
     finish.add_argument("--error", default="")
     require = commands.add_parser("run-require")
+    require.add_argument("--agent-id", default="material-manager")
     require.add_argument("--run-id", required=True)
     require.add_argument("--mode", required=True)
     require.add_argument("--task-id", default="")
@@ -687,7 +708,7 @@ def main() -> int:
         elif args.command == "run-finish":
             result = finish_run(run_id=args.run_id, state=args.state, result_refs=args.result_ref, error=args.error)
         elif args.command == "run-require":
-            result = require_run(run_id=args.run_id, mode=args.mode, task_id=args.task_id)
+            result = require_run(run_id=args.run_id, mode=args.mode, task_id=args.task_id, agent_id=args.agent_id)
         elif args.command == "expire-runs":
             result = expire_stale_runs()
         else:
