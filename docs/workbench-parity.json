@@ -154,6 +154,36 @@
       "reason": "完整版独有：健康指标与告警入口"
     },
     {
+      "id": "settings:only-local:.executor-current-main > .settings-tech-detail",
+      "status": "intentional",
+      "reason": "完整版独有：可用执行环境的路径与软件清单收进技术信息（紧凑模式）"
+    },
+    {
+      "id": "settings:only-local:.settings-tech-detail > .agent-model-order",
+      "status": "intentional",
+      "reason": "完整版独有：运行 Agent 的模型顺序收进技术信息"
+    },
+    {
+      "id": "settings:only-local:.settings-skills-module > .settings-skill-browser",
+      "status": "intentional",
+      "reason": "完整版独有：Skill 全部清单默认收进“查看全部”"
+    },
+    {
+      "id": "settings:only-local:.settings-skill-browser > .settings-skill-workspace",
+      "status": "intentional",
+      "reason": "完整版独有：Skill 全部清单默认收进“查看全部”"
+    },
+    {
+      "id": "settings:only-core:.settings-skills-module > .settings-skill-workspace",
+      "status": "intentional",
+      "reason": "开源版保留常显 Skill 清单；完整版改为收进“查看全部”"
+    },
+    {
+      "id": "settings:only-core:.settings-hub-actions > .button",
+      "status": "intentional",
+      "reason": "开源版在标题栏放检查按钮；完整版把健康检查放进状态条"
+    },
+    {
       "id": "*:only-core:.sidebar-children > .sidebar-favorites-empty",
       "status": "intentional",
       "reason": "数据：示例没有收藏项目"
