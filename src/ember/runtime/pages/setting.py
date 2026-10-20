@@ -247,6 +247,8 @@ SETTINGS_HEALTH_SCRIPT = r'''<script>(()=>{
           if(indexUpdating(search))parts.push('搜索索引更新中');else if(search.state!=='ready')parts.push('搜索索引异常');
           if(source.state!=='ready')parts.push('运行源码需重载');
           if(['stalled','error'].includes(routes.state))parts.push('核心页面异常');
+          if(checks.pdf_preview&&checks.pdf_preview.state!=='ready')parts.push('PDF 预览不可用');
+          if(!ready&&!parts.length)parts.push('部分运行检查未通过');
           if(updating&&reads>=maxReads)parts.push('稍后刷新查看最新状态');
           show(ready?[]:parts);
           if(updating&&reads<maxReads)setTimeout(readHealth,retryDelay);
