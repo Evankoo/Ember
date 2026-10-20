@@ -1,3 +1,3 @@
 """Ember's small, local, task-card-driven workbench."""
 
-__version__ = "0.12.0"
+__version__ = "0.13.0"

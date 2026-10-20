@@ -1,6 +1,6 @@
 ---
 name: ember-init
-version: 4.1.2
+version: 4.1.3
 description: 一问一答引导首次安装余烬：欢迎并说明固定的系统目录 ~/Ember 与文档库 ~/Ember文档，展示基础目录；把用户当前 AI 工具登记为默认执行器并装好日常 Skill，实际用它把本次对话创建为第一张任务卡；用户在工作台确认后，用建项目 Skill 建立简单练习项目，最终确认完成后移除本库的一次性初始化向导。不重置、迁移或升级已有工作区。
 triggers: [初始化余烬, 安装余烬, 安装余烬开源版, 建立新工作区, 首次使用余烬]
 tools: [read_file, terminal, browser]
@@ -70,7 +70,7 @@ bootstrap 完成后的空白业务模式是一个系统项目、零任务；示�
 <真实Python> <Skill目录>/scripts/bootstrap.py --mode empty|example --name <名称> --port 8783 --executor <实际调用工具>
 ```
 
-实际调用工具可为 opencode、codex、claude-code、workbuddy、qianwen-office（千问办公）、doubao-work（豆包工作）等；未知则 manual，不能填模型名。独立初始包含 `ember-init`、`ember`、`ember-project` 三个 Skill 文件夹，init 内含 `assets/ember-0.12.0-py3-none-any.whl`；没有 wheel 时用固定 v0.12.0 地址。开发可传 `--source`。PyYAML 依赖仍须网络或缓存，不声称完全离线。
+实际调用工具可为 opencode、codex、claude-code、workbuddy、qianwen-office（千问办公）、doubao-work（豆包工作）等；未知则 manual，不能填模型名。独立初始包含 `ember-init`、`ember`、`ember-project` 三个 Skill 文件夹，init 内含 `assets/ember-0.13.0-py3-none-any.whl`；没有 wheel 时用固定 v0.13.0 地址。开发可传 `--source`。PyYAML 依赖仍须网络或缓存，不声称完全离线。
 
 ### 4. 保存安装记录，保留空任务列表
 

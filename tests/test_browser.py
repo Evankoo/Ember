@@ -476,6 +476,10 @@ class SettingsBrowserTests(unittest.TestCase):
                     self.page.locator('#main-content h1', has_text='余烬首次使用').wait_for()
                     self.assertIn('等待用户检查任务卡', self.page.locator('#main-content').inner_text())
                     self.page.goto(base + '/#settings')
+                    # The Skill inventory starts collapsed behind 查看全部 and opens on demand.
+                    self.page.locator('#compactSkillList .compact-skill-row').first.wait_for(state='attached')
+                    self.assertFalse(self.page.locator('#compactSkillBrowser').evaluate('node => node.open'))
+                    self.page.locator('#compactSkillBrowser > summary').click()
                     self.page.locator('#compactSkillList .compact-skill-row').first.wait_for()
                     self.assertEqual(self.page.locator('#compactSkillList .compact-skill-row strong').all_text_contents(),
                                      ['ember-init', 'ember', 'ember-project'])
