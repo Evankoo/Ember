@@ -51,9 +51,10 @@ def _agent_catalog(token: str) -> tuple[str, int, int, int]:
         state = "已登记" if active and registered == len(adapters) and adapters else "适配待核对" if active else "未启用"
         css = "registered" if state == "已登记" else "needs-config"
         fallback_note = "无模型回退" if values.get("fallback_model") == "none" else "仅技术失败时允许模型回退"
-        cards.append(f'''<article class="settings-agent-card" data-agent-id="{escape(agent_id, quote=True)}"><header><div><small>{escape(agent_id)}</small><h3>{escape(values.get('display_name') or agent_id)}</h3></div><span class="skill-status {css}">{state}</span></header>
-        <p>{escape(values.get('description') or '用途未登记')}</p><dl><div><dt>执行器与模型</dt><dd class="agent-model-order">{''.join(models) or '未声明'}</dd></div><div><dt>最近运行</dt><dd>{escape(recent)}</dd></div><div><dt>适配登记</dt><dd>{registered}/{len(adapters)} · 按需调用</dd></div></dl>
-        <div class="settings-agent-actions">{actions}</div><small class="agent-verification-note">{fallback_note}。登记不代表实时可用；执行能力按需验证。</small><footer><details><summary>技术信息</summary><code>{escape(str(entry.get('manifest') or ''))}</code></details></footer></article>''')
+        actions_html = f'<div class="settings-agent-actions">{actions}</div>' if actions else ""
+        cards.append(f'''<article class="settings-agent-card" data-agent-id="{escape(agent_id, quote=True)}"><header><div><h3>{escape(values.get('display_name') or agent_id)}</h3></div><span class="skill-status {css}">{state}</span></header>
+        <p>{escape(values.get('description') or '用途未登记')}</p><dl><div><dt>执行器与模型</dt><dd class="agent-model-order">{''.join(models) or '未声明'}</dd></div><div><dt>最近运行</dt><dd>{escape(recent)}</dd></div><div><dt>适配登记</dt><dd>{registered}/{len(adapters)} · {fallback_note}</dd></div></dl>
+        {actions_html}<footer><details><summary>技术信息</summary><code>{escape(str(entry.get('manifest') or ''))}</code></details></footer></article>''')
     body = ''.join(cards) or '<p class="empty" style="display:block">尚无已登记 Agent。</p>'
     return body, len(entries), ready, total
 
@@ -324,7 +325,7 @@ def render_settings(token: str, notice: str = "", error: str = "") -> str:
             stale_run_count += 1
     categories = [
         {"key": category, "label": label, "count": category_counts[category],
-         "note": f"{category_issues[category]} 待核对" if category_issues.get(category) else "上次检测无异常" if snapshot_state == "stale" else "检测无异常"}
+         "note": f"{category_issues[category]} 待核对" if category_issues.get(category) else ""}
         for category, label in category_labels.items() if category_counts.get(category, 0)
     ]
     refresh_form = runtime._form("/actions/refresh-settings-health", token, {"return_to": "/settings"}, "运行健康检查", "button")
@@ -339,7 +340,6 @@ def render_settings(token: str, notice: str = "", error: str = "") -> str:
         "environment": saved_settings, "config_path": config_path,
         "form": {"action": "/actions/save-executor-settings", "check_action": "/actions/check-executor-settings",
                  "hidden": [("csrf", token), ("return_to", "/settings#execution")]},
-        "copy": {"save_hint": "保存才会更新本机 余烬 · Ember 配置并创建私有备份。模型、供应商、登录与权限由软件自己管理；这里不读取客户端配置、不安装、不自动发送提示词。固定 Agent 流程仍遵守各自的执行器限制。"},
     })
     skill_issue_count = sum(skill_counts.get(key, 0) for key in ("needs-config", "unavailable", "unverified"))
     capability_summary = " · ".join(
@@ -352,20 +352,19 @@ def render_settings(token: str, notice: str = "", error: str = "") -> str:
         if skill_issue_count else f'<span class="settings-ready-label">{capability_summary}</span>'
     )
     dependency_copy = {
-        "lark-cli": ("飞书能力 · 共用飞书登录", "这组 Skills 共用 lark-cli 登录配置，不需要逐项配置。只有使用飞书能力时才需核对用户授权。"),
-        "alist-rclone": ("归档连接 · AList / rclone", "这组能力共用归档连接；使用相关归档流程前核对依赖，不会自动安装或更改服务。"),
+        "lark-cli": ("飞书能力 · 共用飞书登录", "共用 lark-cli 登录配置，按需核对用户授权。"),
+        "alist-rclone": ("归档连接 · AList / rclone", "共用归档连接，使用相关归档流程前核对依赖。"),
     }
     dependency_groups_data = []
     for profile, group in dependency_groups.items():
-        title, guidance = dependency_copy.get(profile, (f"共用依赖 · {profile}", "同一健康配置关联多项能力，先核对共同依赖，不代表每项能力分别发生了故障。"))
+        title, guidance = dependency_copy.get(profile, (f"共用依赖 · {profile}", "同一健康配置关联多项能力，先核对共同依赖。"))
         dependency_groups_data.append({"profile": profile, "title": title, "guidance": guidance, "detail": "；".join(group["details"]), "count": group["count"]})
     skills_data = {
         "snapshot": snapshot_state, "summary": capability_summary, "categories": categories, "rows": skill_rows,
-        "dependencies": {"note": "来自上次检测，结果已过期；需重新检测确认现状。" if snapshot_state == "stale" else "按共同依赖归类；待配置、待检测不等于业务执行失败。",
+        "dependencies": {"note": "上次检测已过期，需重新检测。" if snapshot_state == "stale" else "按共同依赖归类。",
                          "groups": dependency_groups_data},
     }
     head_page = {
-        "intro": "本机执行环境、可用能力与系统连接，在这里统一管理。",
         "actions_html": f'{refresh_form}<small data-capability-snapshot="{snapshot_state}">{snapshot_copy}</small>',
         "nav": [{"href": "#execution", "label": "执行环境"}, {"href": "#skills", "label": "Skills"}, {"href": "#agents", "label": "Agents"}, {"href": "#integrations", "label": "集成能力"}],
     }
@@ -375,13 +374,13 @@ def render_settings(token: str, notice: str = "", error: str = "") -> str:
 
     {execution_html}
 
-    <section class="settings-health-summary" data-settings-health aria-live="polite"><div class="settings-health-main"><span class="settings-health-state" id="settingsHealthState">正在读取系统状态</span><small id="settingsHealthDetail">检查共享空间、索引、运行源码与核心页面。</small></div><div class="settings-health-metrics"><span><b>{environment_metric}</b> 执行器已安装</span><span><b>{agent_ready}/{adapter_count}</b> Agent 适配器已登记</span><span><b>{integration_total}</b> 集成已登记</span><span><b>{len(catalog)}</b> Skills</span>{issue_status}</div></section>
+    <section class="settings-health-summary" data-settings-health aria-live="polite"><div class="settings-health-main"><span class="settings-health-state" id="settingsHealthState">正在读取系统状态</span><small id="settingsHealthDetail">检查共享空间、索引、运行源码与核心页面。</small></div><div class="settings-health-metrics"><span><b>{environment_metric}</b> 执行器已安装</span><span><b>{agent_ready}/{adapter_count}</b> Agent 适配器已登记</span>{issue_status}</div></section>
 
     {runtime.settings_page.skills(skills_data)}
 
-    <section class="settings-catalog-section" id="agents"><div class="settings-section-head"><div><h2>Agents</h2><p>按需工作的执行 Agent；用途与模型分别登记。</p></div><span>{agent_count} 个 Agent · {agent_ready}/{adapter_count} 适配器已登记</span></div><div class="settings-agent-grid">{agent_cards}</div>{runtime._form('/actions/agent-expire-runs', token, {'return_to': '/settings#agents'}, f'关闭过期运行记录（{stale_run_count}）', 'button ghost') if stale_run_count else ''}</section>
+    <section class="settings-catalog-section" id="agents"><div class="settings-section-head"><div><h2>Agents</h2></div><span>{agent_count} 个 Agent · {agent_ready}/{adapter_count} 适配器已登记</span></div><div class="settings-agent-grid">{agent_cards}</div>{runtime._form('/actions/agent-expire-runs', token, {'return_to': '/settings#agents'}, f'关闭过期运行记录（{stale_run_count}）', 'button ghost') if stale_run_count else ''}</section>
 
-    <section class="settings-catalog-section" id="integrations" data-capability-snapshot="{snapshot_state}"><div class="settings-section-head"><div><h2>集成能力</h2><p>MCP 与本机工具保持独立登记。</p></div><span>{integration_total} 项已登记 · {integration_issues} 项待核对</span></div><div class="settings-integration-grid">{''.join(integration_cards)}</div></section>
+    <section class="settings-catalog-section" id="integrations" data-capability-snapshot="{snapshot_state}"><div class="settings-section-head"><div><h2>集成能力</h2></div><span>{integration_total} 项已登记 · {integration_issues} 项待核对</span></div><div class="settings-integration-grid">{''.join(integration_cards)}</div></section>
 
 
     </section>'''
