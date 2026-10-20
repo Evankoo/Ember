@@ -6,7 +6,8 @@ passed in as markup. render(page) returns markup only. Keys (optional ones may b
   intro            optional sentence under the title
   actions_html     controls in the head
   nav              [{href, label, attrs: [(name, value)]}] section links
-  execution_html, health_html, modules_html   edition sections, in that order around the Skills module
+  health_html, execution_html, modules_html   edition sections: the status bar under the navigation,
+                   then 执行环境, the Skills module and the edition's own catalogs
 
 execution(page) renders the 执行环境 section that ember_ui/static/executor-settings.js drives:
   environment      {executors: [{id, label, kind, path}], default_executor, ready, registry_readable, error}
@@ -14,13 +15,13 @@ execution(page) renders the 执行环境 section that ember_ui/static/executor-s
   form             {action, check_action (both None: the script's hooks save and check),
                     hidden: [(name, value)]}
   copy             optional wording: ready_help, default_hint, save_hint
-  compact          optional: a ready saved environment shows name, state and type, with its path
-                    and inventory in a collapsed 技术信息 disclosure
+  A ready saved environment shows name, state and type, with its path and inventory in a collapsed
+  技术信息 disclosure; first use and a broken path keep the path visible as repair context.
   skills           {snapshot, summary, dependencies: {note, groups: [{profile, title, guidance, detail,
                     count}]}, categories: [{key, label, count, note}], rows: [{name, display_name,
                     description, category, category_label, profile, state, state_label,
-                    details: [(label, value)]}], browse_collapsed (optional: the full inventory sits
-                    in a closed 查看全部 disclosure below the shared-dependency rows)}
+                    details: [(label, value)]}]}; the full inventory sits in a closed 查看全部
+                    disclosure below the shared-dependency rows
 """
 from __future__ import annotations
 
@@ -86,13 +87,13 @@ def skills(data: dict) -> str:
     issues = sum(row["state"] in ISSUE_STATES for row in rows)
     snapshot = f' data-capability-snapshot="{_esc(data["snapshot"])}"' if data.get("snapshot") else ""
     workspace = (
+        f'<details class="settings-skill-browser" id="compactSkillBrowser"><summary>查看全部 {len(rows)} 项 Skills</summary>'
+
         f'<div class="settings-skill-workspace"><nav class="skill-category-rail" aria-label="Skill 分类">{"".join(buttons)}</nav><div class="skill-results"><div class="settings-skill-tools">'
         '<input id="compactSkillSearch" type="search" placeholder="搜索 Skill 名称或用途" aria-label="搜索 Skill 名称或用途">'
         f'<button class="skill-issue-filter" id="compactSkillIssueFilter" type="button" aria-pressed="false">只看待核对 {issues}</button><span id="compactSkillCount">{len(rows)} 项</span></div>'
-        f'<div class="compact-skill-list" id="compactSkillList">{"".join(_row(row) for row in rows)}</div><div class="library-empty" id="compactSkillEmpty" hidden>没有匹配的 Skill。</div></div></div>'
+        f'<div class="compact-skill-list" id="compactSkillList">{"".join(_row(row) for row in rows)}</div><div class="library-empty" id="compactSkillEmpty" hidden>没有匹配的 Skill。</div></div></div></details>'
     )
-    if data.get("browse_collapsed"):
-        workspace = f'<details class="settings-skill-browser" id="compactSkillBrowser"><summary>查看全部 {len(rows)} 项 Skills</summary>{workspace}</details>'
     return (
         f'<section class="settings-skills-module" id="skills"{snapshot}><div class="settings-skills-head"><div><h2>Skills</h2></div>'
         f'<div><strong>{len(rows)} 项已登记</strong><span>{html.escape(data.get("summary", ""))}</span></div></div>{dependency_html}'
@@ -135,8 +136,7 @@ def execution(page: dict) -> str:
     default_hint_html = f"<small>{html.escape(default_hint)}</small>" if default_hint else ""
     save_hint = str(copy.get("save_hint") or "").strip()
     save_hint_html = f'<p class="executor-editor-hint">{html.escape(save_hint)}</p>' if save_hint else ""
-    compact = bool(page.get("compact")) and ready
-    if compact:
+    if ready:
         # A working saved environment needs no path or inventory on screen; both stay one click away.
         path_html = (f'<div class="executor-current-path"><span>{kind}</span></div>'
                      f'<details class="settings-tech-detail"><summary>技术信息</summary><code>{html.escape(path)}</code><small>{inventory}</small></details>')
@@ -158,13 +158,12 @@ def execution(page: dict) -> str:
     <small class="executor-settings-state" id="executorSettingsState" role="status" aria-live="polite" data-state="unchanged">{status}</small>
     <div class="executor-settings-actions"><button class="button ghost" type="submit"{check} data-executor-check>检查软件路径</button><button class="button primary" type="submit" data-executor-save>保存配置</button><button class="button ghost" id="executorSettingsCancel" type="button">取消修改</button></div>
     {save_hint_html}</form>'''
-    scope = "" if page.get("compact") else "<span>本机生效</span>"
-    return (f'<section class="settings-execution-strip" id="execution"><div class="settings-section-head"><div><h2>执行环境</h2></div>{scope}</div>'
+    return (f'<section class="settings-execution-strip" id="execution"><div class="settings-section-head"><div><h2>执行环境</h2></div></div>'
             f'{summary}<div class="executor-settings-editor" id="executorSettingsEditor"{" hidden" if ready else ""}>{editor}</div></section>')
 
 
 def render(page: dict) -> str:
     return (
-        f'<section class="settings-hub paper-management-page">\n    {head(page)}\n    {page.get("execution_html", "")}\n    {page.get("health_html", "")}\n    '
+        f'<section class="settings-hub paper-management-page">\n    {head(page)}\n    {page.get("health_html", "")}\n    {page.get("execution_html", "")}\n    '
         f'{skills(page.get("skills") or {})}\n    {page.get("modules_html", "")}\n    </section>'
     )

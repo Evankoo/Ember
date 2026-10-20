@@ -41,4 +41,4 @@
 .settings-agent-card .settings-agent-meta{color:var(--muted);font-size:10px}
 .settings-integration-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr))}.integration-card{min-height:0;gap:6px;padding:10px 12px}.integration-card-head strong{min-width:0;font-size:12px;overflow-wrap:anywhere}.integration-card>p.integration-issue{margin:0;font-size:10px;line-height:1.45}
 .settings-skill-browser{min-width:0}.settings-skill-browser>summary{width:max-content;padding:6px 0;cursor:pointer;color:var(--secondary);font-size:11px;font-weight:650}.settings-skill-browser>summary:focus-visible{outline:2px solid var(--secondary);outline-offset:2px}.settings-skill-browser[open]>summary{margin-bottom:8px}
-@media(max-width:650px){.settings-health-metrics{width:100%;gap:8px 12px}.settings-health-metrics form{margin-left:auto}.settings-integration-grid{grid-template-columns:1fr}}
+@media(max-width:650px){.settings-skill-workspace{grid-template-rows:auto minmax(0,1fr)}.settings-health-metrics{width:100%;gap:8px 12px}.settings-health-metrics form{margin-left:auto}.settings-integration-grid{grid-template-columns:1fr}}

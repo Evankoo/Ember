@@ -529,25 +529,23 @@ def render_library(snapshot: dict) -> str:
     })
 
 
+# The status bar under the navigation; app.js fills it only after 检查服务状态 (no login or model check).
+SETTINGS_HEALTH_CHECK = '<button id="health-check-button" class="button" type="button" data-action="health-check">检查服务状态</button>'
 SETTINGS_HEALTH = (
-    '<section id="health-result" class="settings-health-summary"><div class="settings-health-main"><span class="settings-health-state">服务状态</span>'
-    '<small>只在点击“检查服务状态”后检查；不会验证软件登录或调用模型。</small></div></section>'
+    '<section id="health-result" class="settings-health-summary" aria-live="polite"><div class="settings-health-main"><span class="settings-health-state">服务状态未检查</span></div>'
+    f'<div class="settings-health-metrics">{SETTINGS_HEALTH_CHECK}</div></section>'
 )
 
 
 # 执行环境 uses the full workbench's editor; saving and checking go through this package's JSON API (app.js).
-EXECUTION_COPY = {"ready_help": "确认执行时可复制提示词并打开这个软件；请在软件中手工粘贴、发送。",
-                  "default_hint": "确认执行时“复制并打开”会使用这里保存的软件。",
+EXECUTION_COPY = {"default_hint": "确认执行时“复制并打开”会使用这里保存的软件。",
                   "save_hint": "保存才会更新本机余烬配置；不读取或修改软件的模型、登录和权限。"}
 
 
 def render_settings(skills: list[dict], environment: dict) -> str:
-    """设置: the shared shell, Skills module and 执行环境 editor around this package's health section."""
+    """设置: the shared shell, status bar, 执行环境 editor and Skills module. 检查更新 stays in the sidebar."""
     scroll = lambda target: [("data-action", "scroll-to"), ("data-id", target)]
     return settings_template.render({
-        "intro": "本机执行环境与当前文档库的基础 Skill，在这里查看和管理。",
-        "actions_html": '<button class="button" type="button" data-action="check-update">检查更新</button>'
-                        '<button id="health-check-button" class="button" type="button" data-action="health-check">检查服务状态</button>',
         "nav": [{"href": "#settings", "label": "执行环境", "attrs": scroll("execution")},
                 {"href": "#settings", "label": "Skills", "attrs": scroll("skills")}],
         "execution_html": settings_template.execution({"environment": environment, "config_path": environment.get("config_path", ""), "copy": EXECUTION_COPY}),

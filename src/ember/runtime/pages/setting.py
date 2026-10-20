@@ -357,7 +357,7 @@ def render_settings(token: str, notice: str = "", error: str = "") -> str:
     ]
     refresh_form = runtime._form("/actions/refresh-settings-health", token, {"return_to": "/settings"}, "运行健康检查", "button")
     execution_html = runtime.settings_page.execution({
-        "environment": runtime.executor_settings.read_settings(), "compact": True,
+        "environment": runtime.executor_settings.read_settings(),
         "form": {"action": "/actions/save-executor-settings", "check_action": "/actions/check-executor-settings",
                  "hidden": [("csrf", token), ("return_to", "/settings#execution")]},
     })
@@ -381,7 +381,7 @@ def render_settings(token: str, notice: str = "", error: str = "") -> str:
         dependency_groups_data.append({"profile": profile, "title": title, "guidance": guidance, "detail": "；".join(group["details"]), "count": group["count"]})
     skills_data = {
         "snapshot": snapshot_state, "summary": capability_summary, "categories": categories, "rows": skill_rows,
-        "dependencies": {"note": "", "groups": dependency_groups_data}, "browse_collapsed": True,
+        "dependencies": {"note": "", "groups": dependency_groups_data},
     }
     head_page = {
         "nav": [{"href": "#execution", "label": "执行环境"}, {"href": "#agents", "label": "Agents"}, {"href": "#skills", "label": "Skills"}, {"href": "#integrations", "label": "集成能力"}],
