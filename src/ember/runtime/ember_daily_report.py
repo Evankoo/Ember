@@ -181,9 +181,16 @@ def build_packet(report_date: str = "latest", *, now: datetime | None = None) ->
     records = current_project_titles(records)
     task_records = [item for item in records if isinstance(item, dict) and item.get("record_type") == "task_card"]
     release_records = [item for item in records if isinstance(item, dict) and item.get("record_type") == "release_record"]
-    touched_raw = [item for item in task_records if _in_window(item.get("updated_at") or item.get("created_at"), start, end)]
     created_raw = [item for item in task_records if _in_window(item.get("created_at"), start, end)]
+    # A card created inside the window counts for that day even when its last
+    # updated_at already falls after the window end.
+    touched_raw = [
+        item for item in task_records
+        if _in_window(item.get("updated_at") or item.get("created_at"), start, end)
+        or _in_window(item.get("created_at"), start, end)
+    ]
     touched = [_task_item(item) for item in touched_raw]
+    created_items = [_task_item(item) for item in created_raw]
     created_ids = {str(item.get("task_id") or "") for item in created_raw}
     active = [item for item in touched if item["status"] == "active" or str(item["status"]).startswith("waiting")]
     completed = [item for item in touched if item["status"] == "completed" or str(item["status"]) == "archived"]
@@ -252,6 +259,7 @@ def build_packet(report_date: str = "latest", *, now: datetime | None = None) ->
             "touched": len(touched),
             "created": len(created_raw),
             "created_task_ids": sorted(created_ids),
+            "created_items": created_items,
             "active_touched": len(active),
             "completed_state_touched": len(completed),
             "items": touched,
