@@ -463,6 +463,7 @@ def task_record(root: str, state: str, path: Path, *, source_text: str | None = 
         "paths": extract_output_paths(fm),
         "updated_at": updated_at,
         "created_at": top_value(fm, "created_at"),
+        "completed_at": top_value(fm, "completed_at"),
         "delivery_folder": delivery_folder,
         "next_action": "; ".join(list_value(nested_block(fm, "workflow_lock")[2], "next_allowed_actions")) if nested_block(fm, "workflow_lock") else "",
     }

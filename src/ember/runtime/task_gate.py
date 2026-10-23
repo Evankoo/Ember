@@ -553,6 +553,17 @@ def _replace_top_value(text: str, key: str, value: str) -> str:
     return re.sub(rf"^{re.escape(key)}:\s*.*$", f"{key}: {value}", text, count=1, flags=re.MULTILINE)
 
 
+def _set_completed_at(text: str, timestamp: str) -> str:
+    """Record when a lifecycle gate closed the task; the daily report counts completions by it."""
+    if re.search(r"^completed_at:", text, flags=re.MULTILINE):
+        return _replace_top_value(text, "completed_at", timestamp)
+    return re.sub(r"^(updated_at:.*)$", rf"\g<1>\ncompleted_at: {timestamp}", text, count=1, flags=re.MULTILINE)
+
+
+def _clear_completed_at(text: str) -> str:
+    return re.sub(r"^completed_at:.*\n", "", text, count=1, flags=re.MULTILINE)
+
+
 def _replace_nested_value(text: str, parent: str, child: str, value: str) -> str:
     pattern = rf"(^\s*{re.escape(parent)}:\s*$\n(?:^  .*\n)*?^  {re.escape(child)}:)\s*.*$"
     return re.sub(pattern, rf"\g<1> {value}", text, count=1, flags=re.MULTILINE)
@@ -610,6 +621,7 @@ def command_promote_delivery(args: argparse.Namespace) -> int:
     timestamp = _beijing_now()
     revised = _replace_top_value(text, "status", "completed")
     revised = _replace_top_value(revised, "updated_at", timestamp)
+    revised = _set_completed_at(revised, timestamp)
     revised = _replace_nested_value(revised, "delivery", "state", "final")
     revised = _replace_nested_value(revised, "delivery", "folder", f"交付/正式交付/{args.task_id}/")
     revised = revised.replace(f"/交付/草稿/{args.task_id}/", f"/交付/正式交付/{args.task_id}/")
@@ -681,6 +693,7 @@ def command_complete_task(args: argparse.Namespace) -> int:
     timestamp = _beijing_now()
     revised = _replace_top_value(text, "status", "completed")
     revised = _replace_top_value(revised, "updated_at", timestamp)
+    revised = _set_completed_at(revised, timestamp)
     revised = ember_task.prepend_execution_log_entry(
         revised,
         f"{timestamp}：由整理任务 `{args.organization_task_id}` 确认 `{artifact_mode}` 成果验证完成并收口。",
@@ -928,6 +941,7 @@ def command_finalize_weekly_organization(args: argparse.Namespace) -> int:
     timestamp = _beijing_now()
     revised = _replace_top_value(text, "status", "completed")
     revised = _replace_top_value(revised, "updated_at", timestamp)
+    revised = _set_completed_at(revised, timestamp)
     revised = _replace_top_value(revised, "current_stage", "completed")
     revised = _replace_nested_value(revised, "delivery", "state", "final")
     revised = _replace_nested_value(revised, "delivery", "folder", f"交付/正式交付/{args.task_id}/")
@@ -1013,6 +1027,7 @@ def command_reopen_for_revision(args: argparse.Namespace) -> int:
     timestamp = _beijing_now()
     revised = _replace_top_value(text, "status", "active")
     revised = _replace_top_value(revised, "updated_at", timestamp)
+    revised = _clear_completed_at(revised)
     if artifact_mode == "delivery":
         revised = _replace_nested_value(revised, "delivery", "state", "draft")
         revised = _replace_nested_value(revised, "delivery", "folder", f"交付/草稿/{args.task_id}/")

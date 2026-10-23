@@ -26,6 +26,9 @@ TIMEZONE_NAME = "Asia/Shanghai"
 TZ = ZoneInfo(TIMEZONE_NAME)
 SCHEMA_VERSION = 2
 REPORT_KIND = "gstudio_daily_handoff"
+# The task-index LaunchAgent polls every 60 seconds; a much older check means it stopped.
+INDEX_MAX_AGE = timedelta(minutes=10)
+LAUNCH_AGENT_PREFIX = "com.ember."
 
 
 class DailyReportError(RuntimeError):
@@ -123,6 +126,7 @@ def _task_item(record: dict[str, Any]) -> dict[str, Any]:
         "external_job_id": str(record.get("external_job_id") or ""),
         "external_state": str(record.get("external_state") or ""),
         "updated_at": str(record.get("updated_at") or ""),
+        "completed_at": str(record.get("completed_at") or ""),
     }
 
 
@@ -162,6 +166,31 @@ def _runtime_activity(start: datetime, end: datetime) -> dict[str, Any]:
     }
 
 
+def _launch_agent_failures() -> list[dict[str, str]]:
+    """Ember LaunchAgents whose last run exited with a positive status.
+
+    Negative values are signals from an ordinary restart and are not failures.
+    """
+    try:
+        result = subprocess.run(
+            ["/bin/launchctl", "list"], text=True, capture_output=True, timeout=15, check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return [{"kind": "background_service", "label": "launchctl", "status": "unreadable"}]
+    failures = []
+    for line in result.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) != 3 or not parts[2].startswith(LAUNCH_AGENT_PREFIX):
+            continue
+        try:
+            exit_status = int(parts[1])
+        except ValueError:
+            continue
+        if exit_status > 0:
+            failures.append({"kind": "background_service", "label": parts[2], "status": f"exit {exit_status}"})
+    return failures
+
+
 def _source_hash() -> str:
     digest = hashlib.sha256()
     for path in (SKILL_PATH, STYLE_PATH, CONTRACT_PATH):
@@ -182,20 +211,33 @@ def build_packet(report_date: str = "latest", *, now: datetime | None = None) ->
     task_records = [item for item in records if isinstance(item, dict) and item.get("record_type") == "task_card"]
     release_records = [item for item in records if isinstance(item, dict) and item.get("record_type") == "release_record"]
     created_raw = [item for item in task_records if _in_window(item.get("created_at"), start, end)]
+    # Lifecycle gates record completed_at; older completed cards fall back to
+    # their last update, which is the closest evidence they carry.
+    completed_raw = [
+        item for item in task_records
+        if _in_window(item.get("completed_at"), start, end)
+        or (
+            not item.get("completed_at")
+            and str(item.get("status") or "") in {"completed", "archived"}
+            and _in_window(item.get("updated_at"), start, end)
+        )
+    ]
+    completed_ids = {str(item.get("task_id") or "") for item in completed_raw}
     # A card created inside the window counts for that day even when its last
     # updated_at already falls after the window end.
     touched_raw = [
         item for item in task_records
         if _in_window(item.get("updated_at") or item.get("created_at"), start, end)
         or _in_window(item.get("created_at"), start, end)
+        or str(item.get("task_id") or "") in completed_ids
     ]
     touched = [_task_item(item) for item in touched_raw]
     created_items = [_task_item(item) for item in created_raw]
     created_ids = {str(item.get("task_id") or "") for item in created_raw}
     active = [item for item in touched if item["status"] == "active" or str(item["status"]).startswith("waiting")]
-    completed = [item for item in touched if item["status"] == "completed" or str(item["status"]) == "archived"]
+    completed = [item for item in touched if item["task_id"] in completed_ids]
     draft = [item for item in touched if item["delivery_class"] == "draft"]
-    final = [item for item in touched if item["delivery_class"] == "final"]
+    final = [item for item in completed if item["delivery_class"] == "final"]
     external_results = [item for item in touched if item["external_system"] and item["external_state"]]
     publishing = [
         {
@@ -227,6 +269,9 @@ def build_packet(report_date: str = "latest", *, now: datetime | None = None) ->
     except DailyReportError as exc:
         index_status = {"state": "missing", "cache_consistent": False, "error": str(exc)}
     shared_available = (shared_workspace_root() / "tasks").is_dir()
+    generated = (now or datetime.now(TZ)).astimezone(TZ)
+    index_checked_at = _parse_datetime(index_status.get("last_check_at"))
+    index_fresh = bool(index_checked_at and generated - index_checked_at <= INDEX_MAX_AGE)
     index_ok = index_status.get("state") == "ok" and index_status.get("cache_consistent") is True
     git_ok = runtime["clean"] and runtime["origin_aligned"] and runtime["branch"] == "main"
     health_issues: list[dict[str, str]] = []
@@ -234,10 +279,13 @@ def build_packet(report_date: str = "latest", *, now: datetime | None = None) ->
         health_issues.append({"kind": "shared_workspace", "status": "unavailable"})
     if not index_ok:
         health_issues.append({"kind": "task_index", "status": str(index_status.get("state") or "unhealthy")})
+    elif not index_fresh:
+        health_issues.append({"kind": "task_index", "status": "stale"})
     if not git_ok:
         health_issues.append({"kind": "runtime_git", "status": "not_clean_or_aligned"})
+    service_failures = _launch_agent_failures()
+    health_issues.extend(service_failures)
     healthy = not health_issues
-    generated = (now or datetime.now(TZ)).astimezone(TZ)
     return {
         "schema_version": SCHEMA_VERSION,
         "report_kind": REPORT_KIND,
@@ -261,7 +309,8 @@ def build_packet(report_date: str = "latest", *, now: datetime | None = None) ->
             "created_task_ids": sorted(created_ids),
             "created_items": created_items,
             "active_touched": len(active),
-            "completed_state_touched": len(completed),
+            "completed": len(completed),
+            "completed_items": completed,
             "items": touched,
         },
         "delivery_activity": {
@@ -295,6 +344,7 @@ def build_packet(report_date: str = "latest", *, now: datetime | None = None) ->
             "task_index": {
                 "state": str(index_status.get("state") or "unknown"),
                 "cache_consistent": bool(index_status.get("cache_consistent")),
+                "fresh": index_fresh,
                 "last_check_at": str(index_status.get("last_check_at") or ""),
                 "source_task_count": index_status.get("source_task_count"),
                 "record_count": index_status.get("record_count"),
@@ -303,6 +353,10 @@ def build_packet(report_date: str = "latest", *, now: datetime | None = None) ->
                 "branch": runtime["branch"],
                 "clean": runtime["clean"],
                 "origin_aligned": runtime["origin_aligned"],
+            },
+            "background_services": {
+                "checked_prefix": LAUNCH_AGENT_PREFIX,
+                "failures": service_failures,
             },
         },
         "consumer_contract": {
