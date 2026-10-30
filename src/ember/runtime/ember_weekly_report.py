@@ -328,7 +328,7 @@ def build_packet(report_week: str = "latest", *, now: datetime | None = None, in
     created = [item for item in cards if review.record_created_in_window(item, start_date, end_date)]
     draft = [item for item in public if item["delivery_class"] == "draft"]
     final = [item for item in public if item["delivery_class"] == "final"]
-    system = [item for item in public if item["project"] == "gstudio" and item["work_type"] == "system"]
+    system = [item for item in public if item["project"] == "ember" and item["work_type"] == "system"]
     runtime = daily._runtime_activity(start, end)
     try:
         index_status = _read_json(INDEX_STATUS_PATH)

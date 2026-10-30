@@ -221,6 +221,13 @@ def project_registry(
     return by_slug, by_alias
 
 
+def canonical_project_slug(value: object) -> str | None:
+    """Registered slug for a slug or alias, e.g. the legacy gstudio -> ember."""
+    _, by_alias = project_registry(include_legacy_aliases=True)
+    item = by_alias.get(str(value or "").strip().lower())
+    return str(item["slug"]) if item else None
+
+
 def normalize_project(
     raw: str, *, include_legacy_aliases: bool = False
 ) -> tuple[str, str, str]:
@@ -251,7 +258,7 @@ def infer_work_type(fm: str, project: str) -> str:
     task_types = set(list_value(fm, "task_type"))
     stage = top_value(fm, "current_stage").lower()
     content_format = top_value(fm, "content_format").lower()
-    if project == "gstudio":
+    if project in {"ember", "gstudio"}:
         return "system"
     if task_types & {"voiceover_tts"} or "tts" in stage:
         return "audio"
@@ -591,13 +598,20 @@ def parse_publish_records() -> list[dict[str, object]]:
 
 
 def current_project_titles(records: list[dict[str, object]]) -> list[dict[str, object]]:
-    """Resolve display names from the registry without rewriting cached evidence."""
-    projects, _ = project_registry()
-    return [
-        {**record, "project_title": projects[str(record.get("project"))]["title"]}
-        if isinstance(record, dict) and str(record.get("project")) in projects else record
-        for record in records
-    ]
+    """Resolve slugs and display names from the registry without rewriting cached evidence.
+
+    Records cached before a slug rename (gstudio -> ember) read as the current slug.
+    """
+    projects, by_alias = project_registry(include_legacy_aliases=True)
+    resolved: list[dict[str, object]] = []
+    for record in records:
+        if isinstance(record, dict):
+            key = str(record.get("project"))
+            item = projects.get(key) or by_alias.get(key.strip().lower())
+            if item:
+                record = {**record, "project": str(item["slug"]), "project_title": item["title"]}
+        resolved.append(record)
+    return resolved
 
 
 def load_index() -> list[dict[str, object]]:
@@ -668,7 +682,7 @@ def render_dashboard(records: list[dict[str, object]]) -> str:
     by_slug, _ = project_registry()
     for slug, item in by_slug.items():
         project_records = [r for r in records if r.get("project") == slug]
-        if not project_records and slug == "gstudio":
+        if not project_records and slug == "ember":
             continue
         index_path = SHARED_PROJECT_INDEX_ROOT / f"{slug}-任务索引.md"
         board = item.get("project_card") or item.get("copy_board")
@@ -757,8 +771,8 @@ def sync_index_records(
             target = SOURCE_CACHE_ROOT / "tasks" / str(record.get("state") or "active") / f"{record['task_id']}.md"
             target.parent.mkdir(parents=True, exist_ok=True)
             write(target, read(source))
-    for slug in project_registry()[0]:
-        source = SHARED_WORKSPACE_ROOT / "项目" / slug / "项目看板.md"
+    for slug, item in project_registry()[0].items():
+        source = SHARED_WORKSPACE_ROOT / str(item.get("project_card") or f"项目/{slug}/项目看板.md")
         if source.exists():
             target = SOURCE_CACHE_ROOT / "projects" / slug / "项目看板.md"
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -923,67 +937,77 @@ def sync_delivery_cache(records: list[dict[str, object]]) -> dict[str, int]:
             fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
 
-def sync_delivery_cache_tasks(records: list[dict[str, object]], task_ids: set[str]) -> dict[str, int]:
-    """Refresh delivery metadata only for the changed task IDs."""
+def _delivery_metadata_entries(source: Path) -> list[dict[str, object]]:
+    """Scan metadata only; an incomplete traversal must never become a snapshot."""
+    entries: list[dict[str, object]] = []
+
+    def failed(error: OSError) -> None:
+        raise error
+
+    for directory, folders, files in os.walk(source, onerror=failed, followlinks=False):
+        parent = Path(directory)
+        folders[:] = sorted(name for name in folders if not name.startswith(".") and not (parent / name).is_symlink())
+        for name in folders + sorted(files):
+            path = parent / name
+            if name.startswith(".") or path.is_symlink():
+                continue
+            stat = path.stat()
+            entries.append({
+                "name": name, "relative_path": path.relative_to(source).as_posix(),
+                "is_dir": name in folders, "size": stat.st_size,
+                "mtime": stat.st_mtime, "mtime_ns": stat.st_mtime_ns,
+                "ctime_ns": stat.st_ctime_ns, "suffix": path.suffix.lower(),
+            })
+    # os.walk may yield nothing when the root disappears before traversal.
+    if not source.is_dir():
+        raise FileNotFoundError(source)
+    return sorted(entries, key=lambda entry: str(entry["relative_path"]))
+
+
+def sync_delivery_cache_tasks(records: list[dict[str, object]], task_ids: set[str]) -> dict[str, object]:
+    """Refresh selected deliveries independently of card changes, atomically per task."""
     lock_path = DELIVERY_CACHE_ROOT.parent / ".delivery-cache-sync.lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open("a+", encoding="utf-8") as lock:
         fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
-        indexed = skipped = 0
+        indexed = changed = 0
+        errors: dict[str, str] = {}
         try:
-            for task_id in task_ids:
-                for key in ("draft", "final"):
-                    target = DELIVERY_CACHE_ROOT / key / task_id
-                    if target.exists():
-                        shutil.rmtree(target)
-            by_id = {
-                str(record.get("task_id") or ""): record
-                for record in records
-                if record.get("record_type") == "task_card"
-            }
-            for task_id in task_ids:
+            by_id = {str(record.get("task_id") or ""): record for record in records
+                     if record.get("record_type") == "task_card"}
+            for task_id in sorted(task_ids):
                 record = by_id.get(task_id)
                 delivery = str((record or {}).get("delivery_folder") or "").strip()
                 key = "final" if "正式交付" in delivery else "draft" if "草稿" in delivery else ""
                 if not record or not delivery or not key:
+                    if SHARED_WORKSPACE_ROOT.is_dir():
+                        for retired_key in ("draft", "final"):
+                            retired = DELIVERY_CACHE_ROOT / retired_key / task_id
+                            if retired.exists():
+                                shutil.rmtree(retired)
                     continue
-                source = (SHARED_WORKSPACE_ROOT / delivery).resolve()
-                if not source.is_dir() or source.name != task_id:
-                    continue
-                target_root = DELIVERY_CACHE_ROOT / key / task_id
-                target_root.mkdir(parents=True, exist_ok=True)
-                entries: list[dict[str, object]] = []
                 try:
-                    paths = list(source.rglob("*"))
-                except OSError:
-                    skipped += 1
+                    source = (SHARED_WORKSPACE_ROOT / delivery).resolve(strict=True)
+                    allowed = (SHARED_WORKSPACE_ROOT / "交付" / ("正式交付" if key == "final" else "草稿")).resolve(strict=True)
+                    if source.parent != allowed or source.name != task_id or not source.is_dir():
+                        raise ValueError("交付目录不在登记的任务交付位置")
+                    entries = _delivery_metadata_entries(source)
+                    manifest = DELIVERY_CACHE_ROOT / key / task_id / ".gstudio-metadata.json"
+                    payload = {"version": 1, "task_id": task_id, "delivery_key": key, "entries": entries}
+                    text = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
+                    if not manifest.is_file() or read(manifest) != text:
+                        atomic_write(manifest, text)
+                        changed += 1
+                    indexed += len(entries)
+                except (OSError, ValueError) as exc:
+                    errors[task_id] = str(exc)
                     continue
-                for path in paths:
-                    relative = path.relative_to(source)
-                    if path.is_symlink() or any(part.startswith(".") for part in relative.parts):
-                        skipped += 1
-                        continue
-                    try:
-                        stat = path.stat()
-                    except OSError:
-                        skipped += 1
-                        continue
-                    entries.append({
-                        "name": path.name,
-                        "relative_path": relative.as_posix(),
-                        "is_dir": path.is_dir(),
-                        "size": stat.st_size,
-                        "mtime": stat.st_mtime,
-                        "suffix": path.suffix.lower(),
-                    })
-                    indexed += 1
-                write(target_root / ".gstudio-metadata.json", json.dumps({
-                    "version": 1,
-                    "task_id": task_id,
-                    "delivery_key": key,
-                    "entries": entries,
-                }, ensure_ascii=False, indent=2) + "\n")
-            return {"indexed": indexed, "copied": 0, "skipped": skipped}
+                # Retire the opposite cache only after the new snapshot succeeds.
+                other = DELIVERY_CACHE_ROOT / ("draft" if key == "final" else "final") / task_id
+                if other.exists():
+                    shutil.rmtree(other)
+            return {"indexed": indexed, "copied": 0, "skipped": len(errors),
+                    "changed": changed, "failed": len(errors), "errors": errors}
         finally:
             fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 

@@ -146,7 +146,7 @@ def _render_task(info: dict[str, str], now: datetime) -> str:
 type: gstudio_task
 task_id: {info["task_id"]}
 title: {info["title"]}
-project: gstudio
+project: ember
 work_type: organize
 task_kind: weekly_organization
 status: active

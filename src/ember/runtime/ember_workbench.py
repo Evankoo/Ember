@@ -35,7 +35,7 @@ from . import ember_opencode
 from . import ember_organization
 from . import ember_publish
 from . import ember_review_views as review_views
-from .ember_prompt_catalog import render_prompt as render_catalog_prompt
+from .ember_prompt_catalog import TASK_REQUEST_RULE, render_prompt as render_catalog_prompt
 from . import weekly_task_review
 from . import check_skill_health
 from .ember_workbench_assets import ARCHIVE_CSS, ARCHIVE_JS, BRAND_MARK_PATH, BRAND_MARK_SVG, CSS, EMBER_FAVICON_SVG, EMBER_MARK_PATH, EXECUTION_CONFIRM_JS, PROJECT_NAVIGATION_JS, SIDEBAR_STATE_JS, STATIC_ASSETS, STATIC_CONTENT_TYPES, TASK_DETAIL_CSS, TASK_DETAIL_JS, asset_version
@@ -491,7 +491,13 @@ def _project_view_state_for_update() -> dict[str, object]:
 def project_favorites() -> list[str]:
     saved = project_view_state().get("favorite_project_ids", [])
     projects = project_items()
-    return list(dict.fromkeys(slug for slug in saved if isinstance(slug, str) and slug in projects)) if isinstance(saved, list) else []
+    canonical = (_saved_project_slug(slug, projects) for slug in saved if isinstance(slug, str)) if isinstance(saved, list) else ()
+    return list(dict.fromkeys(slug for slug in canonical if slug in projects))
+
+
+def _saved_project_slug(slug: str, projects: dict[str, object]) -> str:
+    """Saved shortcuts and order may still name a legacy alias such as gstudio."""
+    return slug if slug in projects else (tasks.canonical_project_slug(slug) or slug)
 
 
 def set_project_favorite(project: str, favorite: bool) -> None:
@@ -502,7 +508,9 @@ def set_project_favorite(project: str, favorite: bool) -> None:
     with _locked(PROJECT_PRIORITIES_PATH):
         payload = _project_view_state_for_update()
         saved = payload.get("favorite_project_ids", [])
-        favorites = list(dict.fromkeys(slug for slug in saved if isinstance(slug, str) and slug in project_items())) if isinstance(saved, list) else []
+        projects = project_items()
+        canonical = (_saved_project_slug(slug, projects) for slug in saved if isinstance(slug, str)) if isinstance(saved, list) else ()
+        favorites = list(dict.fromkeys(slug for slug in canonical if slug in projects))
         if favorite and project not in favorites:
             favorites.append(project)
         elif not favorite:
@@ -540,7 +548,9 @@ def project_display_order() -> list[str]:
     """Preserve local card order for formal projects plus independent tasks."""
     registered = list(dict.fromkeys(formal_project_slugs() + project_overview_scope_slugs()))
     saved = project_view_state().get("project_order")
-    ordered = [str(slug) for slug in saved if str(slug) in registered] if isinstance(saved, list) else []
+    projects = project_items()
+    canonical = [_saved_project_slug(str(slug), projects) for slug in saved] if isinstance(saved, list) else []
+    ordered = [slug for slug in canonical if slug in registered]
     return list(dict.fromkeys(ordered + registered))
 
 
@@ -725,8 +735,14 @@ def task_source(task_id: str) -> Path | None:
     return None
 
 
+def project_card_folder(project: str) -> Path:
+    """Registered card folder; a renamed project keeps its former-slug folder."""
+    registered = Path(str(project_items().get(project, {}).get("project_card") or ""))
+    return PROJECT_BOARD_ROOT / (registered.parent.name or project)
+
+
 def project_source(project: str) -> Path | None:
-    path = (PROJECT_BOARD_ROOT / project / "项目看板.md").resolve()
+    path = (project_card_folder(project) / "项目看板.md").resolve()
     if _readable_file(path, PROJECT_BOARD_ROOT.resolve()):
         return path
     cached = (SOURCE_CACHE_ROOT / "projects" / project / "项目看板.md").resolve()
@@ -746,7 +762,7 @@ def project_intro_source(project: str) -> Path | None:
 
 def project_intro_history_path(project: str) -> Path:
     """Return the sidecar JSON path that stores organization history for a project intro."""
-    return PROJECT_BOARD_ROOT / project / "organization_history.json"
+    return project_card_folder(project) / "organization_history.json"
 
 
 def project_intro_history_cache_path(project: str) -> Path:
@@ -903,7 +919,7 @@ def allowed_source(kind: str, identifier: str) -> Path | None:
         path = Path(str(record.get("canonical_path") or "")).expanduser().resolve() if record else None
         return path if path and _within(path, shared_workspace_root()) else None
     if kind == "project":
-        path = (PROJECT_BOARD_ROOT / identifier / "项目看板.md").resolve()
+        path = (project_card_folder(identifier) / "项目看板.md").resolve()
         return path if identifier in project_items() and _within(path, PROJECT_BOARD_ROOT) else None
     return None
 
@@ -1300,6 +1316,7 @@ def _library_flat_metadata_payload(
         "is_dir": False,
         "size": int(entry.get("size") or 0),
         "updated_at": datetime.datetime.fromtimestamp(float(entry.get("mtime") or 0)).strftime("%Y-%m-%d %H:%M"),
+        "revision": f"{entry.get('mtime_ns', entry.get('mtime', 0))}:{entry.get('ctime_ns', 0)}:{entry.get('size', 0)}",
         "suffix": str(entry.get("suffix") or ""),
     } for entry in metadata if not bool(entry.get("is_dir"))]
     entries.sort(key=lambda entry: (str(entry["name"]).casefold(), str(entry["relative_path"]).casefold()))
@@ -1328,6 +1345,7 @@ def library_directory_payload(task_id: str, delivery_key: str, relative_path: st
                 "is_dir": bool(entry.get("is_dir")),
                 "size": int(entry.get("size") or 0),
                 "updated_at": datetime.datetime.fromtimestamp(float(entry.get("mtime") or 0)).strftime("%Y-%m-%d %H:%M"),
+                "revision": f"{entry.get('mtime_ns', entry.get('mtime', 0))}:{entry.get('ctime_ns', 0)}:{entry.get('size', 0)}",
                 "suffix": str(entry.get("suffix") or ""),
             })
         entries.sort(key=lambda entry: (not bool(entry["is_dir"]), str(entry["name"]).casefold()))
@@ -1357,6 +1375,7 @@ def library_directory_payload(task_id: str, delivery_key: str, relative_path: st
             "is_dir": child.is_dir(),
             "size": stat.st_size,
             "updated_at": datetime.datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M"),
+            "revision": f"{stat.st_mtime_ns}:{stat.st_ctime_ns}:{stat.st_size}",
             "suffix": child.suffix.lower(),
         })
     current = path.relative_to(root).as_posix()
@@ -1395,6 +1414,7 @@ def library_flat_files_payload(task_id: str, delivery_key: str) -> dict[str, obj
             "is_dir": False,
             "size": stat.st_size,
             "updated_at": datetime.datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M"),
+            "revision": f"{stat.st_mtime_ns}:{stat.st_ctime_ns}:{stat.st_size}",
             "suffix": path.suffix.lower(),
         })
     return {"task_id": task_id, "delivery_key": delivery_key, "current_path": "", "entries": entries}
@@ -2020,6 +2040,7 @@ def shared_prompt_contract(
     user_supplement: str = "",
 ) -> str:
     """Wrap a task in the executor-neutral Ember prompt contract."""
+    boundary = authorization.strip() + "\n" + TASK_REQUEST_RULE
     sections = [
         "## 余烬 · Ember 共享任务提示", "",
         "### 任务", "", task.strip(), "",
@@ -2031,7 +2052,7 @@ def shared_prompt_contract(
         inputs = f"{inputs}\n\n- Evan 补充材料：\n{quote_prompt_input(supplement)}"
     sections.extend(["### 输入与真源", "", inputs, ""])
     sections.extend([
-        "### 授权边界", "", authorization.strip() + "\n" + system_bridge.PROMPT_BOUNDARY, "",
+        "### 授权边界", "", boundary, "",
         "### 成功标准", "", success.strip(), "",
         "### 输出", "", output.strip(),
     ])
@@ -2626,7 +2647,7 @@ def organization_prompt(executor: str, mode: str, scope: str = "") -> str:
     if mode != "weekly" and not scope:
         raise ValueError("该整理模式必须选择范围。")
     labels = ember_organization.MODE_LABELS
-    project = scope if mode == "project" else "gstudio"
+    project = scope if mode == "project" else "ember"
     scope_label = scope or "上一完整自然周"
     if mode == "weekly":
         day = weekly_task_review.review_day(datetime.date.today())
@@ -5684,6 +5705,7 @@ def task_search_payload(
         return {"query": "", "items": []}
 
     results: list[dict[str, object]] = []
+    project = tasks.canonical_project_slug(project) or project if project else ""
     for record in launcher_task_records(collect_records()):
         if record.get("record_type") != "task_card":
             continue

@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "source_commit": "58675dfdf971d15da6651893dc76cbcafa1f091a",
+  "source_commit": "2bcfdc95687af78445436cb1d4e56deb235098b3",
   "source_dir": "ui/ember_ui",
   "files": {
     "README.md": "4f0ac289b9594caa190ccff4e39ef095a37e6101165548dcd325bd2cebd178b6",
@@ -28,14 +28,14 @@
     "static/projects.css": "ea1b5ba417690414c652b78423641914dfa66e405d812a6582cfa96f695e7c2f",
     "static/projects.js": "a8a8a03d912c9726a94b9bd018068b9a19c427f0dc161b99adde493adfeef3d6",
     "static/review.js": "71f590f79eb79984e336fc049872e1b83e156bc78c451aa508eb76a434303559",
-    "static/settings.css": "aad62357b78a99735c0974d9a30c727f69447be42a40c7b6adaa702d849974bc",
+    "static/settings.css": "73e2721a4f45392c4122da1c1b6408101ed91be6ded0131e9afe9a31cffe31c4",
     "static/settings.js": "c9fb459b6a70610f2a77e26dc687631b77a5b659fb8c110fd99fe369b3f59cd5",
     "static/sidebar-state.js": "7552ece209b94856e4c2381c2096c2a782c4c555f8775e6f020ff86a28a5b0ce",
     "static/sidebar.js": "a04aa64f3aa0de00044cec5c5d8f306747334da16478c40dda4988d133058730",
     "static/system.css": "df7db94b070c61967579cefcff19d375d7088c2210735f87a0bf94ccdbac7f9a",
     "static/system.js": "444315dd227f3393c7b95e085657884db407f90065af6c039e0ae0b5f3146764",
     "static/task-detail.css": "84a717332fd541161172382bc3f665cb4109e6a9910fe7a58053d1042413dcf2",
-    "static/task-detail.js": "e5110a366b5156f60b779201526de8a945f547768ebe548968e363b75d47ef15",
+    "static/task-detail.js": "11c90320495648b423955865f459d5ea07cf2559f185c184786bd2c6bff71515",
     "static/task-overview.js": "f6f16b69fc3839849f11ffc51f18c5ec168b78f459f81eeca6a4b6019a7f6412",
     "static/workbench.css": "425983223a43edcf9ea5d1af6db9fcb2a0edd5f003d977461e5f58dd0ec0ef10"
   },

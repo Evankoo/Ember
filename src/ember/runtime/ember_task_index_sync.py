@@ -316,7 +316,6 @@ def refresh_once(*, force: bool = False, root: Path | None = None) -> dict[str, 
                 "error": "",
             }
             atomic_json(STATE_PATH, payload)
-            return payload
         except Exception as exc:
             payload = _error_state(previous, exc)
             if cache_consistent is not None:
@@ -325,6 +324,21 @@ def refresh_once(*, force: bool = False, root: Path | None = None) -> dict[str, 
             raise
         finally:
             fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+    # Scan delivery metadata every poll, including when no task card changed.
+    # Keep slow SMB traversal outside the task-index lock and serialize it with
+    # the same delivery lock used by preflight/finalize.
+    payload["delivery_sync"] = ember_task.sync_delivery_cache_tasks(
+        records, {str(record["task_id"]) for record in records
+                  if record.get("record_type") == "task_card" and record.get("delivery_folder")}
+    )
+    # Merge only this independent result, preserving concurrent task refreshes.
+    with LOCK_PATH.open("a+", encoding="utf-8") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        current = load_state()
+        current["delivery_sync"] = {**payload["delivery_sync"], "checked_at": now_string()}
+        atomic_json(STATE_PATH, current)
+    return payload
 
 
 def refresh_tasks(task_paths: list[Path]) -> list[dict[str, object]]:

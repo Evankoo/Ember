@@ -338,7 +338,7 @@ def _render_system_workspace(
     visible_records = (active + lines + recent)[:10]
     return_to = f"/projects/{runtime.quote(project)}"
     workbench = runtime.project_entry_target(project, "workbench")
-    if project == "gstudio":
+    if project in {"ember", "gstudio"}:
         index_status = runtime.task_index_sync_status()
         index_state = str(index_status.get("state") or "unknown") if index_status else "unknown"
         shared_ready = runtime.shared_workspace_root().is_dir()

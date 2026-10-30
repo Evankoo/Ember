@@ -1111,6 +1111,13 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
             ))
             return
         if parsed.path in {"/review", "/weekly"}:
+            requested = query.get("project", [""])[0]
+            canonical = workbench.tasks.canonical_project_slug(requested) if requested else None
+            if canonical and canonical != requested:
+                # Bookmarks may still filter by a legacy slug such as gstudio.
+                query["project"] = [canonical]
+                self._redirect(urlunsplit(("", "", parsed.path, urlencode(query, doseq=True), "")))
+                return
             self._send(workbench.render_weekly(
                 self.server.csrf_token, notice, error,
                 mode=query.get("mode", [""])[0],
@@ -1422,6 +1429,10 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
         match = parsed.path.split("/")
         if len(match) == 3 and match[1] == "projects":
             project = unquote(match[2])
+            canonical = workbench.tasks.canonical_project_slug(project)
+            if canonical and canonical != project and project != "independent":
+                self._redirect(f"/projects/{quote(canonical)}")
+                return
             page = workbench.render_project_tasks(project, self.server.csrf_token)
             self._send(
                 page
@@ -2500,7 +2511,7 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
                 project_name = form.get("project", "")
                 if not project_name or project_name not in workbench.project_items():
                     raise ValueError("项目不存在。")
-                board_path = workbench.PROJECT_BOARD_ROOT / project_name
+                board_path = workbench.project_card_folder(project_name)
                 if not board_path.exists():
                     raise ValueError("项目工作文件夹不存在。")
                 subprocess.run(["/usr/bin/open", str(board_path)], check=True)

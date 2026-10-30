@@ -12,8 +12,6 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from .ember_system_bridge import PROMPT_BOUNDARY
-
 
 ROOT = _deployment_root()
 CATALOG_PATH = ROOT / "skills" / "ember" / "references" / "workbench-prompt-catalog.md"
@@ -33,6 +31,12 @@ _BLOCK_RE = re.compile(
 )
 _HEADING_RE = re.compile(r"^###\s+(.+?)\s*$", re.MULTILINE)
 _VARIABLE_RE = re.compile(r"\{\{([a-z][a-z0-9_]*)\}\}")
+# The task section is editable in the dialog; this keeps it from fighting
+# locked "wait for Evan" wording without relaxing any other boundary.
+TASK_REQUEST_RULE = (
+    "- 「任务」段写明的具体要求就是 Evan 本轮的要求：范围内的修改直接做完再汇报，每一步都停下来问会让 Evan 白等一轮；"
+    "删除、覆盖、往外发送或扩大范围仍要先问，因为这些做错了难以挽回。"
+)
 
 
 class PromptCatalogError(RuntimeError):
@@ -112,7 +116,7 @@ def render_prompt(prompt_id: str, /, **values: object) -> str:
         if not body:
             body = "-无"
         if heading == "授权边界":
-            body += "\n" + PROMPT_BOUNDARY
+            body += "\n" + TASK_REQUEST_RULE
         rendered.extend(["", f"### {heading}", "", body])
     prompt = "\n".join(rendered)
     for heading in SECTION_HEADINGS:

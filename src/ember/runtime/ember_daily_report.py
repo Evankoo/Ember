@@ -256,7 +256,7 @@ def build_packet(report_date: str = "latest", *, now: datetime | None = None) ->
     ]
     system_tasks = [
         item for item in touched
-        if item["project"] == "gstudio" and item["work_type"] == "system"
+        if item["project"] == "ember" and item["work_type"] == "system"
     ]
     explicit_attention = [item for item in touched if item["status"] in {"waiting_user", "blocked"}]
     failed_external = [

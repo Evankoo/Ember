@@ -91,6 +91,13 @@ def registered_project_slugs() -> set[str]:
         for item in payload.get("projects", [])
         if isinstance(item, dict)
     }
+    # A renamed project's former slug stays valid on existing cards (gstudio -> ember).
+    slugs.update(
+        str(slug)
+        for item in payload.get("projects", [])
+        if isinstance(item, dict)
+        for slug in item.get("legacy_slugs", [])
+    )
     scope = payload.get("independent_scope")
     if isinstance(scope, dict) and scope.get("slug"):
         slugs.add(str(scope["slug"]))
@@ -273,8 +280,8 @@ def allowed_artifact(
         )
         if top_value(task_text, "project") != "Ember":
             # Schema v2 normalizes the project slug.
-            if top_value(task_text, "project") != "gstudio":
-                return False, "--system-change requires project: Ember or gstudio"
+            if top_value(task_text, "project") not in {"ember", "gstudio"}:
+                return False, "--system-change requires project: ember (legacy gstudio or Ember accepted)"
         in_system_root = any(is_within(resolved, root.resolve()) for root in system_roots)
         in_shared_system_root = any(is_within(resolved, root.resolve()) for root in shared_system_roots)
         if not in_system_root and not in_shared_system_root and resolved not in system_files:

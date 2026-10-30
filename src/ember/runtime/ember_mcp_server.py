@@ -62,6 +62,11 @@ def _shared_bridge_lock(key: str):
         yield root
 
 
+def _canonical_project(project: str) -> str:
+    """Callers following older instructions may still pass a former slug such as gstudio."""
+    return project if project == "independent" else (ember_task.canonical_project_slug(project) or project)
+
+
 def _registered_scope(project: str) -> dict[str, Any]:
     payload = ember_task.load_projects()
     if project == "independent":
@@ -111,13 +116,14 @@ def ember_task_route(
     if existing_task_id:
         existing_task_id, found, redirected = _continuation_task(existing_task_id)
         fm, _ = ember_task.frontmatter(found[2].read_text(encoding="utf-8"))
-        result = {"mode": "continue_existing", "task_card_required": True, "task_id": existing_task_id, "project": ember_task.top_value(fm, "project")}
+        result = {"mode": "continue_existing", "task_card_required": True, "task_id": existing_task_id, "project": _canonical_project(ember_task.top_value(fm, "project"))}
         result.update(_project_category_context(ember_task.project_registry()[0].get(str(result["project"]), {})))
         if system_route:
             result["system_route"] = system_route
         if redirected:
             result["redirected_from_task_ids"] = redirected
         return result
+    project = _canonical_project(project)
     scope = _registered_scope(project)
     retrieval_only = bool(system_route and system_route.get("read_only") and not any((independent_deliverable, multi_step, needs_confirmation, external_mutation, system_change, confirmed_simple_copy)))
     args = Namespace(
@@ -241,6 +247,7 @@ def ember_task_ensure(
     objective = bridge.summary(objective) or ""
     if not objective:
         raise ValueError("objective is required")
+    project = _canonical_project(project)
     scope = _registered_scope(project)
     correlation_id = correlation_id.strip()
     lock_key = "ensure-" + hashlib.sha256(f"{external_system}\0{correlation_id}".encode()).hexdigest()

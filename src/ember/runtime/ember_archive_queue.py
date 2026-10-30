@@ -852,7 +852,7 @@ def execution_prompt(batch: dict[str, object]) -> str:
 
 ## 执行门禁
 - 队列当前 `revision` 必须等于 `confirmed_revision`；逐项解析来源并复核 `fingerprint`。不一致只停止受影响的包。
-- 多包批次创建一张 `artifact_mode: archive` 任务卡；单项目归该项目，跨项目归 `gstudio`。
+- 多包批次创建一张 `artifact_mode: archive` 任务卡；单项目归该项目，跨项目归 `ember`。
 
 ## 逐包执行
 1. 确定唯一最终目标。发布包在此时按 `publish_month` 分配 `NN`，不得改用执行月份。

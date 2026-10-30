@@ -151,7 +151,10 @@ def validate_registry(payload: dict[str, object], *, require_cards: bool = True)
                 errors.append(f"project {slug!r} mode {mode!r} is not allowed for {project_type}")
         card = str(raw.get("project_card") or "")
         expected = f"项目/{slug}/项目看板.md"
-        if card != expected:
+        # A renamed project keeps its folder under the former slug,
+        # e.g. ember stays at 项目/gstudio/; no shared directory is moved.
+        allowed = {f"项目/{name}/项目看板.md" for name in [slug, *raw.get("legacy_slugs", [])]}
+        if card not in allowed:
             errors.append(f"project {slug!r} project_card must be {expected}")
         elif require_cards:
             path = project_card_path(raw)
@@ -307,7 +310,6 @@ def require_creation_authority(task_id: str, slug: str) -> Path:
     if errors:
         raise RuntimeError("project creation task preflight failed:\n" + "\n".join(errors))
     expected = {
-        "project": "gstudio",
         "work_type": "system",
         "artifact_mode": "system",
         "status": "active",
@@ -317,6 +319,8 @@ def require_creation_authority(task_id: str, slug: str) -> Path:
         for key, value in expected.items()
         if task_gate.top_value(task_text, key) != value
     ]
+    if task_gate.top_value(task_text, "project") not in {"ember", "gstudio"}:
+        mismatches.insert(0, "project must be 'ember' (legacy 'gstudio' accepted)")
     if mismatches:
         raise RuntimeError("project creation requires an active Ember system task: " + "; ".join(mismatches))
     if sync_error := task_gate.sync_workbench_index(task_path):
