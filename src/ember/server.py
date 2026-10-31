@@ -244,6 +244,7 @@ class Handler(BaseHTTPRequestHandler):
                 "/api/inbox/label": w.set_inbox_label,
                 "/api/context": w.build_context,
                 "/api/review/context": w.build_review_context,
+                "/api/review/weekly-context": w.build_weekly_context,
                 "/api/reports": w.save_report,
                 "/api/executors/check": self.server.executor_registry.validate,
                 "/api/executors/save": self.server.executor_registry.save,

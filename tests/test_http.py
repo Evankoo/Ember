@@ -247,6 +247,16 @@ class HTTPTests(unittest.TestCase):
         self.data("/api/reports", "POST", {"title": "手动检视", "content": "建议等待确认", "mode": "selected", "task_ids": ["autumn-plan"]})
         self.assertEqual(before, {x["id"]: x["status"] for x in self.workspace.snapshot()["tasks"]})
 
+    def test_weekly_context_covers_unfinished_and_recent_tasks_without_changing_them(self):
+        tasks = self.workspace.snapshot()["tasks"]
+        unfinished = next(x for x in tasks if x["status"] != "completed")
+        finished = next(x for x in tasks if x["status"] == "completed")
+        context = self.data("/api/review/weekly-context", "POST", {})
+        self.assertIn(f"任务 ID：{unfinished['id']}", context["text"])
+        self.assertNotIn(f"任务 ID：{finished['id']}", context["text"])
+        self.assertIn("只提出建议", context["text"])
+        self.assertEqual({x["id"]: x["status"] for x in tasks}, {x["id"]: x["status"] for x in self.workspace.snapshot()["tasks"]})
+
     def test_second_service_is_rejected_and_lock_is_released(self):
         with workspace_lock(self.workspace):
             with self.assertRaises(WorkspaceError):

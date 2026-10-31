@@ -265,6 +265,22 @@ class SettingsBrowserTests(unittest.TestCase):
         self.assertEqual(self.page.locator("#createOrganizeTaskGroup").count(), 0)
         self.assert_untouched()
 
+    def test_weekly_summary_generates_a_prompt_and_stays_compact(self):
+        self.page.goto(self.base + "/#review")
+        summary = self.page.locator(".review-weekly-summary")
+        expect(summary.locator(".weekly-state")).to_contain_text("九月末每周检视")
+        self.assertLess(self.page.locator("#save-report-button").bounding_box()["width"], 200)
+        summary.get_by_role("button", name="生成整理提示词", exact=True).click()
+        expect(self.page.locator("#executionConfirmScope")).to_have_text("未完成任务和最近 7 天更新的任务")
+        expect(self.page.locator("#executionConfirmFixed")).to_contain_text("任务检视")
+        self.page.keyboard.press("Escape")
+        self.page.locator("#save-report-button").click()
+        expect(self.page.locator("#report-form")).to_be_visible()
+        self.page.keyboard.press("Escape")
+        self.page.set_viewport_size({"width": 390, "height": 900})
+        self.assertTrue(self.page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1"))
+        self.assert_untouched()
+
     def test_update_button_shows_the_release_and_a_copyable_prompt(self):
         newer = {"tag": "v99.0.0", "url": "https://github.com/Evankoo/Ember/releases/tag/v99.0.0",
                  "published_at": "2026-10-20", "notes": "<img src=x onerror=window.bad=1> 新功能"}

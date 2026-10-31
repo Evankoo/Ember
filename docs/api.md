@@ -96,6 +96,7 @@ POST /api/tasks/<id>/important
 POST /api/inbox/label
 POST /api/context
 POST /api/review/context
+POST /api/review/weekly-context
 POST /api/reports
 POST /api/executors/discover
 POST /api/executors/check

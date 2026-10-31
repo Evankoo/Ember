@@ -435,6 +435,17 @@ def _epoch(value: str) -> int:
         return 0
 
 
+def _weekly_summary(snapshot: dict, has_tasks: bool) -> str:
+    """The full workbench's weekly summary; here the report comes from the user's AI and is saved by hand."""
+    latest = next((report for report in snapshot.get("reports") or [] if report.get("mode") == "weekly"), None)
+    state = f'{latest["title"]} · {str(latest.get("date") or "")[:10] or "未记录日期"}' if latest else "还没有保存过每周整理"
+    disabled = "" if has_tasks else " disabled"
+    return (f'<div class="review-weekly-summary"><span class="review-weekly-label">上周整理</span><div class="weekly-state">{html.escape(state)}</div>'
+            '<div class="weekly-actions inline"><form id="weekly-prompt-form" data-execution-confirm data-execution-label="生成每周整理提示词">'
+            f'<input type="hidden" name="weekly" value="1"><button class="button ghost" type="submit" data-execution-confirm-trigger{disabled}>生成整理提示词</button></form>'
+            '<button id="save-report-button" class="button ghost" type="button" data-action="new-report">保存整理报告</button></div></div>')
+
+
 def review_page_data(snapshot: dict) -> dict:
     """任务检视: every task, filter choices and the saved organization reports."""
     projects = {item["id"]: item for item in snapshot["projects"]}
@@ -445,8 +456,7 @@ def review_page_data(snapshot: dict) -> dict:
             used_projects.append(task["project"])
     return {
         "stats": {"tasks": len(tasks), "active": sum(task["status"] == "active" for task in tasks), "focus": sum(bool(task.get("important")) for task in tasks)},
-        # Open-source only: save the organization result as a report in this workspace.
-        "head_html": '<button id="save-report-button" class="button ghost" type="button" data-action="new-report">保存整理报告</button>',
+        "head_html": _weekly_summary(snapshot, bool(tasks)),
         "form": {"hidden": []},
         "projects": [(slug, _project_name(projects, slug)) for slug in used_projects],
         "types": [(key, label) for key, label in WORK_NAMES.items() if any(task.get("work_type") == key for task in tasks)],

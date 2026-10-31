@@ -157,6 +157,18 @@ class ProjectPageTests(TaskPageTests):
 
 
 class ReviewPageTests(TaskPageTests):
+    def test_review_head_shows_the_latest_weekly_report_and_its_actions(self):
+        head = review_page_data(self.snapshot)["head_html"]
+        self.assertIn('class="review-weekly-summary"', head)
+        self.assertIn("九月末每周检视 · 2026-09-27", head)
+        self.assertIn("data-execution-confirm", head)
+        self.assertIn('id="save-report-button"', head)
+        empty = review_page_data({**self.snapshot, "tasks": [], "reports": [{"id": "r", "title": "<手动>", "mode": "selected"}]})["head_html"]
+        self.assertIn("还没有保存过每周整理", empty)
+        self.assertNotIn("手动", empty)
+        self.assertIn("生成整理提示词</button>", empty)
+        self.assertIn('data-execution-confirm-trigger disabled', empty)
+
     def test_review_data_search_and_reports(self):
         page = review_page_data(self.snapshot)
         self.assertEqual(page["stats"]["tasks"], len(self.snapshot["tasks"]))

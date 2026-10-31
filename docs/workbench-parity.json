@@ -104,26 +104,6 @@
       "reason": "开源版独有：项目视图“新建项目”"
     },
     {
-      "id": "review:only-core:.review-page-head > .button.ghost",
-      "status": "intentional",
-      "reason": "开源版独有：保存整理报告"
-    },
-    {
-      "id": "review:only-local:.review-page-head > .review-weekly-summary",
-      "status": "intentional",
-      "reason": "完整版独有：每周整理"
-    },
-    {
-      "id": "review:only-local:.review-weekly-summary > *",
-      "status": "intentional",
-      "reason": "完整版独有：每周整理"
-    },
-    {
-      "id": "review:only-local:.weekly-actions > *",
-      "status": "intentional",
-      "reason": "完整版独有：每周整理"
-    },
-    {
       "id": "review:only-local:.ember-action-trigger > .ember-mark",
       "status": "intentional",
       "reason": "完整版独有：每周整理区的开始整理按钮"
@@ -317,6 +297,31 @@
       "id": "*:only-local:.system-current-focus > .focus-note.stale",
       "status": "intentional",
       "reason": "完整版记录当前重点的更新日期，开源版不记录"
+    },
+    {
+      "id": "project:only-local:.project-description-section > .md-table",
+      "status": "intentional",
+      "reason": "数据：完整版的项目介绍含入口表格，示例项目没有"
+    },
+    {
+      "id": "review:only-local:.review-weekly-summary > .button.ghost",
+      "status": "intentional",
+      "reason": "完整版独有：查看整理任务"
+    },
+    {
+      "id": "review:only-local:.weekly-actions > .ember-action-trigger",
+      "status": "intentional",
+      "reason": "完整版独有：再次整理的执行按钮"
+    },
+    {
+      "id": "review:only-local:.weekly-actions > .weekly-action-label",
+      "status": "intentional",
+      "reason": "完整版独有：再次整理的执行按钮"
+    },
+    {
+      "id": "review:only-core:.weekly-actions > .button.ghost",
+      "status": "intentional",
+      "reason": "开源版独有：报告由 AI 生成后手动保存"
     }
   ],
   "transparent_classes": "^(action-form)$"
