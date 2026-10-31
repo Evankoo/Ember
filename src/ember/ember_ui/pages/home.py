@@ -25,7 +25,7 @@ import json
 from ..marks import brand_mark_svg
 
 OVERVIEW_BATCH = 50
-STATUS_CHOICES = (("all", "全部"), ("active", "进行中"), ("completed", "已完成"), ("waiting_user", "待确认"), ("blocked", "阻塞"))
+STATUS_CHOICES = (("open", "未完成"), ("active", "进行中"), ("waiting_user", "待确认"), ("blocked", "阻塞"), ("completed", "已完成"), ("all", "全部"))
 SEARCH_ICON = ('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
                'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>')
 
@@ -57,7 +57,7 @@ def command_shell(page: dict) -> str:
         <div class="home-entry-row">
           <div class="home-entry-main">
             <div class="home-composer" id="homeEntry">
-              <textarea id="homeCommandInput" name="request_text" rows="4" placeholder="输入要求，或用 fd 检索 余烬 · Ember 任务与资料…" required></textarea>
+              <textarea id="homeCommandInput" name="request_text" rows="2" placeholder="输入要求，或用 fd 检索 余烬 · Ember 任务与资料…" required></textarea>
               <div class="home-composer-foot">
                 <div class="home-input-contexts"><div class="home-context-chip" id="homeContextChip" hidden><span class="home-context-dot" aria-hidden="true"></span><span class="home-context-kind">任务</span><b id="homeContextLabel"></b><button type="button" id="homeContextLink">查看</button><button type="button" id="homeContextClear" aria-label="取消所选任务">×</button></div><div class="home-material-chips" id="homeMaterialChips"></div></div>
                 <span class="home-drop-hint">可直接粘贴或拖入文件 · Shift+Enter 换行</span>
@@ -92,7 +92,7 @@ def command_shell(page: dict) -> str:
 
 
 def task_overview(overview: dict) -> str:
-    """The read-only, cross-project task browser; rows past the first batch start hidden."""
+    """The read-only, cross-project task browser; unfinished tasks first, in the page's own scroll."""
     rows = overview.get("rows", [])
     markup = []
     for index, row in enumerate(rows):
@@ -108,16 +108,16 @@ def task_overview(overview: dict) -> str:
     projects = "".join(f'<option value="{_esc(slug)}">{html.escape(label)}</option>' for slug, label in overview.get("projects", ()))
     types = "".join(f'<option value="{_esc(key)}">{html.escape(label)}</option>' for key, label in overview.get("types", ()))
     chips = "".join(
-        f'<button class="chip{" active" if key == "all" else ""}" type="button" data-overview-status-choice="{key}" aria-pressed="{str(key == "all").lower()}">{label}</button>'
+        f'<button class="chip{" active" if key == "open" else ""}" type="button" data-overview-status-choice="{key}" aria-pressed="{str(key == "open").lower()}">{label}</button>'
         for key, label in STATUS_CHOICES
     )
     total = len(rows)
     return f'''<section class="home-all-tasks" id="homeAllTasks" aria-labelledby="taskOverviewTitle">
-    <div class="task-overview-sticky"><div class="section-head"><div class="task-overview-heading"><h2 id="taskOverviewTitle">全部任务</h2></div><span class="meta" id="taskOverviewCount" role="status" aria-live="polite">显示 {min(OVERVIEW_BATCH, total)} / {total} 条</span></div>
+    <div class="task-overview-sticky"><div class="section-head"><div class="task-overview-heading"><h2 id="taskOverviewTitle">任务</h2></div><span class="meta" id="taskOverviewCount" role="status" aria-live="polite">显示 {min(OVERVIEW_BATCH, total)} / {total} 条</span></div>
     <div class="task-overview-filters"><div class="search-wrap"><span class="search-icon" aria-hidden="true">{SEARCH_ICON}</span><input id="taskOverviewSearch" type="search" placeholder="搜索任务…" aria-label="搜索任务总览"></div><select id="taskOverviewProject" aria-label="按项目筛选任务总览"><option value="">全部项目</option>{projects}</select><select id="taskOverviewType" aria-label="按类型筛选任务总览"><option value="">全部类型</option>{types}</select></div>
     <div class="task-overview-status-bar"><div class="chips" id="taskOverviewStatus" role="group" aria-label="按状态筛选任务总览">{chips}</div><button id="taskOverviewClear" class="button ghost clear-filters dimmed" type="button">清除筛选</button></div>
     </div>
-    <div class="task-overview-scroll" id="taskOverviewScroll"><table class="task-table project-overview-table"><colgroup><col class="overview-name-col"><col class="overview-desc-col"><col class="overview-project-col"><col class="overview-status-col"><col class="overview-type-col"><col class="overview-updated-col"></colgroup><thead><tr><th>任务名称</th><th>任务描述</th><th>项目</th><th>状态</th><th class="overview-type">类型</th><th>更新时间</th></tr></thead><tbody id="taskOverviewRows">{"".join(markup)}</tbody></table>
+    <div class="task-overview-scroll" id="taskOverviewScroll"><table class="task-table project-overview-table"><colgroup><col class="overview-name-col"><col class="overview-desc-col"><col class="overview-project-col"><col class="overview-status-col"><col class="overview-type-col"><col class="overview-updated-col"></colgroup><thead><tr><th>任务名称</th><th>当前进展</th><th>项目</th><th>状态</th><th class="overview-type">类型</th><th>更新时间</th></tr></thead><tbody id="taskOverviewRows">{"".join(markup)}</tbody></table>
     <div id="taskOverviewEmpty" class="task-overview-empty" hidden><p>{"没有符合条件的任务" if rows else "还没有任务记录"}</p><button class="button ghost" type="button" data-overview-reset{" hidden" if not rows else ""}>清除筛选</button></div>
     <div id="taskOverviewSentinel" class="task-overview-more"{" hidden" if total <= OVERVIEW_BATCH else ""}><button class="button ghost" id="taskOverviewLoadMore" type="button">显示更多任务</button></div></div></section>'''
 

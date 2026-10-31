@@ -26,7 +26,7 @@ def _esc(value: object) -> str:
 
 def render(page: dict) -> str:
     focus = page.get("focus", "")
-    focus_html = f'<div class="system-current-focus"><small>当前重点</small><strong>{html.escape(focus)}</strong></div>' if focus else ""
+    focus_html = f'<div class="system-current-focus"><small>当前重点</small><strong>{html.escape(focus)}</strong>{project.focus_note(page)}</div>' if focus else ""
     actions = "".join(f'<a class="button ghost" href="{_esc(action["href"])}">{html.escape(action["label"])}</a>' for action in page.get("actions", ()))
     launcher = f'<div class="project-task-launcher">{control(page["launcher"])}</div>' if page.get("launcher") else ""
     health, stats = page.get("health", {}), page.get("stats", {})

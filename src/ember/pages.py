@@ -116,8 +116,15 @@ def render_task(snapshot: dict, task_id: str) -> str | None:
     return None if page is None else task_detail.render(page)
 
 
+def _progress(task: dict) -> str:
+    """The opening sentence of the task's current result, or its description before there is one."""
+    current = " ".join(str(task.get("current") or "").split()).replace("`", "").replace("**", "")
+    sentence = re.match(r".+?(?:[。！？]|$)", current)
+    return sentence.group(0) if sentence else task.get("description") or task.get("goal") or ""
+
+
 def home_page_data(snapshot: dict) -> dict:
-    """The home page: request input, task metadata for search rows, and the 全部任务 browser."""
+    """The home page: request input, task metadata for search rows, and the task browser."""
     projects = {item["id"]: item for item in snapshot["projects"]}
     tasks = sorted(snapshot["tasks"], key=lambda item: str(item.get("updated_at") or item.get("date") or ""), reverse=True)
     rows, project_options = [], {}
@@ -127,11 +134,11 @@ def home_page_data(snapshot: dict) -> dict:
         status, work_type = task["status"], task.get("work_type") or ""
         rows.append({
             "task_id": task["id"], "title": task["title"], "href": task_href(task["id"]), "task_line": task.get("kind") == "task_line",
-            "description": task.get("description") or task.get("goal") or "", "project_slug": task["project"], "project_label": project_label,
+            "description": _progress(task), "project_slug": task["project"], "project_label": project_label,
             "status": status, "status_label": STATUS_NAMES.get(status, status), "work_type": work_type,
             "type_label": "任务线" if task.get("kind") == "task_line" else WORK_NAMES.get(work_type, work_type),
             "updated": str(task.get("updated_at") or task.get("date") or "")[:16],
-            "search": " ".join(str(value or "") for value in (task["title"], task.get("description"), task.get("goal"), project_label,
+            "search": " ".join(str(value or "") for value in (task["title"], task.get("description"), task.get("goal"), task.get("current"), project_label,
                                                              task["project"], task["id"], work_type, status)).lower(),
         })
     return {

@@ -134,6 +134,7 @@ def overview(data) -> str:
         f'<section class="context-overview-panel" data-context-layout="{_esc(data.get("layout_id", "context"))}" aria-labelledby="contextOverviewTitle" tabindex="0">'
         f'<section class="context-overview-primary"><h2 id="contextOverviewTitle">{html.escape(data["primary_label"])}</h2>'
         f'<div class="context-overview-copy">{data["primary_html"]}{"".join(sections)}</div></section><hr>{timeline_html}</section>'
+        '<button class="context-overview-toggle" type="button" data-overview-toggle aria-expanded="false" hidden>展开全部</button>'
     )
 
 
@@ -155,11 +156,20 @@ def location_strip(strip) -> str:
     )
 
 
+def focus_note(page: dict) -> str:
+    """The date the focus was written; an old one asks to be checked."""
+    updated = page.get("focus_updated")
+    if not updated:
+        return ""
+    stale = page.get("focus_stale")
+    return f'<span class="focus-note{" stale" if stale else ""}">{html.escape(updated)} 更新{" · 可能已过期" if stale else ""}</span>'
+
+
 def hero(page: dict) -> str:
     stats = page.get("stats", {})
     launcher = f'<div class="project-task-launcher">{control(page["launcher"])}</div>' if page.get("launcher") else ""
     focus = page.get("focus", "")
-    focus_html = f'<div class="project-current-focus"><small>当前重点</small><strong>{html.escape(focus)}</strong></div>' if focus else ""
+    focus_html = f'<div class="project-current-focus"><small>当前重点</small><strong>{html.escape(focus)}</strong>{focus_note(page)}</div>' if focus else ""
     return (
         f'<section class="panel project-intro-card project-workspace-hero"><div class="intro-head"><div><span class="eyebrow">{html.escape(page.get("eyebrow", "PROJECT"))}</span>'
         f'<h1>{html.escape(page["title"])}</h1></div><div class="project-hero-actions">{page.get("hero_actions_html", "")}{launcher}</div></div>'

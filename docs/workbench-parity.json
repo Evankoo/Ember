@@ -277,6 +277,46 @@
       "id": "settings:only-local:.compact-skill-row > .skill-status.unverified",
       "status": "intentional",
       "reason": "状态：新命名Skill尚无本机健康快照时显示待验证，虚构演示使用固定能力状态"
+    },
+    {
+      "id": "home:only-local:.app-main.home-page.shell > .attention-strip",
+      "status": "intentional",
+      "reason": "完整版独有：需要关注提示，开源版示例没有这些数据"
+    },
+    {
+      "id": "home:only-local:.attention-strip > .attention-label",
+      "status": "intentional",
+      "reason": "完整版独有：需要关注提示的标题"
+    },
+    {
+      "id": "*:only-local:.panel.project-intro-card.project-workspace-hero > .context-overview-toggle",
+      "status": "intentional",
+      "reason": "只在介绍超出高度时显示；开源版示例介绍较短"
+    },
+    {
+      "id": "*:only-local:.panel.system-workspace-hero > .context-overview-toggle",
+      "status": "intentional",
+      "reason": "只在介绍超出高度时显示；开源版示例介绍较短"
+    },
+    {
+      "id": "*:only-local:.project-current-focus > .focus-note",
+      "status": "intentional",
+      "reason": "完整版记录当前重点的更新日期，开源版不记录"
+    },
+    {
+      "id": "*:only-local:.project-current-focus > .focus-note.stale",
+      "status": "intentional",
+      "reason": "完整版记录当前重点的更新日期，开源版不记录"
+    },
+    {
+      "id": "*:only-local:.system-current-focus > .focus-note",
+      "status": "intentional",
+      "reason": "完整版记录当前重点的更新日期，开源版不记录"
+    },
+    {
+      "id": "*:only-local:.system-current-focus > .focus-note.stale",
+      "status": "intentional",
+      "reason": "完整版记录当前重点的更新日期，开源版不记录"
     }
   ],
   "transparent_classes": "^(action-form)$"
