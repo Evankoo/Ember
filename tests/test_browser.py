@@ -274,6 +274,7 @@ class SettingsBrowserTests(unittest.TestCase):
         expect(self.page.locator("#executionConfirmScope")).to_have_text("未完成任务和最近 7 天更新的任务")
         expect(self.page.locator("#executionConfirmFixed")).to_contain_text("任务检视")
         self.page.keyboard.press("Escape")
+        expect(summary.get_by_role("button", name="生成日报提示词", exact=True)).to_be_enabled()
         self.page.locator("#save-report-button").click()
         expect(self.page.locator("#report-form")).to_be_visible()
         self.page.keyboard.press("Escape")

@@ -392,7 +392,7 @@ const app = (() => {
      confirms, the prompt is copied and then the saved software is opened; nothing calls a model. */
   const executionPrompts = new WeakMap();
   async function executionPreview(form, payload, title = "", scope = "") {
-    const [prompt, settings] = await Promise.all([payload.weekly ? api("api/review/weekly-context", {}) : payload.review ? api("api/review/context", { task_ids: payload.task_ids }) : api("api/context", payload), api("api/settings")]);
+    const [prompt, settings] = await Promise.all([payload.weekly ? api("api/review/weekly-context", {}) : payload.daily ? api("api/review/daily-context", {}) : payload.review ? api("api/review/context", { task_ids: payload.task_ids }) : api("api/context", payload), api("api/settings")]);
     const environment = settings.execution_environment, software = environment.executors.find(entry => entry.id === environment.default_executor);
     executionPrompts.set(form, { prompt, environment });
     return { fixed_prompt_html: markdown(prompt.fixed), fixed_prompt: prompt.fixed, task: prompt.task, prompt_prefix: prompt.prefix, prompt_suffix: prompt.suffix,
@@ -411,6 +411,7 @@ const app = (() => {
   // What a confirmation form asks for: continue a task, start in a project, or work on selected files.
   function executionRequest(form) {
     const fields = new FormData(form);
+    if (fields.has("daily")) return { payload: { daily: true }, title: "日报", scope: "昨天和今天更新的任务" };
     if (fields.has("weekly")) return { payload: { weekly: true }, title: "每周整理", scope: "未完成任务和最近 7 天更新的任务" };
     const taskId = String(fields.get("task_id") || ""), projectId = String(fields.get("project_id") || "");
     if (taskId) {

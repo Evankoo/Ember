@@ -69,3 +69,9 @@ fieldset{margin:0;padding:0;border:0;min-width:0}
 .update-notes summary{cursor:pointer;font-size:12px;font-weight:650}
 .update-notes .article{max-height:200px;overflow:auto;font-size:12px}
 .update-prompt .home-prompt-body{max-height:240px;overflow:auto}
+
+/* 任务检视: three actions need their own row on a phone, or the weekly state collapses. */
+@media (max-width: 700px) {
+  .review-page-head .review-weekly-summary { grid-template-columns: auto minmax(0, 1fr); }
+  .review-page-head .review-weekly-summary .weekly-actions { grid-column: 1 / -1; justify-content: flex-start; flex-wrap: wrap; }
+}

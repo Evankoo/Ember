@@ -443,6 +443,8 @@ def _weekly_summary(snapshot: dict, has_tasks: bool) -> str:
     return (f'<div class="review-weekly-summary"><span class="review-weekly-label">上周整理</span><div class="weekly-state">{html.escape(state)}</div>'
             '<div class="weekly-actions inline"><form id="weekly-prompt-form" data-execution-confirm data-execution-label="生成每周整理提示词">'
             f'<input type="hidden" name="weekly" value="1"><button class="button ghost" type="submit" data-execution-confirm-trigger{disabled}>生成整理提示词</button></form>'
+            '<form id="daily-prompt-form" data-execution-confirm data-execution-label="生成日报提示词">'
+            f'<input type="hidden" name="daily" value="1"><button class="button ghost" type="submit" data-execution-confirm-trigger{disabled}>生成日报提示词</button></form>'
             '<button id="save-report-button" class="button ghost" type="button" data-action="new-report">保存整理报告</button></div></div>')
 
 
