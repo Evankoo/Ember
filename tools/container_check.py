@@ -27,7 +27,7 @@ def run(command):
  if result.returncode:raise SystemExit(result.returncode)
 run([sys.executable,'-m','venv',str(envdir)])
 python=str(envdir/'bin/python')
-run([python,'-m','pip','install','--disable-pip-version-check',str(work)+'[full]'])
+run([python,'-m','pip','install','--disable-pip-version-check',str(work)])
 if args.browser:
  run([python,'-m','pip','install','--disable-pip-version-check','playwright==1.60.0'])
  run([python,'-m','playwright','install','--with-deps','chromium'])

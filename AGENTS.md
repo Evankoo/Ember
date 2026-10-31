@@ -1,5 +1,7 @@
 # Ember contributors
 
+This repository is generated: the maintainer edits these files in the private repository's `public/` folder and exports them with its export tool. A change committed here directly is reported as drift by the next export and blocks it.
+
 Keep this package local, small and readable. Workspaces contain user data; never add a real workspace, secret, account configuration or production system history to this repository.
 
 - Markdown task cards and actual files are canonical. Preserve source evidence and refuse silent overwrite.
