@@ -33,7 +33,8 @@ jobs:
               assert b'renderArchive' not in wheel.read('ember/web/app.js')
           PY
   browser:
-    runs-on: ubuntu-latest
+    # Playwright 1.60.0 has no Chromium build for the newer ubuntu-latest image.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

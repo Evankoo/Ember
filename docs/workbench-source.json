@@ -1,6 +1,6 @@
 {
   "schema": 2,
-  "source_commit": "0d01164347bf69db2e681ef3f9774c45cf0a18c9",
+  "source_commit": "bdd68c367f351a7d25c2b204b566faa615263f32",
   "source_dir": "ui/ember_ui",
   "files": {
     "README.md": "4f0ac289b9594caa190ccff4e39ef095a37e6101165548dcd325bd2cebd178b6",

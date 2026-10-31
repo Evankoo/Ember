@@ -1,8 +1,8 @@
 {
   "schema": 1,
-  "source_commit": "0d01164347bf69db2e681ef3f9774c45cf0a18c9",
+  "source_commit": "bdd68c367f351a7d25c2b204b566faa615263f32",
   "files": {
-    ".github/workflows/check.yml": "65c45752242cedfd380fc123d733139ed15886ea37b1367369d5f2d2a868d3f7",
+    ".github/workflows/check.yml": "d8634d647549809ac287488997900667d17c8ea78e21d4fc182d8b9b0d8bb87f",
     ".gitignore": "c8ccf5f1b3bdd1b7f1d7c50af4702ae8875a985cb1f0036497d84452c3311d90",
     "AGENTS.md": "dd6793f11e8ad63bddac2a2f87966beae5beca28a55a5f37df5feb06d260f65f",
     "CHANGELOG.md": "9ac3ba1ca34a0de9457a38bcc39d317ed30fdc64fcfccaccbe9ee4a89ea414f9",
@@ -15,9 +15,9 @@
     "docs/images/workbench.png": "d22a23272b38b685852829ac2befa5b100eaedf84c6556d3bf0188c68d7dfd8e",
     "docs/initialization.md": "c0363655b1087c0f8a272351ed5fd60c5806adc5eb2b25e2c22478087e0d6f30",
     "docs/scope.md": "cbb87a8ccc3da3f168cb71f69f9555efd52c5a6c22552912346d4831cd08a579",
-    "docs/workbench-parity-record.json": "9d406dd3f23be2fe814d4ee7e15dab31720a7fdbd00e6c816679b884a0422c34",
+    "docs/workbench-parity-record.json": "c2ddaa654b6167efed01facb94c608299204dd133235e52f3630345152af4471",
     "docs/workbench-parity.json": "21b1fe28d14c4bbb253f4e872ae21f0b23f4944a67462d325aec2756ea071759",
-    "docs/workbench-source.json": "61f407854b1099ed35c35c0632e527a2ea90cde248ee746fc12807bf8dcd2706",
+    "docs/workbench-source.json": "0b2763e0f2dfd7288d757563ded9844558b69807a36c63bf1adbdeb8f173829b",
     "docs/workspace.md": "09da47db3daf37c346a074deac09d8e005113313f4b6d9c59a021b8cc941807e",
     "pyproject.toml": "d73521a66deadb7429ec06fc17a868ca0423d5c0481aacc61c9136baeb0a7ade",
     "src/ember/__init__.py": "e08d57ab8cd1ecca2c6aefcba62fdbcbc5fed4cc1f70454ddcf05476d58f78fe",
