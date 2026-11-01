@@ -1,6 +1,5 @@
 """Machine-local software metadata and explicitly confirmed, non-AI launches."""
 
-import fcntl
 import hashlib
 import json
 import os
@@ -16,12 +15,14 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from . import compat
 from .store import WorkspaceError
 
 DISCOVERY_ENTRY_LIMIT = 1200
 DISCOVERY_DIRECTORY_LIMIT = 32
 COMMON_COMMANDS = ("opencode", "codex", "claude", "gemini", "aider", "kimi", "pi", "amp", "goose", "ollama")
 COMMON_APPS = {"codex", "opencode", "claude", "chatgpt", "cursor", "windsurf", "lm studio", "jan", "ollama"}
+WINDOWS_COMMAND_SUFFIXES = (".exe", ".cmd", ".bat", ".com")
 
 
 def _unique_pairs(pairs):
@@ -42,7 +43,7 @@ def _atomic_write(path, contents):
             output.write(contents)
             output.flush()
             os.fsync(output.fileno())
-        os.replace(temporary, path)
+        compat.replace_file(temporary, path)
         temporary = None
     finally:
         if temporary is not None:
@@ -57,7 +58,11 @@ def _software_path(kind, value, home):
     if not path.is_absolute():
         raise WorkspaceError("软件路径须为绝对路径或 ~/ 开头的路径。")
     try:
-        if kind == "app":
+        if compat.WINDOWS:
+            if path.suffix.lower() not in ((".exe",) if kind == "app" else WINDOWS_COMMAND_SUFFIXES):
+                raise ValueError()
+            executable = path
+        elif kind == "app":
             info = path / "Contents/Info.plist"
             if path.suffix.lower() != ".app" or not path.is_dir() or info.is_symlink() or info.stat().st_size > 262144:
                 raise ValueError()
@@ -86,7 +91,7 @@ class ExecutorRegistry:
         if any(path.is_symlink() for path in (self.path, self.path.parent, self.path.parent.parent)):
             raise WorkspaceError("本机软件配置不能使用符号链接。")
         try:
-            with os.fdopen(os.open(self.path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)), "rb") as source:
+            with os.fdopen(compat.open_no_follow(self.path, os.O_RDONLY), "rb") as source:
                 attributes = os.fstat(source.fileno())
                 if not stat.S_ISREG(attributes.st_mode) or attributes.st_size > 262144:
                     raise WorkspaceError("本机软件配置不是可读取的小型普通文件。")
@@ -123,7 +128,7 @@ class ExecutorRegistry:
             if not isinstance(label, str) or not label.strip() or len(label) > 80 or any(ord(c) < 32 for c in label):
                 raise WorkspaceError("请填写不超过 80 字的单行软件名称。")
             if not isinstance(kind, str) or kind not in {"app", "command"}:
-                raise WorkspaceError("软件类型只能是 macOS 应用或命令行程序。")
+                raise WorkspaceError("软件类型只能是本机应用或命令行程序。")
             if not isinstance(value, str) or not value.strip() or len(value) > 4096 or any(ord(c) < 32 for c in value):
                 raise WorkspaceError("请填写有效的软件路径。")
             path = self.home / value.strip()[2:] if value.strip().startswith("~/") else Path(value.strip())
@@ -177,9 +182,8 @@ class ExecutorRegistry:
             raise WorkspaceError("本机配置已改变，请刷新后重新修改。", 409)
         try:
             self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-            flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
-            with os.fdopen(os.open(self.path.parent / ".executors.lock", flags, 0o600), "a") as lock:
-                fcntl.flock(lock, fcntl.LOCK_EX)
+            with os.fdopen(compat.open_no_follow(self.path.parent / ".executors.lock", os.O_CREAT | os.O_RDWR), "a") as lock:
+                compat.lock_file(lock.fileno())
                 before, stored = self._load()
                 if payload.get("expected_revision") != self._revision(before):
                     raise WorkspaceError("本机配置已改变，请刷新后重新修改。", 409)
@@ -225,7 +229,11 @@ class ExecutorRegistry:
         if not workspace.is_dir():
             raise WorkspaceError("所选工作区已不可用，未启动软件。")
         try:
-            if selected["kind"] == "app":
+            if sys.platform == "win32":
+                # An application opens its own window; a command-line tool needs a console of its own.
+                flags = subprocess.CREATE_NEW_CONSOLE if selected["kind"] == "command" else subprocess.DETACHED_PROCESS
+                subprocess.Popen([str(path)], cwd=workspace, stdin=subprocess.DEVNULL, creationflags=flags)
+            elif selected["kind"] == "app":
                 if sys.platform != "darwin":
                     raise WorkspaceError(".app 打开仅支持 macOS，请使用本机命令行软件或手工打开。")
                 subprocess.run(["/usr/bin/open", "-a", str(path)], check=True, timeout=10,
@@ -255,9 +263,21 @@ class ExecutorRegistry:
             raise WorkspaceError(f"{selected['label']} 未能打开（{error.strerror or error}）；提示词已保留，请手工打开软件后粘贴。") from None
         return {"opened": True, "label": selected["label"], "submitted": False, "model_called": False}
 
+    def _application_roots(self):
+        if compat.WINDOWS:
+            return [Path(value) for value in (os.environ.get("ProgramFiles"), os.environ.get("ProgramFiles(x86)"),
+                                              os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs")) if value]
+        return [Path("/Applications"), self.home / "Applications", Path("/System/Applications")]
+
+    def _command_roots(self):
+        if compat.WINDOWS:
+            return [self.home / ".local/bin", self.home / ".opencode/bin", Path(os.environ.get("APPDATA", self.home)) / "npm"]
+        return [self.home / ".opencode/bin", self.home / ".local/bin", Path("/opt/homebrew/bin"), Path("/usr/local/bin"), self.home / ".local/share/opencode/bin"]
+
     def discover(self, *, application_roots=None, command_dirs=None):
-        roots = list(application_roots) if application_roots is not None else [Path("/Applications"), self.home / "Applications", Path("/System/Applications")]
-        directories = list(command_dirs) if command_dirs is not None else [self.home / ".opencode/bin", self.home / ".local/bin", Path("/opt/homebrew/bin"), Path("/usr/local/bin"), self.home / ".local/share/opencode/bin", *(Path(value) for value in os.environ.get("PATH", "").split(os.pathsep) if value)]
+        roots = list(application_roots) if application_roots is not None else self._application_roots()
+        directories = list(command_dirs) if command_dirs is not None else [*self._command_roots(), *(Path(value) for value in os.environ.get("PATH", "").split(os.pathsep) if value)]
+        command_names = [name + suffix for name in COMMON_COMMANDS for suffix in WINDOWS_COMMAND_SUFFIXES] if compat.WINDOWS else COMMON_COMMANDS
         candidates, warnings, seen = [], [], set()
         started, visited, searched, limited = time.monotonic(), 0, 0, False
 
@@ -290,9 +310,11 @@ class ExecutorRegistry:
                         if not budget():
                             break
                         visited += 1
+                        path = Path(item.path)
+                        if compat.WINDOWS and path.suffix.lower() == ".exe" and item.is_file() and path.stem.casefold() in COMMON_APPS:
+                            add("app", path, path.stem, "应用目录")
                         if item.name.startswith(".") or not item.is_dir(follow_symlinks=False):
                             continue
-                        path = Path(item.path)
                         if path.suffix.lower() == ".app":
                             if path.stem.casefold() in COMMON_APPS:
                                 add("app", path, path.stem, "应用目录")
@@ -314,14 +336,14 @@ class ExecutorRegistry:
             searched += 1
             try:
                 path.stat()
-                for name in COMMON_COMMANDS:
+                for name in command_names:
                     if not budget():
                         break
                     visited += 1
                     candidate = path / name
                     try:
                         candidate.stat()
-                        add("command", candidate, name, "命令安装目录")
+                        add("command", candidate, Path(name).stem, "命令安装目录")
                     except (FileNotFoundError, NotADirectoryError):
                         pass
             except (FileNotFoundError, NotADirectoryError):

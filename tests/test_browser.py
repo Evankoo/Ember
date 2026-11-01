@@ -313,7 +313,12 @@ class SettingsBrowserTests(unittest.TestCase):
         button = self.page.get_by_role("button", name="检查更新", exact=True)
         expect(button).to_have_text(re.compile(r"^v\d+\.\d+\.\d+$"))
         expect(self.page.locator(".version-update.has-update")).to_have_count(0)
-        self.assertEqual(self.page.evaluate("JSON.parse(localStorage.getItem('ember-update-check')).latest"), "")
+        for _ in range(50):
+            saved = self.page.evaluate("localStorage.getItem('ember-update-check')")
+            if saved:
+                break
+            self.page.wait_for_timeout(100)
+        self.assertEqual(json.loads(saved)["latest"], "")
 
     def test_sidebar_lists_projects_and_keeps_favorites(self):
         self.page.goto(self.base + "/#project/chenyu")

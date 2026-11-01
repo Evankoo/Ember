@@ -11,12 +11,15 @@ import secrets
 import stat
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
-from . import __version__
+from . import __version__, compat
 from .store import WorkspaceError, preview_kind
 from .executors import ExecutorRegistry
 import subprocess
 import sys
 
+# Windows takes these from the registry, where .js is often text/plain and nosniff then blocks it.
+mimetypes.add_type("text/javascript", ".js")
+mimetypes.add_type("text/css", ".css")
 WEB = Path(__file__).resolve().parent / "web"
 # The shared interface layer's stylesheets and scripts, served at /ember_ui/<name>.
 SHARED_STATIC = Path(__file__).resolve().parent / "ember_ui" / "static"
@@ -166,7 +169,7 @@ class Handler(BaseHTTPRequestHandler):
                 file, _ = self.server.workspace.raw_file(query.get("id", [""])[0])
                 if not preview_kind(file):
                     raise WorkspaceError("这类文件不在页面中预览，请下载或用系统应用打开。", 415)
-                with os.fdopen(os.open(file, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)), "rb") as stream:
+                with os.fdopen(compat.open_no_follow(file, os.O_RDONLY), "rb") as stream:
                     if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
                         raise WorkspaceError("仅支持普通文件预览")
                     self.framable = True  # PDFs render in a same-origin frame on the task page.
@@ -178,7 +181,7 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     file, meta = self.server.workspace.raw_file(file_id)
                     # Downloads are always attachments, including HTML/SVG/scripts.
-                    with os.fdopen(os.open(file, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)), "rb") as stream:
+                    with os.fdopen(compat.open_no_follow(file, os.O_RDONLY), "rb") as stream:
                         if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
                             raise WorkspaceError("仅支持普通文件下载")
                         self.send(200, stream.read(), "application/octet-stream", file.name)
@@ -296,6 +299,8 @@ def reveal(target: Path, mode: str = "reveal") -> dict:
     """
     if mode not in ("reveal", "open"):
         raise WorkspaceError("mode 必须为 reveal 或 open。")
+    if sys.platform == "win32":
+        return _reveal_windows(target, mode)
     if sys.platform == "darwin":
         argv = ["/usr/bin/open", "-R", str(target)] if mode == "reveal" and target.is_file() else ["/usr/bin/open", str(target)]
     elif sys.platform.startswith("linux"):
@@ -311,20 +316,30 @@ def reveal(target: Path, mode: str = "reveal") -> dict:
     return {"opened": target.name, "mode": mode}
 
 
+def _reveal_windows(target: Path, mode: str) -> dict:
+    if mode == "open" and target.is_file() and target.suffix.lower() in compat.RUNNABLE_SUFFIXES:
+        raise WorkspaceError("这类文件可能直接运行程序，请在资源管理器中自行确认后打开。")
+    try:
+        if mode == "reveal" and target.is_file():
+            # explorer reports exit code 1 even on success, and /select needs this exact quoting.
+            subprocess.Popen(f'explorer /select,"{target}"')
+        else:
+            os.startfile(target)
+    except OSError as error:
+        raise WorkspaceError(f"没能打开：{error}") from None
+    return {"opened": target.name, "mode": mode}
+
+
 @contextmanager
 def workspace_lock(workspace):
     """Prevent two local service processes from writing the same workspace."""
-    try:
-        import fcntl
-    except ImportError as error:
-        raise WorkspaceError("服务目前支持 macOS 与 Linux") from error
     path = workspace._safe(".ember/service.lock")
-    fd = os.open(path, os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0), 0o600)
+    fd = compat.open_no_follow(path, os.O_CREAT | os.O_RDWR)
     try:
         if not stat.S_ISREG(os.fstat(fd).st_mode):
             raise WorkspaceError("工作区锁必须为普通文件")
         try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            compat.lock_file(fd, blocking=False)
         except BlockingIOError as error:
             raise WorkspaceError("该工作区已有服务运行，请停止原服务后再启动", 409) from error
         yield

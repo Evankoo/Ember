@@ -8,7 +8,7 @@ from pathlib import Path
 import sys
 import tempfile
 
-from . import __version__
+from . import __version__, compat
 from .bootstrap import CONTRACT_FILES, PACKAGE, verify_workspace_contract
 from .project_registration import plan_project
 from .store import INBOX_LEDGER, VIEWS, Workspace, WorkspaceError, _now, _tree, project_card
@@ -126,7 +126,7 @@ def record_installation(workspace: Workspace, receipt: dict) -> dict:
                 output.write(content)
                 output.flush()
                 os.fsync(output.fileno())
-            os.link(temporary, path)
+            compat.publish_new(temporary, path)
         finally:
             Path(temporary).unlink(missing_ok=True)
     return {"report_path": str(path)}

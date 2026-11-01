@@ -27,7 +27,7 @@ class ProjectLocationTests(unittest.TestCase):
 
     def run_cli(self, *args):
         output, errors = io.StringIO(), io.StringIO()
-        with mock.patch.dict(os.environ, {"HOME": str(self.home)}), \
+        with mock.patch.dict(os.environ, {"HOME": str(self.home), "USERPROFILE": str(self.home)}), \
                 contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
             code = main(list(args))
         return code, output.getvalue(), errors.getvalue()

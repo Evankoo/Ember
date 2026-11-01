@@ -89,6 +89,86 @@
   "ignore_classes": "^(active|current|selected|previewing|expanded|is-open|open|dragging|has-selection|has-materials|no-materials|loading|ready|error|dirty|saved|disabled|dimmed|located|empty|wide|inline|normal|attention|waiting|stalled|available|unavailable|needs-config|executor-provided|draft|final|waiting_user|blocked|completed|account_operations|course_teaching|novel_writing|system_building|has-delivery)$",
   "allowed": [
     {
+      "id": "review:only-core:.review-weekly-summary > .weekly-actions",
+      "status": "intentional",
+      "reason": "完整版的整理按钮随本周状态出现；开源版的提示词按钮常驻"
+    },
+    {
+      "id": "settings:only-local:.settings-skills-module > .settings-skill-link",
+      "status": "intentional",
+      "reason": "开源版 Skills 留在设置页，不跟进完整版的独立 Skills 页"
+    },
+    {
+      "id": "settings:only-core:.compact-skill-list > .compact-skill-row",
+      "status": "intentional",
+      "reason": "开源版 Skills 留在设置页，不跟进完整版的独立 Skills 页"
+    },
+    {
+      "id": "settings:only-core:.compact-skill-row > .compact-skill-detail",
+      "status": "intentional",
+      "reason": "开源版 Skills 留在设置页，不跟进完整版的独立 Skills 页"
+    },
+    {
+      "id": "settings:only-core:.compact-skill-row > .setting-category",
+      "status": "intentional",
+      "reason": "开源版 Skills 留在设置页，不跟进完整版的独立 Skills 页"
+    },
+    {
+      "id": "settings:only-core:.compact-skill-row > .setting-identity",
+      "status": "intentional",
+      "reason": "开源版 Skills 留在设置页，不跟进完整版的独立 Skills 页"
+    },
+    {
+      "id": "settings:only-core:.compact-skill-row > .skill-detail-toggle",
+      "status": "intentional",
+      "reason": "开源版 Skills 留在设置页，不跟进完整版的独立 Skills 页"
+    },
+    {
+      "id": "settings:only-core:.compact-skill-row > .skill-status",
+      "status": "intentional",
+      "reason": "开源版 Skills 留在设置页，不跟进完整版的独立 Skills 页"
+    },
+    {
+      "id": "settings:only-core:.settings-skill-browser > .settings-skill-workspace",
+      "status": "intentional",
+      "reason": "开源版 Skills 留在设置页，不跟进完整版的独立 Skills 页"
+    },
+    {
+      "id": "settings:only-core:.settings-skill-tools > .skill-issue-filter",
+      "status": "intentional",
+      "reason": "开源版 Skills 留在设置页，不跟进完整版的独立 Skills 页"
+    },
+    {
+      "id": "settings:only-core:.settings-skill-workspace > .skill-category-rail",
+      "status": "intentional",
+      "reason": "开源版 Skills 留在设置页，不跟进完整版的独立 Skills 页"
+    },
+    {
+      "id": "settings:only-core:.settings-skill-workspace > .skill-results",
+      "status": "intentional",
+      "reason": "开源版 Skills 留在设置页，不跟进完整版的独立 Skills 页"
+    },
+    {
+      "id": "settings:only-core:.settings-skills-module > .settings-skill-browser",
+      "status": "intentional",
+      "reason": "开源版 Skills 留在设置页，不跟进完整版的独立 Skills 页"
+    },
+    {
+      "id": "settings:only-core:.skill-category-rail > .skill-category-button",
+      "status": "intentional",
+      "reason": "开源版 Skills 留在设置页，不跟进完整版的独立 Skills 页"
+    },
+    {
+      "id": "settings:only-core:.skill-results > .compact-skill-list",
+      "status": "intentional",
+      "reason": "开源版 Skills 留在设置页，不跟进完整版的独立 Skills 页"
+    },
+    {
+      "id": "settings:only-core:.skill-results > .settings-skill-tools",
+      "status": "intentional",
+      "reason": "开源版 Skills 留在设置页，不跟进完整版的独立 Skills 页"
+    },
+    {
       "id": "task:only-local:.task-delivery-file.task-delivery-folder > .task-folder-toggle",
       "status": "intentional",
       "reason": "真实任务的交付含子文件夹，示例任务没有"

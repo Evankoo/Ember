@@ -56,6 +56,14 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(state["projects"], [])
         self.assertEqual(state["tasks"], [])
 
+    def test_windows_line_endings_and_byte_order_mark_keep_a_card_readable(self):
+        identifier = self.task("换行测试")
+        path = self.docs / f"tasks/active/{identifier}.md"
+        path.write_bytes(b"\xef\xbb\xbf" + path.read_bytes().replace(b"\n", b"\r\n"))
+        task = next(item for item in self.store.snapshot()["tasks"] if item["id"] == identifier)
+        self.assertEqual(task["title"], "换行测试")
+        self.assertEqual(task["goal"], "得到可检查的样例")
+
     def test_wrapped_log_lines_stay_with_their_entry(self):
         identifier = self.task()
         _, text = self.card(identifier)

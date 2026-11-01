@@ -14,6 +14,14 @@ from ember.store import WorkspaceError
 
 def software_fixture(home):
     folder = Path(home) / "本机软件 with spaces"
+    if os.name == "nt":  # Windows recognizes programs by suffix.
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "Other Assistant.exe").write_bytes(b"MZ")
+        (folder / "assistant-cli.cmd").write_text("@exit /b 0\n")
+        return [
+            {"id": "other-app", "label": "我的桌面助手", "kind": "app", "path": str(folder / "Other Assistant.exe")},
+            {"id": "other-cli", "label": "我的命令行助手", "kind": "command", "path": str(folder / "assistant-cli.cmd")},
+        ]
     app = folder / "Other Assistant.app"
     executable = app / "Contents/MacOS/assistant"
     executable.parent.mkdir(parents=True, exist_ok=True)
@@ -76,8 +84,9 @@ class ExecutorTests(unittest.TestCase):
         run.assert_not_called()
         self.assertEqual(view["executors"], self.entries)
         self.assertTrue(view["ready"])
-        self.assertEqual(self.registry.path.stat().st_mode & 0o777, 0o600)
-        self.assertEqual(self.registry.path.parent.stat().st_mode & 0o777, 0o700)
+        if os.name != "nt":  # Windows files have no POSIX mode bits.
+            self.assertEqual(self.registry.path.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(self.registry.path.parent.stat().st_mode & 0o777, 0o700)
         self.assertEqual(list(self.workspace.iterdir()), [])
         self.assertEqual([path.read_bytes() for path in self.native], self.native_before)
 
@@ -100,7 +109,8 @@ class ExecutorTests(unittest.TestCase):
 
     def test_failed_saved_path_does_not_fall_back_to_another_program(self):
         self.saved()
-        Path(self.entries[1]["path"]).chmod(0o600)
+        program = Path(self.entries[1]["path"])
+        program.unlink() if os.name == "nt" else program.chmod(0o600)  # Windows has no execute bit.
         view = self.registry.snapshot()
         self.assertFalse(view["ready"])
         self.assertEqual(view["default_executor"], "other-cli")
@@ -151,9 +161,10 @@ class ExecutorTests(unittest.TestCase):
         before = self.registry.path.read_bytes()
         result = self.registry.save(self.payload(default="other-app"))
         backup = Path(result["backup_folder"])
-        self.assertEqual(backup.stat().st_mode & 0o777, 0o700)
+        if os.name != "nt":
+            self.assertEqual(backup.stat().st_mode & 0o777, 0o700)
+            self.assertEqual((backup / "executors.json").stat().st_mode & 0o777, 0o600)
         self.assertEqual((backup / "executors.json").read_bytes(), before)
-        self.assertEqual((backup / "executors.json").stat().st_mode & 0o777, 0o600)
         before = self.registry.path.read_bytes()
         from ember.executors import _atomic_write
         def fail_target(path, contents):
@@ -226,9 +237,9 @@ class ExecutorTests(unittest.TestCase):
 
     def test_discovery_is_bounded_metadata_only_and_does_not_register_candidates(self):
         app = Path(self.entries[0]["path"])
-        app.rename(app.with_name("Claude.app"))
+        app.rename(app.with_name("Claude" + app.suffix))
         command = Path(self.entries[1]["path"])
-        command.rename(command.with_name("gemini"))
+        command.rename(command.with_name("gemini" + command.suffix))
         with patch("ember.executors.subprocess.run") as run:
             found = self.registry.discover(application_roots=[app.parent], command_dirs=[command.parent])
         self.assertEqual({entry["kind"] for entry in found["candidates"]}, {"app", "command"})

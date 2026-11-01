@@ -47,7 +47,8 @@ class Fixture(unittest.TestCase):
 
     def files(self):
         return {self.workspace._rel(p): p.read_bytes()
-                for root in (self.workspace.path, self.workspace.docs) for p in root.rglob("*") if p.is_file()}
+                for root in (self.workspace.path, self.workspace.docs) for p in root.rglob("*")
+                if p.is_file() and p.name != "service.lock"}  # Windows refuses to read a locked range.
 
 
 class OnboardingTests(Fixture):
