@@ -1,7 +1,8 @@
-"""Check the official release when the user asks, and prepare the update prompt.
+"""Check the official release and prepare the update prompt.
 
-Nothing here runs in the background, downloads a package or installs anything: the
-workbench only reports what is available and hands the update to the user's AI tool.
+The page asks at most once a day and when the user clicks. Nothing here downloads a
+package or installs anything: the workbench only reports what is available and hands
+the update to the user's AI tool.
 """
 from __future__ import annotations
 

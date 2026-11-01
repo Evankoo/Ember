@@ -89,9 +89,44 @@
   "ignore_classes": "^(active|current|selected|previewing|expanded|is-open|open|dragging|has-selection|has-materials|no-materials|loading|ready|error|dirty|saved|disabled|dimmed|located|empty|wide|inline|normal|attention|waiting|stalled|available|unavailable|needs-config|executor-provided|draft|final|waiting_user|blocked|completed|account_operations|course_teaching|novel_writing|system_building|has-delivery)$",
   "allowed": [
     {
-      "id": "*:only-core:.sidebar-bottom > .sidebar-update-button",
+      "id": "task:only-local:.task-delivery-file.task-delivery-folder > .task-folder-toggle",
       "status": "intentional",
-      "reason": "开源版独有：检查更新按钮"
+      "reason": "真实任务的交付含子文件夹，示例任务没有"
+    },
+    {
+      "id": "task:only-local:.task-delivery-files.task-file-pane > .task-delivery-file.task-delivery-folder",
+      "status": "intentional",
+      "reason": "真实任务的交付含子文件夹，示例任务没有"
+    },
+    {
+      "id": "task:only-local:.task-folder-toggle > .task-folder-caret",
+      "status": "intentional",
+      "reason": "真实任务的交付含子文件夹，示例任务没有"
+    },
+    {
+      "id": "task:only-local:.task-folder-toggle > .task-folder-count",
+      "status": "intentional",
+      "reason": "真实任务的交付含子文件夹，示例任务没有"
+    },
+    {
+      "id": "task:only-local:.task-folder-toggle > .task-folder-icon",
+      "status": "intentional",
+      "reason": "真实任务的交付含子文件夹，示例任务没有"
+    },
+    {
+      "id": "task:only-local:.task-folder-toggle > .task-folder-name",
+      "status": "intentional",
+      "reason": "真实任务的交付含子文件夹，示例任务没有"
+    },
+    {
+      "id": "*:only-core:.sidebar-runtime-status > .sync-state.version-update",
+      "status": "intentional",
+      "reason": "开源版独有：版本号兼作更新入口"
+    },
+    {
+      "id": "*:only-local:.sidebar-runtime-status > .sync-state",
+      "status": "intentional",
+      "reason": "完整版的运行状态；开源版这一行是版本号"
     },
     {
       "id": "*:only-core:.project-hero-actions > .button.ghost",

@@ -56,6 +56,9 @@ class SettingsBrowserTests(unittest.TestCase):
 
     def setUp(self):
         self.registry.path.unlink(missing_ok=True)
+        offline = patch("ember.updates.fetch_latest", side_effect=OSError("offline"))
+        offline.start()
+        self.addCleanup(offline.stop)
         self.context = self.browser.new_context(viewport={"width": 1440, "height": 1000})
         self.addCleanup(self.context.close)
         self.context.add_init_script("""window.__copies=[]; Object.defineProperty(navigator,'clipboard',
@@ -285,9 +288,13 @@ class SettingsBrowserTests(unittest.TestCase):
     def test_update_button_shows_the_release_and_a_copyable_prompt(self):
         newer = {"tag": "v99.0.0", "url": "https://github.com/Evankoo/Ember/releases/tag/v99.0.0",
                  "published_at": "2026-10-20", "notes": "<img src=x onerror=window.bad=1> 新功能"}
-        with patch("ember.updates.fetch_latest", return_value=newer):
+        with patch("ember.updates.fetch_latest", return_value=newer) as fetch:
             self.page.goto(self.base + "/#library")
-            expect(self.page.locator("#update-button")).to_be_visible()
+            expect(self.page.locator("#update-button")).to_have_text("有新版本 99.0.0")
+            self.assertEqual(fetch.call_count, 1)
+            self.page.reload()
+            expect(self.page.locator("#update-button")).to_have_text("有新版本 99.0.0")
+            self.assertEqual(fetch.call_count, 1)
             self.page.locator("#update-button").click()
             expect(self.page.locator(".update-summary")).to_contain_text("发现新版本 99.0.0")
             self.assertEqual(self.page.locator(".update-notes img").count(), 0)
@@ -300,6 +307,13 @@ class SettingsBrowserTests(unittest.TestCase):
             expect(self.page.locator(".update-summary")).to_contain_text("没能检查更新")
         self.assertFalse(self.page.evaluate("Boolean(window.bad)"))
         self.assert_untouched()
+
+    def test_version_stays_quiet_when_the_daily_check_fails(self):
+        self.page.goto(self.base + "/#library")
+        button = self.page.get_by_role("button", name="检查更新", exact=True)
+        expect(button).to_have_text(re.compile(r"^v\d+\.\d+\.\d+$"))
+        expect(self.page.locator(".version-update.has-update")).to_have_count(0)
+        self.assertEqual(self.page.evaluate("JSON.parse(localStorage.getItem('ember-update-check')).latest"), "")
 
     def test_sidebar_lists_projects_and_keeps_favorites(self):
         self.page.goto(self.base + "/#project/chenyu")

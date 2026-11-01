@@ -562,7 +562,7 @@ EXECUTION_COPY = {"default_hint": "确认执行时“复制并打开”会使用
 
 
 def render_settings(skills: list[dict], environment: dict) -> str:
-    """设置: the shared shell, status bar, 执行环境 editor and Skills module. 检查更新 stays in the sidebar."""
+    """设置: the shared shell, status bar, 执行环境 editor and Skills module. 检查更新 is the version line in the sidebar."""
     scroll = lambda target: [("data-action", "scroll-to"), ("data-id", target)]
     return settings_template.render({
         "nav": [{"href": "#settings", "label": "执行环境", "attrs": scroll("execution")},
@@ -600,9 +600,8 @@ def render_index() -> str:
         "nav_id": "sidebar-nav", "nav_attrs": [("aria-label", "页面与工作区")],
         "primary": [{"label": label, "href": f"#{key}", "attrs": [("data-nav", key)]} for key, label in PRIMARY_PAGES],
         "workspace_id": "workspace-nav",
-        "bottom_html": '<button id="update-button" class="sidebar-update-button" type="button" data-action="check-update"><span aria-hidden="true">↻</span>检查更新</button>',
         "runtime_label": "工作区状态",
-        "runtime_html": '<span id="workspace-state" class="machine">正在读取工作区…</span><span id="workspace-version" class="sync-state"></span>',
+        "runtime_html": '<span id="workspace-state" class="machine">正在读取工作区…</span><button id="update-button" class="sync-state version-update" type="button" data-action="check-update"></button>',
     })
     styles = [("ember_ui/workbench.css", ())]
     styles += [(f"ember_ui/{name}.css", [("data-page-style", key), ("disabled", None)]) for name, key in (item.split(":") for item in PAGE_STYLES)]

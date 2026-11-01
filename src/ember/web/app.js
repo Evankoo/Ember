@@ -169,7 +169,7 @@ const app = (() => {
 
   function renderNav() {
     document.getElementById("workspace-state").textContent = data().workspace_name || "本地工作区";
-    document.getElementById("workspace-version").textContent = `版本 ${data().version || ""}`;
+    renderVersion();
     for (const link of document.querySelectorAll("[data-nav]")) {
       // As in the workbench: a project page highlights only the project; a task page highlights 任务台 and its project.
       const active = link.dataset.nav === state.route || (state.route === "task" && link.dataset.nav === "home");
@@ -245,14 +245,44 @@ const app = (() => {
   }
 
   /* ---------- 检查更新 ---------- */
-  /* Asks GitHub only when clicked. Installing is left to the user's AI tool with the prompt below. */
-  const updateState = { result: null, environment: null };
+  /* The sidebar version is the entry. The page asks GitHub at most once a day and on click, says nothing
+     when that fails, and leaves installing to the user's AI tool with the prompt below. */
+  const updateKey = "ember-update-check";
+  const updateState = { result: null, environment: null, latest: "" };
+  function renderVersion() {
+    const button = document.getElementById("update-button"), latest = updateState.latest;
+    button.classList.toggle("has-update", Boolean(latest));
+    button.textContent = latest ? `有新版本 ${latest}` : `v${data().version || ""}`;
+    button.setAttribute("aria-label", latest ? `有新版本 ${latest}，查看更新` : "检查更新");
+    button.title = latest ? "查看更新" : "检查更新";
+  }
+
+  function rememberUpdate(latest) {
+    updateState.latest = latest;
+    try { localStorage.setItem(updateKey, JSON.stringify({ day: new Date().toLocaleDateString("sv"), version: data().version, latest })); } catch {}
+    renderVersion();
+  }
+
+  async function dailyUpdateCheck() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(updateKey) || "null"); } catch {}
+    if (saved?.day === new Date().toLocaleDateString("sv") && saved.version === data().version) {
+      updateState.latest = saved.latest || "";
+      renderVersion();
+      return;
+    }
+    let latest = "";
+    try { const result = await api("api/update"); if (result.newer) latest = result.latest; } catch {}
+    rememberUpdate(latest);
+  }
+
   async function checkUpdate() {
     openDialog("检查更新", `<div class="update-panel" aria-live="polite"><p class="muted">正在查询 GitHub 上的最新发行版…</p></div>`);
     let result, failure = "";
     try { result = await api("api/update"); } catch (error) { failure = error.message; }
     try { updateState.environment = (await api("api/settings")).execution_environment; } catch { updateState.environment = null; }
     updateState.result = result || null;
+    if (result) rememberUpdate(result.newer ? result.latest : "");
     const panel = dialogBody.querySelector(".update-panel");
     if (!panel) return;
     const releases = "https://github.com/Evankoo/Ember/releases";
@@ -694,7 +724,7 @@ const app = (() => {
   });
 
   route();
-  loadState().catch(error => {
+  loadState().then(dailyUpdateCheck).catch(error => {
     main.className = "shell app-main";
     main.innerHTML = `<section class="panel load-error"><h1>工作区读取失败</h1><p class="form-error">${esc(error.message)}</p><p class="muted">确认本地服务已启动后，重新加载此页面。之前保存的数据不会被覆盖。</p></section>`;
     document.getElementById("workspace-state").textContent = "工作区不可用";
