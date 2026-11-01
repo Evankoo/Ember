@@ -5,6 +5,7 @@ import errno
 import os
 from pathlib import Path
 import re
+import stat
 import time
 
 WINDOWS = os.name == "nt"
@@ -14,6 +15,20 @@ RUNNABLE_SUFFIXES = frozenset({".bat", ".cmd", ".com", ".cpl", ".exe", ".hta", "
 _RESERVED_NAME = re.compile(r"(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])(\..*)?", re.IGNORECASE)
 _REPLACE_RETRY_SECONDS = 2.0
 _MOUNT_POINT_TAG = 0xA0000003  # IO_REPARSE_TAG_MOUNT_POINT; the stat module defines it only on Windows.
+
+
+def open_no_follow(path, flags: int, mode: int = 0o600) -> int:
+    """os.open that refuses a final symlink. Windows has no O_NOFOLLOW, so the opened file is checked before use."""
+    fd = os.open(path, flags | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0), mode)
+    if WINDOWS:
+        try:
+            attributes = os.lstat(path)
+            if stat.S_ISLNK(attributes.st_mode) or is_junction(Path(path)) or not os.path.samestat(os.fstat(fd), attributes):
+                raise OSError(errno.ELOOP, "不能打开符号链接", str(path))
+        except BaseException:
+            os.close(fd)
+            raise
+    return fd
 
 
 def lock_file(fd: int, *, blocking: bool = True) -> None:

@@ -49,7 +49,7 @@ SHARED = ROOT / "src/ember/ember_ui"
 
 def ui_files() -> list[Path]:
     """Every file that shapes the pages: this package's web files, the page builder and the shared layer."""
-    shared = sorted(path for path in SHARED.rglob("*") if path.is_file() and "__pycache__" not in path.parts)
+    shared = sorted((path for path in SHARED.rglob("*") if path.is_file() and "__pycache__" not in path.parts), key=lambda path: path.as_posix())
     return [*(WEB / name for name in UI_FILES), ROOT / "src/ember/pages.py", *shared]
 
 COLLECT = r"""([ignored, transparent, within]) => {

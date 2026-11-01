@@ -100,7 +100,7 @@ class BootstrapTests(unittest.TestCase):
         self.assertFalse((self.root / "new").exists())
 
     def test_default_locations_are_fixed_under_the_user_folder(self):
-        with patch.dict(os.environ, {"HOME": str(self.root)}):
+        with patch.dict(os.environ, {"HOME": str(self.root), "USERPROFILE": str(self.root)}):
             app, workspace, documents, _ = helper.validate(self.args(app_dir=None, workspace=None))
         base = self.root.resolve()
         self.assertEqual((workspace, documents, app), (base / "Ember", base / "Ember文档", base / "Ember/app"))

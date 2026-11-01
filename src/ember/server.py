@@ -169,7 +169,7 @@ class Handler(BaseHTTPRequestHandler):
                 file, _ = self.server.workspace.raw_file(query.get("id", [""])[0])
                 if not preview_kind(file):
                     raise WorkspaceError("这类文件不在页面中预览，请下载或用系统应用打开。", 415)
-                with os.fdopen(os.open(file, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)), "rb") as stream:
+                with os.fdopen(compat.open_no_follow(file, os.O_RDONLY), "rb") as stream:
                     if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
                         raise WorkspaceError("仅支持普通文件预览")
                     self.framable = True  # PDFs render in a same-origin frame on the task page.
@@ -181,7 +181,7 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     file, meta = self.server.workspace.raw_file(file_id)
                     # Downloads are always attachments, including HTML/SVG/scripts.
-                    with os.fdopen(os.open(file, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)), "rb") as stream:
+                    with os.fdopen(compat.open_no_follow(file, os.O_RDONLY), "rb") as stream:
                         if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
                             raise WorkspaceError("仅支持普通文件下载")
                         self.send(200, stream.read(), "application/octet-stream", file.name)
@@ -334,7 +334,7 @@ def _reveal_windows(target: Path, mode: str) -> dict:
 def workspace_lock(workspace):
     """Prevent two local service processes from writing the same workspace."""
     path = workspace._safe(".ember/service.lock")
-    fd = os.open(path, os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0), 0o600)
+    fd = compat.open_no_follow(path, os.O_CREAT | os.O_RDWR)
     try:
         if not stat.S_ISREG(os.fstat(fd).st_mode):
             raise WorkspaceError("工作区锁必须为普通文件")

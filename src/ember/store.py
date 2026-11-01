@@ -124,10 +124,8 @@ def _now() -> str:
 
 def _sha_file(path: Path) -> str:
     digest = hashlib.sha256()
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
     try:
-        fd = os.open(path, flags)
-        with os.fdopen(fd, "rb") as stream:
+        with os.fdopen(compat.open_no_follow(path, os.O_RDONLY), "rb") as stream:
             if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
                 raise WorkspaceError("只支持普通文件。")
             for chunk in iter(lambda: stream.read(1024 * 1024), b""):
@@ -194,6 +192,8 @@ def _package_info(path: Path) -> dict:
 
 
 def _parse_markdown(text: str, source: str) -> tuple[dict, str]:
+    # Windows editors save CRLF, and some add a byte-order mark.
+    text = text.removeprefix("\ufeff").replace("\r\n", "\n")
     if not text.startswith("---\n"):
         raise WorkspaceError(f"{source} 缺少 YAML frontmatter。")
     end = text.find("\n---", 4)
@@ -321,9 +321,8 @@ class Workspace:
 
     def _text(self, relative: str, *, max_bytes: int = 2 * 1024 * 1024) -> str:
         path = self._safe(relative, exists=True)
-        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
         try:
-            with os.fdopen(os.open(path, flags), "rb") as stream:
+            with os.fdopen(compat.open_no_follow(path, os.O_RDONLY), "rb") as stream:
                 if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
                     raise WorkspaceError("只支持普通文件。")
                 data = stream.read(max_bytes + 1)
@@ -477,7 +476,7 @@ class Workspace:
         """Serialize project-registry rewrites across the service and command-line processes."""
         path = self._safe(".ember/projects.lock")
         path.parent.mkdir(exist_ok=True)
-        fd = os.open(path, os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        fd = compat.open_no_follow(path, os.O_CREAT | os.O_RDWR)
         try:
             compat.lock_file(fd)
             yield

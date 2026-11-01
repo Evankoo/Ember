@@ -70,6 +70,14 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(meta["preview"], "image")
 
     def test_reveal_opens_only_indexed_files_task_folders_and_registered_locations(self):
+        if sys.platform == "win32":
+            draft = self.docs / "交付/草稿/autumn-plan/秋季内容方案V0.2草稿.md"
+            with patch("ember.server.subprocess.Popen") as popen, patch("ember.server.os.startfile") as start:
+                self.data("/api/reveal", "POST", {"id": "交付/草稿/autumn-plan/秋季内容方案V0.2草稿.md"})
+                self.assertIn(str(draft), popen.call_args.args[0])
+                self.data("/api/reveal", "POST", {"task_id": "autumn-plan", "folder": "input", "mode": "open"})
+                self.assertEqual(Path(start.call_args.args[0]), self.docs / "任务资料/autumn-plan")
+            return
         with patch("ember.server.subprocess.run") as run:
             run.return_value.returncode = 0
             self.data("/api/reveal", "POST", {"id": "交付/草稿/autumn-plan/秋季内容方案V0.2草稿.md"})

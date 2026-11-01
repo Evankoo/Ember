@@ -38,7 +38,7 @@ class OnboardingCompletionTests(unittest.TestCase):
         self.payload = {"task_id": self.task["id"], "confirmation": True}
 
     def bytes(self):
-        return {str(path.relative_to(self.workspace.path)): path.read_bytes()
+        return {path.relative_to(self.workspace.path).as_posix(): path.read_bytes()
                 for path in self.workspace.path.rglob("*") if path.is_file()}
 
     def test_refuses_missing_or_nonliteral_confirmation_without_mutation(self):

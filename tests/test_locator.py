@@ -27,7 +27,7 @@ class LocatorTests(unittest.TestCase):
 
     def run_cli(self, *args):
         output, errors = io.StringIO(), io.StringIO()
-        with mock.patch.dict(os.environ, {"HOME": str(self.home)}), \
+        with mock.patch.dict(os.environ, {"HOME": str(self.home), "USERPROFILE": str(self.home)}), \
                 contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
             code = main(list(args))
         return code, output.getvalue(), errors.getvalue()
@@ -38,8 +38,9 @@ class LocatorTests(unittest.TestCase):
         self.assertEqual(path, self.home / ".config/ember/workspace.json")
         self.assertEqual(json.loads(path.read_text(encoding="utf-8")), record)
         self.assertEqual(record["workspace"], str(self.workspace.path))
-        self.assertEqual(record["python"], "/opt/ember/.venv/bin/python")
-        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(Path(record["python"]).as_posix()[-27:], "/opt/ember/.venv/bin/python")
+        if os.name != "nt":  # Windows files have no POSIX mode bits.
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
         self.assertEqual(read_default(self.home), record)
         self.assertFalse((self.workspace.path / ".config").exists())
 

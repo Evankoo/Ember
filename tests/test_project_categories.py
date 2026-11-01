@@ -57,7 +57,7 @@ class ProjectCategoryTests(unittest.TestCase):
     def test_cli_sets_and_clears_the_category(self):
         self.create()
         output = io.StringIO()
-        with mock.patch.dict(os.environ, {"HOME": str(self.root / "home")}), contextlib.redirect_stdout(output):
+        with mock.patch.dict(os.environ, {"HOME": str(self.root / "home"), "USERPROFILE": str(self.root / "home")}), contextlib.redirect_stdout(output):
             self.assertEqual(main(["project-category", "autumn", "内容运营", "--workspace", str(self.workspace.path)]), 0)
             self.assertEqual(main(["project-category", "autumn", "--clear", "--workspace", str(self.workspace.path)]), 0)
         self.assertEqual(self.categories()["autumn"], "")

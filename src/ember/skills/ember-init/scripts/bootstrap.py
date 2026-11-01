@@ -47,8 +47,8 @@ def contains(parent, child):
 def validate(args):
     if sys.version_info < (3, 10):
         raise ValueError("需要 Python 3.10 或更新版本")
-    if platform.system() not in {"Darwin", "Linux"}:
-        raise ValueError("此版本支持 macOS 和 Linux")
+    if platform.system() not in {"Darwin", "Linux", "Windows"}:
+        raise ValueError("此版本支持 macOS、Linux 和 Windows")
     workspace = new_directory(args.workspace or Path.home() / "Ember")
     documents = new_directory(args.documents or workspace.parent / (workspace.name + "文档"))
     app = new_directory(args.app_dir or workspace / "app")

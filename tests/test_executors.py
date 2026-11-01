@@ -14,6 +14,14 @@ from ember.store import WorkspaceError
 
 def software_fixture(home):
     folder = Path(home) / "本机软件 with spaces"
+    if os.name == "nt":  # Windows recognizes programs by suffix.
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "Other Assistant.exe").write_bytes(b"MZ")
+        (folder / "assistant-cli.cmd").write_text("@exit /b 0\n")
+        return [
+            {"id": "other-app", "label": "我的桌面助手", "kind": "app", "path": str(folder / "Other Assistant.exe")},
+            {"id": "other-cli", "label": "我的命令行助手", "kind": "command", "path": str(folder / "assistant-cli.cmd")},
+        ]
     app = folder / "Other Assistant.app"
     executable = app / "Contents/MacOS/assistant"
     executable.parent.mkdir(parents=True, exist_ok=True)
@@ -226,9 +234,9 @@ class ExecutorTests(unittest.TestCase):
 
     def test_discovery_is_bounded_metadata_only_and_does_not_register_candidates(self):
         app = Path(self.entries[0]["path"])
-        app.rename(app.with_name("Claude.app"))
+        app.rename(app.with_name("Claude" + app.suffix))
         command = Path(self.entries[1]["path"])
-        command.rename(command.with_name("gemini"))
+        command.rename(command.with_name("gemini" + command.suffix))
         with patch("ember.executors.subprocess.run") as run:
             found = self.registry.discover(application_roots=[app.parent], command_dirs=[command.parent])
         self.assertEqual({entry["kind"] for entry in found["candidates"]}, {"app", "command"})

@@ -91,7 +91,7 @@ class ExecutorRegistry:
         if any(path.is_symlink() for path in (self.path, self.path.parent, self.path.parent.parent)):
             raise WorkspaceError("本机软件配置不能使用符号链接。")
         try:
-            with os.fdopen(os.open(self.path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)), "rb") as source:
+            with os.fdopen(compat.open_no_follow(self.path, os.O_RDONLY), "rb") as source:
                 attributes = os.fstat(source.fileno())
                 if not stat.S_ISREG(attributes.st_mode) or attributes.st_size > 262144:
                     raise WorkspaceError("本机软件配置不是可读取的小型普通文件。")
@@ -182,8 +182,7 @@ class ExecutorRegistry:
             raise WorkspaceError("本机配置已改变，请刷新后重新修改。", 409)
         try:
             self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-            flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
-            with os.fdopen(os.open(self.path.parent / ".executors.lock", flags, 0o600), "a") as lock:
+            with os.fdopen(compat.open_no_follow(self.path.parent / ".executors.lock", os.O_CREAT | os.O_RDWR), "a") as lock:
                 compat.lock_file(lock.fileno())
                 before, stored = self._load()
                 if payload.get("expected_revision") != self._revision(before):
