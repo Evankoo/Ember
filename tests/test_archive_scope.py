@@ -61,7 +61,7 @@ class ArchiveScopeTests(unittest.TestCase):
         relative = 'archive/sample/previous/guide.md'
         legacy = self.root / relative
         legacy.parent.mkdir(parents=True)
-        legacy.write_text('Only the explicitly referenced old input is readable.\n')
+        legacy.write_bytes('Only the explicitly referenced old input is readable.\n'.encode())
         card = self.root / f'tasks/active/{task}.md'
         text = card.read_text()
         header = yaml.safe_load(text.split('---', 2)[1])

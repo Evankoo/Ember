@@ -84,8 +84,9 @@ class ExecutorTests(unittest.TestCase):
         run.assert_not_called()
         self.assertEqual(view["executors"], self.entries)
         self.assertTrue(view["ready"])
-        self.assertEqual(self.registry.path.stat().st_mode & 0o777, 0o600)
-        self.assertEqual(self.registry.path.parent.stat().st_mode & 0o777, 0o700)
+        if os.name != "nt":  # Windows files have no POSIX mode bits.
+            self.assertEqual(self.registry.path.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(self.registry.path.parent.stat().st_mode & 0o777, 0o700)
         self.assertEqual(list(self.workspace.iterdir()), [])
         self.assertEqual([path.read_bytes() for path in self.native], self.native_before)
 
@@ -108,7 +109,8 @@ class ExecutorTests(unittest.TestCase):
 
     def test_failed_saved_path_does_not_fall_back_to_another_program(self):
         self.saved()
-        Path(self.entries[1]["path"]).chmod(0o600)
+        program = Path(self.entries[1]["path"])
+        program.unlink() if os.name == "nt" else program.chmod(0o600)  # Windows has no execute bit.
         view = self.registry.snapshot()
         self.assertFalse(view["ready"])
         self.assertEqual(view["default_executor"], "other-cli")
@@ -159,9 +161,10 @@ class ExecutorTests(unittest.TestCase):
         before = self.registry.path.read_bytes()
         result = self.registry.save(self.payload(default="other-app"))
         backup = Path(result["backup_folder"])
-        self.assertEqual(backup.stat().st_mode & 0o777, 0o700)
+        if os.name != "nt":
+            self.assertEqual(backup.stat().st_mode & 0o777, 0o700)
+            self.assertEqual((backup / "executors.json").stat().st_mode & 0o777, 0o600)
         self.assertEqual((backup / "executors.json").read_bytes(), before)
-        self.assertEqual((backup / "executors.json").stat().st_mode & 0o777, 0o600)
         before = self.registry.path.read_bytes()
         from ember.executors import _atomic_write
         def fail_target(path, contents):

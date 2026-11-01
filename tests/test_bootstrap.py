@@ -142,7 +142,8 @@ class BootstrapTests(unittest.TestCase):
             if fail_workflow and argv[1:3] == ["-c", helper.SMOKE]:
                 raise RuntimeError("fixture isolated workflow failed")
             # The fixture does not create a real venv; retain this test interpreter's dependencies.
-            if Path(argv[0]) in (self.root.resolve() / "app/.venv/bin/python", self.root.resolve() / "data/app/.venv/bin/python"):
+            venv = ".venv/Scripts/python.exe" if os.name == "nt" else ".venv/bin/python"
+            if Path(argv[0]) in (self.root.resolve() / "app" / venv, self.root.resolve() / "data/app" / venv):
                 argv = [sys.executable, *argv[1:]]
             return real_run(argv, **kwargs)
 
@@ -152,7 +153,7 @@ class BootstrapTests(unittest.TestCase):
         self.home = self.root / "home"
         self.home.mkdir(exist_ok=True)
         # Installer subprocesses write machine config under HOME; never touch the real one.
-        with patch.object(helper.subprocess, "run", side_effect=run), patch.dict(os.environ, {"HOME": str(self.home)}):
+        with patch.object(helper.subprocess, "run", side_effect=run), patch.dict(os.environ, {"HOME": str(self.home), "USERPROFILE": str(self.home)}):
             result = helper.run(self.args(source=str(Path(__file__).resolve().parents[1]), port=port, mode=mode,
                                           app_dir=app_dir and str(self.root / app_dir)))
         app = self.root / app_dir if app_dir else self.root / "data/app"
