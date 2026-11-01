@@ -10,6 +10,7 @@ import shutil
 import sys
 import tempfile
 
+from . import compat
 from .bootstrap import PACKAGE, verify_workspace_contract
 from .store import Workspace, WorkspaceError
 
@@ -27,7 +28,7 @@ def _write_private_json(path: Path, value: dict) -> None:
     with tempfile.NamedTemporaryFile("w", dir=path.parent, prefix=f".{path.stem}-", delete=False, encoding="utf-8") as output:
         os.chmod(output.name, 0o600)
         output.write(json.dumps(value, ensure_ascii=False, indent=2) + "\n")
-    os.replace(output.name, path)
+    compat.replace_file(output.name, path)
 
 
 def read_default(home=None) -> dict | None:

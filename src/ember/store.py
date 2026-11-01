@@ -6,7 +6,7 @@ import hashlib
 import json
 import mimetypes
 import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePath, PurePosixPath
 import re
 import shutil
 import stat
@@ -18,6 +18,7 @@ from uuid import uuid4
 
 import yaml
 
+from . import compat
 from . import __version__
 
 VERSION = __version__
@@ -279,7 +280,7 @@ class Workspace:
             raise WorkspaceError("config/workspace.json 不可读取。") from exc
         if value is None:
             return None
-        if not isinstance(value, str) or not value.startswith("/"):
+        if not isinstance(value, str) or not Path(value).is_absolute():
             raise WorkspaceError("config/workspace.json 的 documents 必须是文档库绝对路径。")
         return value
 
@@ -291,14 +292,15 @@ class Workspace:
     @staticmethod
     def _check_ancestors(path: Path) -> None:
         for part in reversed((path, *path.parents)):
-            if part.is_symlink():
+            if part.is_symlink() or compat.is_junction(part):
                 raise WorkspaceError("工作区及其路径不允许符号链接。")
 
     def _safe(self, relative: str | Path, *, exists: bool = False) -> Path:
-        value = str(relative)
+        value = relative.as_posix() if isinstance(relative, PurePath) else str(relative)
         parsed = PurePosixPath(value)
         if (not value or "\\" in value or "\x00" in value or parsed.is_absolute()
-                or any(part in ("..", ".") for part in value.split("/"))):
+                or any(part in ("..", ".") for part in value.split("/"))
+                or (compat.WINDOWS and not all(compat.windows_name_allowed(part) for part in parsed.parts))):
             raise WorkspaceError("无效工作区相对路径。")
         root = self.path if parsed.parts[0] in SYSTEM_ENTRIES else self.docs
         result = root.joinpath(*parsed.parts)
@@ -361,10 +363,9 @@ class Workspace:
             self._safe(relative)
             if new:
                 # A hard link atomically creates a new name without replacing a concurrent file.
-                os.link(temporary, target, follow_symlinks=False)
-                temporary.unlink()
+                compat.publish_new(temporary, target)
             else:
-                os.replace(temporary, target)
+                compat.replace_file(temporary, target)
         except FileExistsError as exc:
             raise WorkspaceError("目标已存在，拒绝覆盖。", 409) from exc
         except OSError as exc:
@@ -455,7 +456,7 @@ class Workspace:
             raise WorkspaceError("工作目录应为最多 20 项的列表。")
         result = []
         for item in value:
-            if (not isinstance(item, str) or not item.startswith("/") or len(item) > 4096
+            if (not isinstance(item, str) or not Path(item).is_absolute() or len(item) > 4096
                     or any(ord(char) < 32 for char in item) or item in result):
                 raise WorkspaceError("工作目录必须是不重复的单行绝对路径。")
             result.append(item)
@@ -474,12 +475,11 @@ class Workspace:
     @contextmanager
     def _registry_lock(self):
         """Serialize project-registry rewrites across the service and command-line processes."""
-        import fcntl
         path = self._safe(".ember/projects.lock")
         path.parent.mkdir(exist_ok=True)
         fd = os.open(path, os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0), 0o600)
         try:
-            fcntl.flock(fd, fcntl.LOCK_EX)
+            compat.lock_file(fd)
             yield
         finally:
             os.close(fd)

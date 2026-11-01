@@ -31,5 +31,14 @@ class VersionConsistencyTests(unittest.TestCase):
             self.assertIn(locator.fingerprint(locator._source_tree()), released.values(),
                           "ember content changed; bump its version")
 
+    def test_bundled_skills_follow_the_documented_structure(self):
+        guide = (ROOT / "docs/skill-authoring.md").read_text()
+        headings = re.findall(r"(?m)^## ([A-Z][a-z].+)$", guide)
+        self.assertEqual(headings, ["Contract", "When to Use", "References", "Phases", "Output Format", "Anti-Patterns", "Tools Used"])
+        for skill in (PACKAGE / "skills").glob("*/SKILL.md"):
+            text = skill.read_text()
+            self.assertTrue(text.startswith("---\n"), skill)
+            self.assertEqual(re.findall(r"(?m)^## ([A-Z][a-z].+)$", text), headings, skill)
+
 if __name__ == "__main__":
     unittest.main()

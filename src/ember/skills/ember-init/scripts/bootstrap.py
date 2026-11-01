@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import platform
 import shlex
@@ -22,6 +23,11 @@ import urllib.request
 VERSION = "0.14.0"
 WHEEL = f"ember-{VERSION}-py3-none-any.whl"
 RELEASE = f"https://github.com/Evankoo/Ember/releases/download/v{VERSION}/{WHEEL}"
+
+
+def child_env():
+    """Children speak UTF-8 regardless of the Windows code page, so Chinese paths survive the pipe."""
+    return {**os.environ, "PYTHONUTF8": "1"}
 
 
 def new_directory(value):
@@ -89,7 +95,7 @@ w.add_reference(r["id"], {"path": f"交付/正式交付/{t['id']}/成果.md", "p
 w.complete_task(r["id"], {"confirmation": True})
 state = w.snapshot()
 assert len(state["tasks"]) == 2 and all(t["status"] == "completed" for t in state["tasks"])
-assert (w.docs / "交付/正式交付" / t["id"] / "成果.md").read_text() == "验证交付"
+assert (w.docs / "交付/正式交付" / t["id"] / "成果.md").read_text(encoding="utf-8") == "验证交付"
 verify_workspace_contract(w)
 server = LocalServer(w, 0)
 thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -117,11 +123,11 @@ def run(args):
         receipt_path.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     def command(argv):
-        subprocess.run([str(item) for item in argv], check=True)
+        subprocess.run([str(item) for item in argv], check=True, env=child_env())
 
     def quiet(argv, keep=1):
         """Run a step whose own hints target manual installs; show only its first lines, or everything on failure."""
-        result = subprocess.run([str(item) for item in argv], capture_output=True, text=True)
+        result = subprocess.run([str(item) for item in argv], capture_output=True, text=True, encoding="utf-8", errors="replace", env=child_env())
         if result.returncode:
             sys.stderr.write(result.stdout + result.stderr)
             raise subprocess.CalledProcessError(result.returncode, argv, result.stdout, result.stderr)
@@ -129,7 +135,7 @@ def run(args):
             print(line, flush=True)
 
     def capture(argv):
-        result = subprocess.run([str(item) for item in argv], capture_output=True, text=True)
+        result = subprocess.run([str(item) for item in argv], capture_output=True, text=True, encoding="utf-8", errors="replace", env=child_env())
         if result.returncode:
             raise RuntimeError(result.stderr.strip()[:4000] or "安装阶段子进程失败")
         return json.loads(result.stdout)
@@ -143,7 +149,7 @@ def run(args):
     try:
         print(f"1/5 在 {app} 建立程序与 Python 环境", flush=True)
         command([sys.executable, "-m", "venv", app / ".venv"])
-        python = app / ".venv/bin/python"
+        python = app / (".venv/Scripts/python.exe" if os.name == "nt" else ".venv/bin/python")
         receipt["stage"] = "package"
         save()
         print("2/5 安装余烬程序与三项基础 Skill", flush=True)
@@ -194,13 +200,13 @@ def run(args):
         write_back()
         command(check)
         # Let AI tools in any folder find this workspace; never replace a different existing default.
-        registered = subprocess.run([str(python), "-m", "ember", "use", str(workspace)], capture_output=True, text=True)
+        registered = subprocess.run([str(python), "-m", "ember", "use", str(workspace)], capture_output=True, text=True, encoding="utf-8", errors="replace", env=child_env())
         receipt["default_workspace"] = "registered" if registered.returncode == 0 else "kept-existing"
         if registered.returncode:
             receipt["default_workspace_note"] = registered.stderr.strip()[:1000]
         save()
         print(json.dumps(receipt, ensure_ascii=False, indent=2))
-        print(f"安装收据：{receipt_path}\n安装报告：{receipt['report_path']}\n启动：{shlex.join(start)}\n停止：在服务进程按 Ctrl+C\n下一步：打开工作台并配置当前 AI 工具；由 ember 将当前对话建成第一张任务卡，用户检查 OK 后再通过 ember-project 建立练习项目。")
+        print(f"安装收据：{receipt_path}\n安装报告：{receipt['report_path']}\n启动：{(subprocess.list2cmdline if os.name == 'nt' else shlex.join)(start)}\n停止：在服务进程按 Ctrl+C\n下一步：打开工作台并配置当前 AI 工具；由 ember 将当前对话建成第一张任务卡，用户检查 OK 后再通过 ember-project 建立练习项目。")
         if receipt["default_workspace"] == "registered":
             print(f"本机默认：系统目录 {workspace}，文档库 {documents}（记录在 ~/.config/ember/workspace.json）")
         else:
@@ -232,6 +238,8 @@ def main(argv=None):
     parser.add_argument("--source", help="本地源码目录或 wheel；默认使用附带 wheel 或官方发行版")
     parser.add_argument("--executor", default="manual", help="真实调用本 Skill 的工具名称；未知则 manual，不填模型")
     args = parser.parse_args(argv)
+    for stream in (sys.stdout, sys.stderr):
+        stream.reconfigure(errors="replace")  # A legacy Windows code page must not end the install over one character.
     try:
         return run(args)
     except (ValueError, OSError) as error:

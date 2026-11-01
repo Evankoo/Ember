@@ -1,6 +1,6 @@
 ---
 name: ember-init
-version: 4.1.4
+version: 4.1.5
 description: 一问一答引导首次安装余烬：欢迎并说明固定的系统目录 ~/Ember 与文档库 ~/Ember文档，展示基础目录；把用户当前 AI 工具登记为默认执行器并装好日常 Skill，实际用它把本次对话创建为第一张任务卡；用户在工作台确认后，用建项目 Skill 建立简单练习项目，最终确认完成后移除本库的一次性初始化向导。不重置、迁移或升级已有工作区。
 triggers: [初始化余烬, 安装余烬, 安装余烬开源版, 建立新工作区, 首次使用余烬]
 tools: [read_file, terminal, browser]
@@ -52,7 +52,7 @@ bootstrap 完成后的空白业务模式是一个系统项目、零任务；示�
 
 不要询问或建议其他位置，不同时追问业务项目、分类或软件配置。只有用户主动要求换位置时，才用 `--workspace` / `--documents` 指定，并在安装计划里写明。只有用户自己提到 VS Code 时说明：VS Code 的“打开文件夹”只是编辑器当前打开的位置；它不是余烬的系统目录或文档库，也不会替余烬创建它们。安装不依赖 VS Code。
 
-在准备安装期间自行检查 macOS / Linux 与真实 Python 3.10+ 解释器，不能假定系统 `python3` 合格（不少 Mac 自带的 `python3` 只有 3.9）；可依次查看 `python3.13`、`python3.12`、`python3.11`、`python3.10`、Homebrew 与 `uv` 已装的版本。都没有时先停下，用一句话告诉用户缺少 Python 3.10+，并给出可选的安装方式（python.org 官方安装包、已有 Homebrew 时 `brew install python@3.12`、Linux 用系统包管理器）；安装 Python 会改动这台电脑，必须等用户明确同意并选定方式后才执行，不擅自安装或改动系统 Python。检查本机是否已有安装或默认文档库，不读取其中业务内容。发现已有工作区先说明现状，本 Skill 不覆盖旧库。沿用名称和模式，未指定时使用余烬 / 空白业务模式 / 8783，不为这些默认项再发一轮问卷。非空、符号链接、包含关系或端口冲突时停止，不删除现场。
+在准备安装期间自行检查 macOS / Windows / Linux 与真实 Python 3.10+ 解释器，不能假定系统 `python3` 合格（不少 Mac 自带的 `python3` 只有 3.9）；可依次查看 `python3.13`、`python3.12`、`python3.11`、`python3.10`、Homebrew 与 `uv` 已装的版本，Windows 上用 `py -3 --version`，并忽略微软商店的 `python` 占位程序。文中 `~` 在 Windows 上指用户目录（`%USERPROFILE%`），程序 Python 位于 `~/Ember/app/.venv/Scripts/python.exe`，其他系统位于 `~/Ember/app/.venv/bin/python`。都没有时先停下，用一句话告诉用户缺少 Python 3.10+，并给出可选的安装方式（python.org 官方安装包、已有 Homebrew 时 `brew install python@3.12`、Windows 可用 `winget install Python.Python.3.12`、Linux 用系统包管理器）；安装 Python 会改动这台电脑，必须等用户明确同意并选定方式后才执行，不擅自安装或改动系统 Python。检查本机是否已有安装或默认文档库，不读取其中业务内容。发现已有工作区先说明现状，本 Skill 不覆盖旧库。沿用名称和模式，未指定时使用余烬 / 空白业务模式 / 8783，不为这些默认项再发一轮问卷。非空、符号链接、包含关系或端口冲突时停止，不删除现场。
 
 ### 2. 确认本次创建范围
 

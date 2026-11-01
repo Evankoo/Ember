@@ -49,7 +49,15 @@ def main(argv=None):
     migrate.add_argument("old", type=Path, help="旧版单目录工作区")
     migrate.add_argument("workspace", type=Path, help="新系统目录（必须为空或不存在）")
     migrate.add_argument("--documents", type=Path, help="新文档库；默认与系统目录同级的“<系统目录名>文档”")
+    service = commands.add_parser("service", help="让工作台在登录后常驻后台（macOS 与 Windows）")
+    service.add_argument("action", choices=("install", "uninstall", "start", "stop", "status"))
+    service.add_argument("--workspace", type=Path, help="默认使用本机登记的工作区")
+    service.add_argument("--port", type=int, default=8783)
     args = parser.parse_args(argv)
+    # Chinese output must not crash a console or pipe using a legacy Windows code page.
+    for stream in (sys.stdout, sys.stderr):
+        if stream is not None and hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
     if args.command == "skill-path":
         print(Path(__file__).resolve().parent / "skills" / "ember-init")
         return 0
@@ -62,6 +70,13 @@ def main(argv=None):
             if not targets:
                 raise WorkspaceError("还没有安装过日常 Skill：请用 --target 指定 AI 工具的 Skills 目录。")
             print(json.dumps([install_skill(target) for target in targets], ensure_ascii=False, indent=2))
+            return 0
+        if args.command == "service":
+            from . import service as background
+            if args.action == "install":
+                print(json.dumps(background.install(resolve_workspace(args.workspace).path, args.port), ensure_ascii=False, indent=2))
+            else:
+                print(json.dumps(getattr(background, args.action)(), ensure_ascii=False, indent=2))
             return 0
         if args.command == "which-project":
             print(json.dumps(resolve_workspace(args.workspace).project_for_directory(args.dir), ensure_ascii=False))

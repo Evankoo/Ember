@@ -10,7 +10,7 @@
 
 名字取自《庄子·养生主》：“指穷于为薪，火传也，不知其尽也。”每一次 AI 对话都像一根柴，总会烧完；任务档案是那团火。两次对话之间，余烬还热着，下一次就从这里燃起。
 
-它从真实业务里打磨出来，一直用在课程、内容和系统搭建中。本仓库是余烬的完整开源版（单机），MIT 许可，支持 macOS / Linux。
+它从真实业务里打磨出来，一直用在课程、内容和系统搭建中。本仓库是余烬的完整开源版（单机），MIT 许可，支持 macOS / Windows / Linux。
 
 [介绍页](https://ai.evan-manual.com/ember/) · [在线演示](https://ai.evan-manual.com/ember/demo/) · [最新发行版](https://github.com/Evankoo/Ember/releases/latest) · [更新记录](CHANGELOG.md)
 
@@ -34,7 +34,7 @@ AI 用得越多，上下文越分散：
 
 ### 让 AI 帮你安装（推荐）
 
-需要 macOS 或 Linux，以及 Python 3.10 或更新版本（不少 Mac 自带的只有 3.9）。电脑上没有合适的 Python 时，AI 会先告诉你，等你同意后再安装。
+需要 macOS、Windows 11 或 Linux，以及 Python 3.10 或更新版本（不少 Mac 自带的只有 3.9）。电脑上没有合适的 Python 时，AI 会先告诉你，等你同意后再安装。
 
 把这句话发给能读写本机文件的 AI 工具，比如 Codex、Claude Code、OpenCode：
 
@@ -141,6 +141,7 @@ ember project-category autumn-site 内容运营
 - [工作区与使用说明](docs/workspace.md)
 - [初始化流程](docs/initialization.md)
 - [HTTP 与存储接口](docs/api.md)
+- [Skill 写法](docs/skill-authoring.md)
 - [开源版范围](docs/scope.md)
 - [安全边界](SECURITY.md)
 - [更新记录](CHANGELOG.md)

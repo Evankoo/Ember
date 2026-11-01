@@ -47,13 +47,27 @@ def head(page: dict) -> str:
     )
 
 
+def _row_facts(row: dict) -> str:
+    status = f'<span class="skill-status {_esc(row["state"])}">{html.escape(row["state_label"])}</span>'
+    if "where" not in row:  # an edition without client and usage facts keeps category and state
+        return f'<span class="setting-category">{html.escape(row["category_label"])}</span>{status}'
+    return (
+        f'<span class="skill-fact skill-fact-state">{status}<small>{html.escape(row["reason"])}</small></span>'
+        f'<span class="skill-fact skill-fact-where">{html.escape(row["where"])}<small>{html.escape(row["where_scope"])}</small></span>'
+        f'<span class="skill-fact skill-fact-usage">{html.escape(row["usage"])}<small>{html.escape(row["last_used"])}</small></span>'
+    )
+
+
 def _row(row: dict) -> str:
     details = "".join(f'<span>{html.escape(label)} <code>{html.escape(value)}</code></span>' if label else f"<span>{html.escape(value)}</span>" for label, value in row.get("details", ()))
     search = " ".join((row["name"], row["display_name"], row["category_label"], row["description"])).lower()
+    folded = ' data-skill-folded="1"' if row.get("folded") else ""
+    marks = " ".join(key for key in ("idle", "pending") if row.get(key))
+    folded += f' data-skill-marks="{_esc(marks)}"' if marks else ""
     return (
-        f'<details class="compact-skill-row" data-compact-skill data-skill-category="{_esc(row["category"])}" data-skill-profile="{_esc(row["profile"])}" data-skill-state="{_esc(row["state"])}" data-skill-search="{_esc(search)}">'
-        f'<summary><span class="setting-identity"><strong>{html.escape(row["display_name"])}</strong><small>{html.escape(row["description"])}</small></span><span class="setting-category">{html.escape(row["category_label"])}</span>'
-        f'<span class="skill-status {_esc(row["state"])}">{html.escape(row["state_label"])}</span><span class="skill-detail-toggle"><span>登记信息</span><span>收起</span></span></summary>'
+        f'<details class="compact-skill-row{" with-facts" if "where" in row else ""}"{folded} data-compact-skill data-skill-category="{_esc(row["category"])}" data-skill-profile="{_esc(row["profile"])}" data-skill-state="{_esc(row["state"])}" data-skill-search="{_esc(search)}">'
+        f'<summary><span class="setting-identity"><strong>{html.escape(row["display_name"])}</strong><small>{html.escape(row["description"])}</small></span>{_row_facts(row)}'
+        f'<span class="skill-detail-toggle"><span>登记信息</span><span>收起</span></span></summary>'
         f'<div class="compact-skill-detail">{details}</div></details>'
     )
 
@@ -69,6 +83,8 @@ def _category_button(category: dict) -> str:
 
 def skills(data: dict) -> str:
     rows = data.get("rows", [])
+    href = str(data.get("inventory_href") or "")
+    standalone = data.get("standalone")
     dependencies = data.get("dependencies") or {}
     groups = dependencies.get("groups", ())
     note = str(dependencies.get("note") or "").strip()
@@ -77,7 +93,11 @@ def skills(data: dict) -> str:
         + "".join(
             f'<article class="settings-dependency-row" data-capability-dependency="{_esc(group["profile"])}" data-capability-skill-count="{int(group["count"])}"><div><strong>{html.escape(group["title"])}<small>{int(group["count"])} 项</small></strong>'
             f'<small>{html.escape(group["detail"])}</small></div>'
-            f'<button class="button" type="button" data-skill-profile-filter="{_esc(group["profile"])}" aria-pressed="false">查看这组 {int(group["count"])} 项</button></article>'
+            + (
+                f'<a class="button" href="{_esc(href)}?skill_profile={_esc(group["profile"])}">查看这组 {int(group["count"])} 项</a></article>'
+                if href else
+                f'<button class="button" type="button" data-skill-profile-filter="{_esc(group["profile"])}" aria-pressed="false">查看这组 {int(group["count"])} 项</button></article>'
+            )
             for group in groups
         ) + "</div>"
         if groups else ""
@@ -86,14 +106,41 @@ def skills(data: dict) -> str:
     buttons += [_category_button(category) for category in data.get("categories", ())]
     issues = sum(row["state"] in ISSUE_STATES for row in rows)
     snapshot = f' data-capability-snapshot="{_esc(data["snapshot"])}"' if data.get("snapshot") else ""
+    fold = data.get("fold")
+    fold_html = (
+        f'<button class="skill-fold-row" id="compactSkillFold" type="button" data-skill-category-filter="{_esc(fold["category"])}" aria-pressed="false">'
+        f'<strong>{html.escape(fold["label"])}</strong><span>{html.escape(fold["detail"])}</span></button>'
+        if fold else ""
+    )
+    head_html = (
+        '<div class="compact-skill-head" aria-hidden="true"><span>能力</span><span>能否使用</span><span>在哪能用</span><span>近 30 天任务</span><span></span></div>'
+        if any("where" in row for row in rows) else ""
+    )
+    maintenance = "".join(
+        f'<button class="skill-issue-filter" type="button" data-skill-maintenance="{_esc(item["key"])}" aria-pressed="false">{html.escape(item["label"])} {int(item["count"])}</button>'
+        for item in data.get("maintenance", ())
+    )
+    browser_open, browser_close = (
+        ('<div class="settings-skill-browser" id="compactSkillBrowser">', "</div>") if standalone else
+        (f'<details class="settings-skill-browser" id="compactSkillBrowser"><summary>查看全部 {len(rows)} 项 Skills</summary>', "</details>")
+    )
     workspace = (
-        f'<details class="settings-skill-browser" id="compactSkillBrowser"><summary>查看全部 {len(rows)} 项 Skills</summary>'
+        f'{browser_open}'
 
         f'<div class="settings-skill-workspace"><nav class="skill-category-rail" aria-label="Skill 分类">{"".join(buttons)}</nav><div class="skill-results"><div class="settings-skill-tools">'
         '<input id="compactSkillSearch" type="search" placeholder="搜索 Skill 名称或用途" aria-label="搜索 Skill 名称或用途">'
-        f'<button class="skill-issue-filter" id="compactSkillIssueFilter" type="button" aria-pressed="false">只看待核对 {issues}</button><span id="compactSkillCount">{len(rows)} 项</span></div>'
-        f'<div class="compact-skill-list" id="compactSkillList">{"".join(_row(row) for row in rows)}</div><div class="library-empty" id="compactSkillEmpty" hidden>没有匹配的 Skill。</div></div></div></details>'
+        f'<button class="skill-issue-filter" id="compactSkillIssueFilter" type="button" aria-pressed="false">只看待核对 {issues}</button>{maintenance}<span id="compactSkillCount">{len(rows)} 项</span></div>'
+        f'<div class="compact-skill-list" id="compactSkillList">{head_html}{"".join(_row(row) for row in rows)}{fold_html}</div><div class="library-empty" id="compactSkillEmpty" hidden>没有匹配的 Skill。</div></div></div>{browser_close}'
     )
+    if href:
+        workspace = f'<a class="settings-skill-link" href="{_esc(href)}">查看全部 {len(rows)} 项 Skills</a>'
+    if standalone:
+        return (
+            f'<section class="settings-hub paper-management-page skills-page" id="skills"{snapshot}>'
+            f'<header class="settings-hub-head"><div><a class="skills-page-back" href="/settings">设置</a><h1>Skills</h1></div>'
+            f'<div class="settings-hub-actions">{standalone["status_html"]}{standalone["actions_html"]}</div></header>'
+            f'<div class="settings-skills-module"><div class="settings-skills-head"><div></div><div><strong>{len(rows)} 项已登记</strong><span>{html.escape(data.get("summary", ""))}</span></div></div>{dependency_html}{workspace}</div></section>'
+        )
     return (
         f'<section class="settings-skills-module" id="skills"{snapshot}><div class="settings-skills-head"><div><h2>Skills</h2></div>'
         f'<div><strong>{len(rows)} 项已登记</strong><span>{html.escape(data.get("summary", ""))}</span></div></div>{dependency_html}'
