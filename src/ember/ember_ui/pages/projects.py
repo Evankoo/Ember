@@ -24,6 +24,8 @@ from __future__ import annotations
 
 import html
 
+from .task_detail import task_tag
+
 RETURN_LABELS = {"completed": "近30天完成", "active": "进行中"}
 
 
@@ -44,7 +46,7 @@ def column(spec: dict, project: str) -> str:
         for row in rows:
             task_id, title = _esc(row["task_id"]), html.escape(row.get("title") or row["task_id"])
             back = row.get("return_column") or ""
-            tag = '<span class="task-group-tag">任务主线</span>' if row.get("task_line") else ""
+            tag = task_tag(row)
             state = f'<span class="project-task-state {_esc(back)}">{html.escape(RETURN_LABELS.get(back, "原状态"))}</span>' if key == "important" else ""
             important = "true" if key == "important" else "false"
             items.append(f'<div class="project-view-task-wrap"><a class="project-view-task" draggable="true" data-task-id="{task_id}" data-return-column="{_esc(back)}" data-important="{important}" href="{_esc(row["href"])}" title="{_esc(row.get("title") or row["task_id"])}"><span class="project-task-name">{title}{tag}</span>{state}</a></div>')

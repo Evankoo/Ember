@@ -21,7 +21,7 @@ Inbox/
 管理中心/运行状态/Inbox标签/inbox-labels.json    # 指纹标签台账
 ```
 
-任务卡使用标准 YAML frontmatter 与四个必需正文：`任务目标 / 任务描述 / 当前结果 / 执行日志`。下一步可选，完成无后续时移除；执行日志保持最后。生命周期只使用 `active / waiting_user / blocked / completed`，草稿是阶段与文件状态。标题为 20 字符以内的完整短语。必需字段为 type、task_id、title、project、work_type、task_kind、status、executor、created_at、updated_at、skills_used、artifact_mode。任务线使用 `task_kind: task_group`、`related_task_ids`；输入和输出文件记录不得混在同一个存储目录。
+任务卡使用标准 YAML frontmatter 与四个必需正文：`任务目标 / 任务描述 / 当前结果 / 执行日志`。下一步可选，完成无后续时移除；长期任务写 `long_term: true`，关闭时须传 `confirm_long_term_close:true`；`task_group` 已停用，只读不新建；执行日志保持最后。生命周期只使用 `active / waiting_user / blocked / completed`，草稿是阶段与文件状态。标题为 20 字符以内的完整短语。必需字段为 type、task_id、title、project、work_type、task_kind、status、executor、created_at、updated_at、skills_used、artifact_mode。任务线使用 `task_kind: task_group`、`related_task_ids`；输入和输出文件记录不得混在同一个存储目录。
 
 ## Python 存储接口
 
@@ -43,6 +43,7 @@ add_reference(task_id, payload)      # path/purpose；已有受控工作区文�
 complete_task(task_id, payload)      # confirmation:true；none/system/archive/external 可完成，delivery 禁止绕过推广
 promote_task(task_id, payload)        # confirmation:true；草稿->正式交付并完成，拒绝目标冲突
 set_important(task_id, payload)       # important:bool, revision:int；仅改呈现台账
+set_long_term(task_id, payload)       # enabled:bool；写任务卡 long_term，不改状态
 set_inbox_label(payload)              # id,label,revision；标签不移动文件
 build_context(payload)               # request,relation:new|continue|based,task_id?,file_ids? -> {text}
 build_review_context(payload)        # task_ids:[] -> {text}，仅建议不改任务
@@ -63,7 +64,7 @@ save_report(payload)                 # title,content,mode:selected|weekly,task_i
 version, workspace_name, revision, inbox_revision
 projects: [{id,name,kind:project|system,description,focus,overview,timeline:[{date,title,text}]}]
 tasks: [{id,title,project,work_type,kind:task|task_line,status,date,updated_at,artifact_mode,goal,description,current,next,
-         logs:[{date,text}],inputs:[file_id],outputs:[file_id],related:[task_id],important:bool}]
+         logs:[{date,text}],inputs:[file_id],outputs:[file_id],related:[task_id],important:bool,long_term:bool}]
 files: [{id,taskId,project,name,kind:input|draft|formal|inbox,relative_path,bytes,media_type,purpose}]
 inbox: [{id,name,relative_path,is_dir,label,fingerprint,bytes,file_count}]
 reports: [{id,title,date,mode,content,related_task_ids}]
@@ -93,6 +94,7 @@ POST /api/tasks/<id>/references
 POST /api/tasks/<id>/complete
 POST /api/tasks/<id>/promote
 POST /api/tasks/<id>/important
+POST /api/tasks/<id>/long-term
 POST /api/inbox/label
 POST /api/context
 POST /api/review/context

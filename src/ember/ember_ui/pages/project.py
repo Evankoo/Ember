@@ -21,7 +21,7 @@ import re
 from urllib.parse import unquote, urlsplit
 
 from ..markdown import inline
-from .task_detail import control
+from .task_detail import control, task_tag
 
 
 def locator_kind(value: str) -> str | None:
@@ -169,12 +169,13 @@ def hero(page: dict) -> str:
     stats = page.get("stats", {})
     launcher = f'<div class="project-task-launcher">{control(page["launcher"])}</div>' if page.get("launcher") else ""
     focus = page.get("focus", "")
+    groups = f'<span><b>{int(stats["groups"])}</b>任务主线</span>' if "groups" in stats else ""
     focus_html = f'<div class="project-current-focus"><small>当前重点</small><strong>{html.escape(focus)}</strong>{focus_note(page)}</div>' if focus else ""
     return (
         f'<section class="panel project-intro-card project-workspace-hero"><div class="intro-head"><div><span class="eyebrow">{html.escape(page.get("eyebrow", "PROJECT"))}</span>'
         f'<h1>{html.escape(page["title"])}</h1></div><div class="project-hero-actions">{page.get("hero_actions_html", "")}{launcher}</div></div>'
         f'<div class="intro-desc">{page.get("desc_html", "")}</div><div class="project-hero-summary">{focus_html}<div class="project-hero-stats">'
-        f'<span><b>{int(stats.get("active", 0))}</b>进行中</span><span><b>{int(stats.get("groups", 0))}</b>任务主线</span><span><b>{int(stats.get("completed", 0))}</b>已完成</span></div></div>'
+        f'<span><b>{int(stats.get("active", 0))}</b>进行中</span>{groups}<span><b>{int(stats.get("completed", 0))}</b>已完成</span></div></div>'
         f'{overview(page.get("overview"))}{location_strip(page.get("strip"))}</section>'
     )
 
@@ -188,7 +189,7 @@ def task_rows(rows, *, show_artifacts: bool = True) -> str:
         label = "主线索引" if row.get("group") else ("有交付文件" if row.get("has_delivery") else "无独立交付文件")
         css = "delivery-label has-delivery" if row.get("has_delivery") else "delivery-label"
         badge = f'<span class="{css}">{html.escape(label)}</span>' if show_artifacts else ""
-        tag = '<span class="task-group-tag">任务主线</span>' if row.get("task_line") else ""
+        tag = task_tag(row)
         items.append(
             f'<article class="project-task-row" data-task-search="{_esc(row["search"])}" data-task-id="{_esc(row["task_id"])}" data-status="{_esc(row["status"])}" '
             f'data-important="{"1" if row.get("important") else "0"}" data-group="{"1" if row.get("group") else "0"}" data-has-delivery="{"1" if row.get("has_delivery") else "0"}">'
@@ -202,6 +203,8 @@ def workspace(page: dict) -> str:
     counts = page.get("counts", {})
     label = page.get("task_search_label", "搜索项目任务")
     has_delivery = page.get("has_delivery", False)
+    group_filter = ('<button type="button" class="chip" data-task-filter="groups" aria-pressed="false">任务主线</button>'
+                    if page.get("group_filter", True) else "")
     delivery_filter = ('<span class="filter-separator" aria-hidden="true"></span><button type="button" class="chip" data-task-filter="delivery" aria-pressed="false">有交付文件</button>'
                        if has_delivery else "")
     rows = page.get("rows", [])
@@ -217,7 +220,7 @@ def workspace(page: dict) -> str:
           <div class="project-task-filters" id="projectTaskFilters" aria-label="任务筛选">
             <button type="button" class="chip active" data-task-filter="all" aria-pressed="true">全部</button>
             <button type="button" class="chip" data-task-filter="important" aria-pressed="false">当前重点</button>
-            <button type="button" class="chip" data-task-filter="groups" aria-pressed="false">任务主线</button>
+            {group_filter}
             <button type="button" class="chip" data-task-filter="active" aria-pressed="false">进行中</button>
             <button type="button" class="chip" data-task-filter="completed" aria-pressed="false">已完成</button>
             {delivery_filter}

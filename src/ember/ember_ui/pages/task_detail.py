@@ -12,7 +12,8 @@ builds the dictionary from its own data. Keys (optional ones may be omitted):
   technical        summary texts, e.g. ["Skill …", "执行器 …"]
   log              {entries: [(time, text)], machine_prefixes: [...]}; omitted when the task has none
   related          task line members: [{task_id, title, href, status, status_label}] or {task_id, missing: True}
-  heading_tools_html  edition controls placed before the continue action
+  heading_tools_html  edition controls placed after the continue action
+  long_term           show the 长期任务 tag beside the title
   continue         control (see control()) whose form submits the continue action
   folder_control   the delivery folder control, shown in the heading when there are no materials
   materials        {delivery, attrs: [(name, value)], input_count, folder_controls: [control],
@@ -36,6 +37,13 @@ def _esc(value: object) -> str:
 def _attrs(pairs) -> str:
     """Attributes in order; a value of None renders a bare boolean attribute."""
     return "".join(f" {name}" if value is None else f' {name}="{_esc(value)}"' for name, value in pairs or ())
+
+
+def task_tag(row: dict) -> str:
+    """The small marker beside a task name."""
+    if row.get("long_term"):
+        return '<span class="task-group-tag">长期任务</span>'
+    return '<span class="task-group-tag">任务主线</span>' if row.get("task_line") else ""
 
 
 def control(spec: dict) -> str:
@@ -166,7 +174,7 @@ def render(page: dict) -> str:
         lead = '<button class="button ghost task-material-toggle" id="taskMaterialToggle" type="button" aria-controls="taskDeliveryWorkspace" aria-expanded="false">任务资料</button>'
     else:
         lead = control(page["folder_control"]) if page.get("folder_control") else ""
-    tools = lead + page.get("heading_tools_html", "") + continue_control
+    tools = lead + continue_control + page.get("heading_tools_html", "")
     parent = page.get("parent")
     parent_notice = (
         f'<div class="task-parent-group-return"><a class="button ghost task-parent-group-link" aria-label="返回任务主线" href="{_esc(parent["href"])}"><span aria-hidden="true">←</span> 返回任务主线 · {html.escape(parent["title"])}</a></div>'
@@ -186,7 +194,7 @@ def render(page: dict) -> str:
         f'<div class="task-detail-workspace {"has-materials" if materials else "no-materials"}">'
         '<section class="panel task-current-pane">'
         f'<header class="task-current-head"><div class="task-current-title-row"><span class="badge {_esc(status)}">{html.escape(page.get("status_label", status))}</span>'
-        f'<h1>{html.escape(page["title"])}</h1><div class="task-current-heading-tools">{tools}</div></div>'
+        f'<h1>{html.escape(page["title"])}</h1>{task_tag(page)}<div class="task-current-heading-tools">{tools}</div></div>'
         f'<div class="task-current-meta"><a href="{_esc(page["project_href"])}">{html.escape(page["project_title"])}</a><span class="task-current-meta-separator">·</span>'
         f'<code class="task-current-id" title="{_esc(page["task_id"])}">ID {html.escape(page["task_id"])}</code><span class="task-current-meta-separator">·</span>'
         f'<span class="task-current-updated">最近更新 {html.escape(page["updated_label"])}</span></div></header>{parent_notice}'

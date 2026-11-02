@@ -31,7 +31,7 @@ const app = (() => {
   const taskLink = item => `#task/${encodeURIComponent(item.id)}`;
   const formError = form => form.querySelector(".form-error");
   const bytes = n => n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n >= 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n || 0} B`;
-  const workType = item => item.kind === "task_line" ? "任务线" : workNames[item.work_type] || item.work_type;
+  const workType = item => workNames[item.work_type] || item.work_type;
   const categories = () => [...new Set(data().projects.map(p => p.category).filter(Boolean))];
   const fileIcon = item => /\.md$/i.test(item.name) ? "M" : /\.(png|jpe?g|webp|gif)$/i.test(item.name) ? "◇" : /\.(mp4|mov|webm)$/i.test(item.name) ? "▶" : /\.pdf$/i.test(item.name) ? "P" : "·";
   const fileKind = item => `<span class="task-file-kind">${esc((String(item.name).match(/\.([a-z0-9]{1,8})$/i) || [, "文件"])[1].toUpperCase().slice(0, 4))}</span>`;
@@ -493,6 +493,10 @@ const app = (() => {
   /* Rendered on the server with the full workbench's template (ember_ui/pages/review.py) and driven by
      ember_ui/review.js; this page supplies search and the two previews from the local workspace. */
   const reviewHooks = {
+    setLongTerm: async (ids, enabled) => {
+      for (const id of ids) await api(`api/tasks/${encodeURIComponent(id)}/long-term`, { enabled });
+      await loadState();
+    },
     search: ({ query, project, type, status }) => api(`api/review/search?${new URLSearchParams({ q: query, project, type, status })}`),
     taskPreview: id => api(`api/home/task-preview?id=${encodeURIComponent(id)}`),
     reportPreview: id => api(`api/review/report-preview?id=${encodeURIComponent(id)}`),

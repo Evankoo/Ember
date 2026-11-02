@@ -96,11 +96,12 @@ def task_page(snapshot: dict, task_id: str) -> dict | None:
             "hidden": [("task_id", ident)],
             "attrs": [("data-task-continue-form", None), ("data-execution-confirm", None),
                       ("data-execution-label", "继续当前任务" if open_task else "基于已完成任务新建")]}},
-        "folder_control": task_folder,
+        "folder_control": task_folder if outputs else None,
+        "long_term": bool(task.get("long_term")),
         "materials": {
             "delivery": delivery,
             "input_count": len(inputs),
-            "folder_controls": [input_folder, task_folder],
+            "folder_controls": [input_folder, *([task_folder] if outputs else [])],
             # Input rows carry the file ID, which the page's preview adapter resolves.
             "inputs": [{"name": item["name"], "preview": item["id"],
                         "meta": f"{'快照' if item['taskId'] == ident and item['kind'] == 'input' else '引用'} · {size_label(item['bytes'])}"
@@ -127,16 +128,17 @@ def home_page_data(snapshot: dict) -> dict:
     """The home page: request input, task metadata for search rows, and the task browser."""
     projects = {item["id"]: item for item in snapshot["projects"]}
     tasks = sorted(snapshot["tasks"], key=lambda item: str(item.get("updated_at") or item.get("date") or ""), reverse=True)
+    tasks.sort(key=lambda item: not item.get("long_term"))
     rows, project_options = [], {}
     for task in tasks:
         project_label = _project_name(projects, task["project"])
         project_options.setdefault(task["project"], project_label)
         status, work_type = task["status"], task.get("work_type") or ""
         rows.append({
-            "task_id": task["id"], "title": task["title"], "href": task_href(task["id"]), "task_line": task.get("kind") == "task_line",
+            "task_id": task["id"], "title": task["title"], "href": task_href(task["id"]), "long_term": bool(task.get("long_term")),
             "description": _progress(task), "project_slug": task["project"], "project_label": project_label,
             "status": status, "status_label": STATUS_NAMES.get(status, status), "work_type": work_type,
-            "type_label": "任务线" if task.get("kind") == "task_line" else WORK_NAMES.get(work_type, work_type),
+            "type_label": WORK_NAMES.get(work_type, work_type),
             "updated": str(task.get("updated_at") or task.get("date") or "")[:16],
             "search": " ".join(str(value or "") for value in (task["title"], task.get("description"), task.get("goal"), task.get("current"), project_label,
                                                              task["project"], task["id"], work_type, status)).lower(),
@@ -294,13 +296,12 @@ def project_page(snapshot: dict, project_id: str) -> dict | None:
     described = sections.get(entry_label, "") if entry_label else ""
     locations = [path for path in project.get("locations") or [] if path not in described]
     return {
-        "title": project["name"], "eyebrow": "SYSTEM" if system else "PROJECT",
+        "title": project["name"], "eyebrow": "SYSTEM" if system else "PROJECT", "group_filter": False,
         "hero_actions_html": f'<button class="button ghost" type="button" data-action="new-task" data-project="{html.escape(project_id, quote=True)}">新建任务</button>',
         "launcher": {"confirm_label": f"开始{entity}任务并确认执行器", "form": {
             "hidden": [("project_id", project_id)], "attrs": [("data-execution-confirm", None), ("data-execution-label", f"开始{entity}任务")]}},
         "focus": project.get("focus") or "",
         "stats": {"active": sum(item["status"] in ("active", "waiting_user", "blocked") for item in tasks),
-                  "groups": sum(item.get("kind") == "task_line" for item in tasks),
                   "completed": sum(item["status"] == "completed" for item in tasks)},
         "overview": {"state": "ok", "layout_id": "context", "primary_label": primary_label, "primary_html": primary,
                      "sections": extra, "timeline_html": timeline} if primary else {"state": "message", "message": "项目说明暂无已确认的概览内容。"},
@@ -309,7 +310,7 @@ def project_page(snapshot: dict, project_id: str) -> dict | None:
         "counts": {"tasks": len(tasks), "delivery": sum(item["kind"] in ("draft", "formal") for item in files),
                    "input": sum(item["kind"] == "input" for item in files)},
         "task_search_label": f"搜索{entity}任务", "has_delivery": True,
-        "rows": [{"task_id": item["id"], "title": item["title"], "href": task_href(item["id"]), "task_line": item.get("kind") == "task_line",
+        "rows": [{"task_id": item["id"], "title": item["title"], "href": task_href(item["id"]), "long_term": bool(item.get("long_term")),
                   "description": item.get("description") or item.get("goal") or "", "status": item["status"],
                   "status_label": STATUS_NAMES.get(item["status"], item["status"]), "important": bool(item.get("important")),
                   "group": item.get("kind") == "task_line", "has_delivery": bool(item.get("outputs")),
@@ -374,7 +375,7 @@ def projects_page_data(snapshot: dict) -> dict:
     projects, tasks = snapshot["projects"], snapshot["tasks"]
     newest = lambda task: str(task.get("updated_at") or task.get("date") or "")  # noqa: E731
     recent = lambda items, days: [task for task in items if task["status"] == "completed" and _days_ago(task, now) <= days]  # noqa: E731
-    row = lambda task: {"task_id": task["id"], "title": task["title"], "href": task_href(task["id"]), "task_line": task.get("kind") == "task_line",  # noqa: E731
+    row = lambda task: {"task_id": task["id"], "title": task["title"], "href": task_href(task["id"]), "long_term": bool(task.get("long_term")),  # noqa: E731
                         "return_column": task["status"] if task["status"] in ("active", "completed") else ""}
 
     def board(items):
@@ -460,10 +461,11 @@ def review_page_data(snapshot: dict) -> dict:
         "stats": {"tasks": len(tasks), "active": sum(task["status"] == "active" for task in tasks), "focus": sum(bool(task.get("important")) for task in tasks)},
         "head_html": _weekly_summary(snapshot, bool(tasks)),
         "form": {"hidden": []},
+        "long_term_action": {"hidden": []},
         "projects": [(slug, _project_name(projects, slug)) for slug in used_projects],
         "types": [(key, label) for key, label in WORK_NAMES.items() if any(task.get("work_type") == key for task in tasks)],
         "statuses": list(STATUS_NAMES.items()),
-        "tasks": [{"task_id": task["id"], "title": task["title"], "task_line": task.get("kind") == "task_line", "project": task["project"],
+        "tasks": [{"task_id": task["id"], "title": task["title"], "long_term": bool(task.get("long_term")), "project": task["project"],
                    "project_label": _project_name(projects, task["project"]), "work_type": task.get("work_type") or "",
                    "type_label": WORK_NAMES.get(task.get("work_type") or "", task.get("work_type") or ""),
                    "status": task["status"], "status_label": STATUS_NAMES.get(task["status"], task["status"]),

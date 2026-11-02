@@ -10,6 +10,7 @@ ember_ui/static/review.js drives it. render(page) takes one dictionary and retur
   tasks            [{task_id, title, task_line, project, project_label, work_type, type_label,
                      status, status_label, updated, updated_sort, search}]
   group_action     {action, fixed_executor} of 提炼任务主线 for two or more selected tasks
+  long_term_action {action, hidden: [(name, value)]} that marks the selected tasks as long-term
   finder           {action (None: no action), hidden: [(name, value)]} of the preview's folder form
   reports          [{task_id, title, mode ("weekly" | "selected"), mode_label, status, status_label,
                      updated, missing_report}]
@@ -21,7 +22,7 @@ import base64
 import html
 
 from ..marks import brand_mark_svg, execution_confirm_button
-from .task_detail import _attrs
+from .task_detail import _attrs, task_tag
 
 
 def _esc(value: object) -> str:
@@ -41,7 +42,7 @@ def _form_start(form: dict, css: str, extra: str = "") -> str:
 def _task_item(task: dict) -> str:
     title = task["title"]
     search = base64.b64encode(task["search"].lower().encode("utf-8")).decode("ascii")
-    tag = '<span class="task-group-tag">任务主线</span>' if task.get("task_line") else ""
+    tag = task_tag(task)
     return (
         f'<div class="organize-task-item" data-organize-task data-project="{_esc(task["project"])}" '
         f'data-type="{_esc(task["work_type"])}" data-status="{_esc(task["status"])}" '
@@ -82,14 +83,25 @@ def render(page: dict) -> str:
         f'<span>{"可以调整搜索词或筛选条件。" if tasks else "任务索引同步后会显示在这里。"}</span>'
         f'<button class="button ghost" id="resetReviewSearch" type="button"{" hidden" if not tasks else ""}>重置搜索与筛选</button></div>'
     )
+    long_term = page.get("long_term_action")
+    long_term_buttons = (
+        '<button class="button ghost" type="button" data-long-term="1">设为长期</button>'
+        '<button class="button ghost" type="button" data-long-term="0">取消长期</button>'
+        if long_term else ""
+    )
+    long_term_form = (
+        _form_start(long_term, "action-form", ' id="reviewLongTermForm" hidden')
+        + '<input type="hidden" name="enabled" value="1"></form>'
+        if long_term else ""
+    )
     form = _form_start(page.get("form") or {}, "organize-task-form", ' data-execution-confirm data-execution-label="整理所选任务"')
     organizer = f'''<section class="panel selected-task-organizer"><div class="review-task-head"><div><h2>任务列表</h2><span>{len(tasks)} 项</span></div></div>{form}
       <div class="organize-task-search"><div class="search-wrap"><span class="search-icon" aria-hidden="true">⌕</span><input id="organizeTaskSearch" type="search" placeholder="搜索任务名称、目标、日志或交付线索" aria-label="搜索任务"></div></div>
       <div class="organize-task-filters"><button class="button ghost review-filter-toggle" id="reviewFilterToggle" type="button" aria-expanded="false" aria-controls="reviewFilterFields">筛选 <span id="reviewFilterCount">0</span></button><div class="review-filter-fields" id="reviewFilterFields"><select id="organizeProject" aria-label="按项目筛选"><option value="">全部项目</option>{_options(page.get("projects", ()))}</select><select id="organizeType" aria-label="按任务类型筛选"><option value="">全部任务类型</option>{_options(page.get("types", ()))}</select><select id="organizeStatus" aria-label="按任务状态筛选"><option value="">全部任务状态</option>{_options(page.get("statuses", ()))}</select><button class="button ghost review-filter-reset" id="clearReviewFilters" type="button">重置筛选</button></div><select class="review-sort-control" id="organizeSort" aria-label="任务排序"><option value="recent">最近更新优先</option><option value="oldest">较早更新优先</option><option value="title">按任务名称</option></select></div>
       <div class="library-search-state" id="organizeSearchState" role="status" hidden></div>
       <div class="organize-task-list" id="organizeTaskList">{"".join(_task_item(task) for task in tasks)}{empty}</div>
-      <div class="organize-task-footer"><span class="organize-task-count" id="organizeTaskCount">未选择任务</span><div class="organize-task-footer-actions" id="organizeSelectionActions" hidden><button class="button ghost" id="clearOrganizeTasks" type="button">清空选择</button>{group_button}{execution_confirm_button("整理所选任务并核对提示词", disabled=True, css="review-organize-trigger")}</div></div>
-    </form></section>'''
+      <div class="organize-task-footer"><span class="organize-task-count" id="organizeTaskCount">未选择任务</span><div class="organize-task-footer-actions" id="organizeSelectionActions" hidden>{long_term_buttons}<button class="button ghost" id="clearOrganizeTasks" type="button">清空选择</button>{group_button}{execution_confirm_button("整理所选任务并核对提示词", disabled=True, css="review-organize-trigger")}</div></div>
+    </form>{long_term_form}</section>'''
     task_preview = (
         '<section class="panel organization-task-preview review-inspector review-responsive-drawer" id="reviewTaskDrawer" data-review-drawer="task"><div class="review-inspector-tabs"><strong>任务卡</strong><button class="review-drawer-close" type="button" data-review-drawer-close aria-label="关闭任务卡">×</button></div>'
         '<div data-review-inspector-panel="task"><div class="organization-preview-placeholder" id="organizationTaskPreviewPlaceholder">点击任务，核对目标、当前判断、执行日志和交付情况。</div>'

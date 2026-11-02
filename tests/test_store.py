@@ -308,20 +308,32 @@ class StoreTests(unittest.TestCase):
         self.assertIn("formal", {item["kind"] for item in state["files"]})
         self.assertTrue((self.docs / f"交付/正式交付/{identifier}/交付.md").is_file())
 
-    def test_task_line_has_one_way_relation_and_real_draft_files(self):
+    def test_new_task_lines_are_refused(self):
         first, second = self.task("第一项"), self.task("第二项")
-        before = [self.card(first)[1], self.card(second)[1]]
-        line = self.task("样例任务线", task_kind="task_group", related_task_ids=[first, second])
-        self.assertEqual(self.card(line)[0]["related_task_ids"], [first, second])
-        self.assertEqual([self.card(first)[1], self.card(second)[1]], before)
-        line_view = next(item for item in self.store.snapshot()["tasks"] if item["id"] == line)
-        self.assertEqual(line_view["kind"], "task_line")
-        self.assertEqual(len(line_view["outputs"]), 2)
+        with self.assertRaisesRegex(WorkspaceError, "任务线已停用"):
+            self.task("样例任务线", task_kind="task_group", related_task_ids=[first, second])
+
+    def test_long_term_keeps_status_and_needs_an_explicit_close(self):
+        identifier = self.task()
+        self.store.set_long_term(identifier, {"enabled": True})
+        self.assertIs(self.card(identifier)[0]["long_term"], True)
+        view = next(item for item in self.store.snapshot()["tasks"] if item["id"] == identifier)
+        self.assertTrue(view["long_term"])
+        self.assertEqual(view["status"], "active")
+        with self.assertRaisesRegex(WorkspaceError, "confirm_long_term_close"):
+            self.store.complete_task(identifier, {"confirmation": True})
+        self.store.complete_task(identifier, {"confirmation": True, "confirm_long_term_close": True})
+        self.assertEqual(next(item for item in self.store.snapshot()["tasks"] if item["id"] == identifier)["status"], "completed")
         with self.assertRaises(WorkspaceError):
-            self.task("不能嵌套线", task_kind="task_group", related_task_ids=[first, line])
-        independent = self.task("独立任务", project="independent")
+            self.store.set_long_term(identifier, {"enabled": False})
+
+    def test_clearing_long_term_removes_the_field(self):
+        identifier = self.task()
+        self.store.set_long_term(identifier, {"enabled": True})
+        self.store.set_long_term(identifier, {"enabled": False})
+        self.assertNotIn("long_term", self.card(identifier)[0])
         with self.assertRaises(WorkspaceError):
-            self.task("跨项目线", task_kind="task_group", related_task_ids=[first, independent])
+            self.store.set_long_term(identifier, {"enabled": "yes"})
 
     def test_context_is_model_neutral_six_sections_and_never_writes(self):
         identifier = self.task()

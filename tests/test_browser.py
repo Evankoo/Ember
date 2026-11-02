@@ -135,14 +135,14 @@ class SettingsBrowserTests(unittest.TestCase):
         self.assertFalse(self.page.locator("#homeConfirmDialog").evaluate("node => node.open"))
         self.assert_untouched()
 
-    def test_delivery_folder_button_is_explicit_and_empty_tasks_explain_why_disabled(self):
+    def test_delivery_folder_button_is_explicit_and_absent_without_a_folder(self):
         for width in (1440, 1000, 390):
             self.page.set_viewport_size({"width": width, "height": 900})
             self.page.goto(self.base + "/#task/activity-review")
             button = self.page.get_by_role("button", name="打开交付文件夹", exact=True)
-            expect(button).to_be_disabled()
-            expect(self.page.locator(".task-folder-disabled small")).to_have_text("尚无交付文件夹")
-            self.assertLess(float(button.evaluate("e => getComputedStyle(e).opacity")), 1)
+            expect(self.page.locator(".task-current-head")).to_be_visible()
+            expect(button).to_have_count(0)
+            expect(self.page.get_by_text("尚无交付文件夹")).to_have_count(0)
             self.assertFalse(any(url.endswith("/api/reveal") for url, _ in self.posts))
             self.assertTrue(self.page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1"))
         self.page.set_viewport_size({"width": 1440, "height": 900})

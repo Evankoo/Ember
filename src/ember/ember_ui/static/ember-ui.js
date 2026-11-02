@@ -15,6 +15,25 @@
     clearTimeout(timer);
     timer = setTimeout(()=>toast.classList.remove('show'), duration);
   }
+  /* A plain form post can take seconds on the share: show that it was received and ignore repeats. */
+  document.addEventListener('submit',event=>{
+    const form=event.target;
+    if(event.defaultPrevented||!form.matches('form.action-form[method="post"]')) return;
+    if(form.dataset.submitting){event.preventDefault();return}
+    form.dataset.submitting='1';
+    const button=event.submitter||form.querySelector('button[type="submit"],button:not([type])');
+    if(!button) return;
+    form.dataset.submitLabel=button.textContent;
+    button.textContent='处理中…';
+    button.setAttribute('aria-busy','true');
+    setTimeout(()=>releaseForm(form),30000);
+  });
+  function releaseForm(form){
+    const button=form.querySelector('[aria-busy="true"]');
+    if(button){button.textContent=form.dataset.submitLabel;button.removeAttribute('aria-busy')}
+    delete form.dataset.submitting;delete form.dataset.submitLabel;
+  }
+  window.addEventListener('pageshow',()=>document.querySelectorAll('form[data-submitting]').forEach(releaseForm));
   async function copyPrompt(text){
     try{
       await navigator.clipboard.writeText(text);

@@ -53,7 +53,7 @@ class TaskPageTests(unittest.TestCase):
         self.assertNotIn('data-action="promote"', render_task(self.snapshot, "autumn-plan"))
         self.assertIsNone(task_page(self.snapshot, "missing"))
 
-    def test_delivery_button_targets_delivery_and_explains_an_empty_task(self):
+    def test_delivery_button_targets_delivery_and_is_absent_without_a_folder(self):
         page = task_page(self.snapshot, "autumn-plan")
         self.assertEqual(page["folder_control"]["label"], "打开交付文件夹")
         self.assertIn(("data-folder", "delivery"), page["folder_control"]["attrs"])
@@ -61,9 +61,19 @@ class TaskPageTests(unittest.TestCase):
         empty = {**self.task("autumn-plan"), "inputs": [], "outputs": [], "artifact_mode": "none"}
         snapshot = {**self.snapshot, "tasks": [empty]}
         html = render_task(snapshot, empty["id"])
-        self.assertIn('disabled>打开交付文件夹</button>', html)
-        self.assertIn('<small>尚无交付文件夹</small>', html)
+        self.assertNotIn('打开交付文件夹', html)
+        self.assertNotIn('尚无交付文件夹', html)
         self.assertNotIn('task-manage-menu', html)
+
+    def test_existing_task_line_stays_readable_and_shows_as_long_term(self):
+        html = render_task(self.snapshot, "chenyu-line")
+        self.assertIn('长期任务</span>', html)
+        self.assertNotIn('任务主线</span>', html)
+
+    def test_task_without_delivery_has_no_folder_hint(self):
+        task = next(item for item in self.snapshot["tasks"] if not item.get("outputs") and item.get("kind") != "task_line")
+        html = render_task(self.snapshot, task["id"])
+        self.assertNotIn("尚无交付文件夹", html)
 
     def test_task_line_lists_members_and_no_script_or_style(self):
         html = render_task(self.snapshot, "chenyu-line")

@@ -12,6 +12,7 @@ updated_at: '2026-09-24 12:00:00+08:00'
 skills_used:
   - ember
 artifact_mode: delivery
+long_term: true
 related_task_ids:
   - may-plan
   - autumn-plan

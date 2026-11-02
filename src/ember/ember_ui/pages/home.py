@@ -23,6 +23,7 @@ import html
 import json
 
 from ..marks import brand_mark_svg
+from .task_detail import task_tag
 
 OVERVIEW_BATCH = 50
 STATUS_CHOICES = (("open", "未完成"), ("active", "进行中"), ("waiting_user", "待确认"), ("blocked", "阻塞"), ("completed", "已完成"), ("all", "全部"))
@@ -97,7 +98,7 @@ def task_overview(overview: dict) -> str:
     markup = []
     for index, row in enumerate(rows):
         hidden = ' class="hidden"' if index >= OVERVIEW_BATCH else ""
-        tag = '<span class="task-group-tag">任务主线</span>' if row.get("task_line") else ""
+        tag = task_tag(row)
         description, project = _esc(row["description"]), _esc(row["project_label"])
         markup.append(
             f'<tr{hidden} data-overview-search="{_esc(row["search"])}" data-overview-project="{_esc(row["project_slug"])}" data-overview-type="{_esc(row["work_type"])}" data-overview-status="{_esc(row["status"])}" data-href="{_esc(row["href"])}" tabindex="0"><td class="name"><a class="task-name" href="{_esc(row["href"])}">{html.escape(row["title"])}{tag}</a></td>'

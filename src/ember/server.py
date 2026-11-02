@@ -276,7 +276,8 @@ class Handler(BaseHTTPRequestHandler):
                     result = w.update_task(task_id, payload)
                 else:
                     methods = {"materials": w.add_material, "references": w.add_reference,
-                               "promote": w.promote_task, "complete": w.complete_task, "important": w.set_important}
+                               "promote": w.promote_task, "complete": w.complete_task, "important": w.set_important,
+                               "long-term": w.set_long_term}
                     if parts[1] not in methods:
                         raise WorkspaceError("接口不存在", 404)
                     result = methods[parts[1]](task_id, payload)

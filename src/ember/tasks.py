@@ -73,6 +73,7 @@ def _record(metadata: dict, body: str, path: Path, lifecycle: str, source_bytes:
             'executor': metadata.get('executor', ''), 'skills_used': metadata.get('skills_used', []),
             'created_at': str(metadata.get('created_at', '')), 'updated_at': str(metadata.get('updated_at', '')),
             'related_task_ids': metadata.get('related_task_ids', []),
+            'long_term': metadata.get('long_term') is True,
             'source': {'format': metadata.get('type', ''), 'lifecycle': lifecycle,
                        'sha256': hashlib.sha256(source_bytes if source_bytes is not None else path.read_bytes()).hexdigest()}}
 
