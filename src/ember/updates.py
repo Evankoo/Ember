@@ -1,18 +1,27 @@
-"""Check the official release and prepare the update prompt.
+"""Check the official release, and install it when the user clicks 更新.
 
-The page asks at most once a day and when the user clicks. Nothing here downloads a
-package or installs anything: the workbench only reports what is available and hands
-the update to the user's AI tool.
+The page asks at most once an hour and when the user clicks. Installing replaces only the
+program in its own environment: the wheel comes from GitHub or the download mirror and must
+match that source's SHA256SUMS. Tasks, materials, deliveries, and the rule files and Skills
+in the system directory are never written; when a release changes the latter, the result
+says so. The update prompt remains for installs that cannot update themselves.
 """
 from __future__ import annotations
 
+import hashlib
 import json
+import os
+from pathlib import Path
 import re
+import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.request
+import zipfile
 
 from . import __version__
+from .service import LABEL, _pid_path
 from .store import WorkspaceError, shared_prompt
 
 REPOSITORY = "Evankoo/Ember"
@@ -20,6 +29,10 @@ LATEST = f"https://api.github.com/repos/{REPOSITORY}/releases/latest"
 RELEASES = f"https://github.com/{REPOSITORY}/releases"
 # Same release files and SHA256SUMS, served from the maintainer's site for networks where GitHub is unreliable.
 MIRROR = "https://ai.evan-manual.com/ember/download"
+PYPI_MIRROR = "https://pypi.tuna.tsinghua.edu.cn/simple"
+PACKAGE = Path(__file__).resolve().parent
+# Package files that `ember init` copies into the system directory, where the user may have edited them.
+SYSTEM_COPIES = ("ember/templates/", "ember/skills/ember/", "ember/skills/ember-project/")
 
 
 def parse_version(value: str) -> tuple[int, ...]:
@@ -84,6 +97,105 @@ def update_prompt(workspace, latest: str) -> dict:
         "在余烬系统项目（ember）下建立或继续一张系统维护任务卡，记录本次更新过程与结果。",
         f"`<程序 Python> -m ember --version` 显示 {latest}；`ember check` 通过；重新启动工作台后侧栏显示新版本；全局日常 Skill 已更新或说明未更新的原因；备份位置已告诉用户。",
     )
+
+
+def download(url: str, timeout: float = 60) -> bytes:
+    # The mirror's host refuses Python's default User-Agent as a bot.
+    request = urllib.request.Request(url, headers={"User-Agent": f"Ember/{__version__}"})
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return response.read()
+
+
+def fetch_wheel(latest: str, get=download) -> tuple[bytes, str]:
+    """The wheel from GitHub, else the mirror; each checked against its own source's SHA256SUMS."""
+    name = f"ember-{latest}-py3-none-any.whl"
+    failures = []
+    for label, base in (("GitHub", f"{RELEASES}/download/v{latest}"), ("国内下载源", f"{MIRROR}/v{latest}")):
+        try:
+            sums = dict(reversed(line.split(maxsplit=1)) for line in get(f"{base}/SHA256SUMS").decode("utf-8").splitlines() if line.strip())
+            data = get(f"{base}/{name}")
+        except (urllib.error.URLError, OSError, ValueError) as error:
+            failures.append(f"{label}：{getattr(error, 'reason', None) or error}")
+            continue
+        if sums.get(name, "").strip().lower() != hashlib.sha256(data).hexdigest():
+            raise WorkspaceError(f"从{label}下载的程序包与 SHA256SUMS 不一致，已停止，没有安装。", 502)
+        return data, label
+    raise WorkspaceError(f"没能下载新版程序包（{'；'.join(failures)}）。可以稍后再试。", 503)
+
+
+def changed_system_copies(wheel: Path) -> list[str]:
+    """Rule files and Skills in the system directory whose packaged originals this release changes."""
+    changed = set()
+    with zipfile.ZipFile(wheel) as archive:
+        names = {name for name in archive.namelist() if name.startswith(SYSTEM_COPIES) and not name.endswith("/")}
+        for name in names:
+            current = PACKAGE.parent / name
+            if not current.is_file() or current.read_bytes() != archive.read(name):
+                changed.add(name)
+    for prefix in SYSTEM_COPIES:
+        for path in (PACKAGE.parent / prefix).rglob("*"):
+            name = path.relative_to(PACKAGE.parent).as_posix()
+            if path.is_file() and "__pycache__" not in name and name not in names:
+                changed.add(name)
+    labels = []
+    for name in sorted(changed):
+        label = (f"{name.split('/')[2]} Skill" if name.startswith("ember/skills/")
+                 else name.removeprefix("ember/templates/").split("/")[0] if name.count("/") == 2 else "任务卡模板")
+        if label not in labels:
+            labels.append(label)
+    return labels
+
+
+def install_update(workspace, payload: dict, fetch=None, get=download, run=subprocess.run) -> dict:
+    """Install the release the user confirmed into this program's own environment."""
+    if payload.get("confirmation") is not True:
+        raise WorkspaceError("需要在检查更新里确认后再更新。")
+    if "site-packages" not in PACKAGE.parts:
+        raise WorkspaceError("这个工作台直接从源码运行，不能在页面里更新；请用 git 等原来的方式更新源码。", 409)
+    latest = check_update(workspace, fetch)
+    if not latest["newer"]:
+        raise WorkspaceError(f"已是最新版本 {__version__}。", 409)
+    if payload.get("version") != latest["latest"]:
+        raise WorkspaceError(f"最新发行版已变为 {latest['latest']}，请重新打开检查更新确认。", 409)
+    data, source = fetch_wheel(latest["latest"], get)
+    with tempfile.TemporaryDirectory(prefix="ember-update-") as folder:
+        wheel = Path(folder) / f"ember-{latest['latest']}-py3-none-any.whl"
+        wheel.write_bytes(data)
+        changed = changed_system_copies(wheel)
+        command = [sys.executable, "-m", "pip", "install", "--upgrade", "--disable-pip-version-check", str(wheel)]
+        result = run(command, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        if result.returncode:
+            result = run(command + ["--index-url", PYPI_MIRROR], capture_output=True, text=True, encoding="utf-8", errors="replace")
+        if result.returncode:
+            detail = (result.stderr or result.stdout).strip().splitlines()[-1:] or [""]
+            raise WorkspaceError(f"安装新版程序包失败，当前版本 {__version__} 没有改变（{detail[0][:300]}）。", 500)
+    # Copies of the daily Skill installed in AI tools are refreshed by the new program; edited copies stay.
+    skills = run([sys.executable, "-m", "ember", "install-skill"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    return {"previous": __version__, "installed": latest["latest"], "source": source,
+            "skills_refreshed": skills.returncode == 0, "system_copies_changed": changed}
+
+
+def under_service() -> bool:
+    """Whether a restart can be left to the login service: launchd or the Windows supervisor restarts a failed exit."""
+    if sys.platform == "darwin":
+        return os.environ.get("XPC_SERVICE_NAME") == LABEL
+    if sys.platform == "win32":
+        try:
+            return int(_pid_path().read_text(encoding="utf-8")) == os.getppid()
+        except (OSError, ValueError):
+            return False
+    return False
+
+
+def restart() -> None:
+    """Start the updated program in place of this process, once the server socket and workspace lock are released."""
+    if under_service():
+        raise SystemExit(75)
+    argv = [sys.executable, "-m", "ember", *sys.argv[1:]]
+    if sys.platform == "win32":
+        subprocess.Popen(argv)
+        raise SystemExit(0)
+    os.execv(sys.executable, argv)
 
 
 def check_update(workspace, fetch=None) -> dict:

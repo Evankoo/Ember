@@ -246,9 +246,10 @@ const app = (() => {
 
   /* ---------- 检查更新 ---------- */
   /* The sidebar version is the entry. The page asks GitHub at most once an hour and on click, says nothing
-     when that fails, and leaves installing to the user's AI tool with the prompt from api/update. */
+     when that fails. 更新 installs the release through api/update/install, then waits for the restarted
+     workbench and reloads; the AI prompt from api/update remains the fallback when that fails. */
   const updateKey = "ember-update-check", updateInterval = 60 * 60 * 1000;
-  const updateState = { result: null, environment: null, latest: "" };
+  const updateState = { result: null, latest: "" };
   function renderVersion() {
     const button = document.getElementById("update-button"), latest = updateState.latest, current = `v${data().version || ""}`;
     button.classList.toggle("has-update", Boolean(latest));
@@ -280,7 +281,6 @@ const app = (() => {
     openDialog("检查更新", `<div class="update-panel" aria-live="polite"><p class="muted">正在查询最新发行版…</p></div>`);
     let result, failure = "";
     try { result = await api("api/update"); } catch (error) { failure = error.message; }
-    try { updateState.environment = (await api("api/settings")).execution_environment; } catch { updateState.environment = null; }
     updateState.result = result || null;
     if (result) rememberUpdate(result.newer ? result.latest : "");
     const panel = dialogBody.querySelector(".update-panel");
@@ -289,9 +289,38 @@ const app = (() => {
     if (failure) { panel.innerHTML = `<div class="update-summary"><strong>没能检查更新</strong><p class="form-error">${esc(failure)}</p></div><div class="form-actions"><a class="button ghost" href="${releases}" target="_blank" rel="noopener noreferrer">打开发行页</a></div>`; return; }
     const link = `<a href="${esc(result.url)}" target="_blank" rel="noopener noreferrer">更新说明</a>`;
     if (!result.newer) { panel.innerHTML = `<div class="update-summary is-current"><strong>已是最新版本 ${esc(result.current)}</strong><p class="muted">${result.source === "mirror" ? "国内下载源" : "GitHub"} 上最新的发行版是 ${esc(result.latest)}${result.published_at ? `（${esc(result.published_at)} 发布）` : ""}。</p></div><div class="form-actions"><button class="button ghost" type="button" data-action="close-dialog">好的</button></div>`; return; }
-    const environment = updateState.environment, tool = environment?.ready ? environment.executors?.find(entry => entry.id === environment.default_executor)?.label : "";
-    const how = tool ? `点“更新”会复制更新提示词并打开 ${esc(tool)}，在里面粘贴发送即可` : "点“更新”会复制更新提示词，粘贴到你常用的 AI 工具里发送即可";
-    panel.innerHTML = `<div class="update-summary is-new"><strong>发现新版本 ${esc(result.latest)}</strong><p class="muted">当前 ${esc(result.current)}${result.published_at ? ` · ${esc(result.published_at)} 发布` : ""} · ${link}</p><p class="muted">${how}；AI 会先备份，再更新并检查。</p></div><div id="update-prompt-body"></div><p class="execution-confirm-feedback" id="update-feedback" role="status" aria-live="polite"></p><div class="form-actions"><button class="button primary" type="button" data-action="run-update">更新</button><button class="button ghost" type="button" data-action="close-dialog">暂不更新</button></div>`;
+    panel.innerHTML = `<div class="update-summary is-new"><strong>发现新版本 ${esc(result.latest)}</strong><p class="muted">当前 ${esc(result.current)}${result.published_at ? ` · ${esc(result.published_at)} 发布` : ""} · ${link}</p><p class="muted">点“更新”会下载官方程序包，校验后装好并重启工作台，约需一分钟。任务、资料和交付不受影响。</p></div><div id="update-prompt-body"></div><p class="execution-confirm-feedback" id="update-feedback" role="status" aria-live="polite"></p><div class="form-actions"><button class="button primary" type="button" data-action="run-update">更新</button><button class="button ghost" type="button" data-action="close-dialog">暂不更新</button></div>`;
+  }
+
+  async function waitForVersion(version, seconds = 90) {
+    for (let waited = 0; waited < seconds; waited += 1) {
+      await new Promise(done => setTimeout(done, 1000));
+      try { const health = await (await fetch("api/health", { cache: "no-store" })).json(); if (health.data?.version === version) return true; } catch {}
+    }
+    return false;
+  }
+
+  async function runUpdate() {
+    const latest = updateState.result.latest, actions = dialogBody.querySelector(".update-panel .form-actions");
+    actions.querySelectorAll("button").forEach(button => { button.disabled = true; });
+    updateFeedback("正在下载并安装新版本，请不要关闭页面…");
+    let installed;
+    try { installed = await api("api/update/install", { version: latest, confirmation: true }); }
+    catch (error) {
+      updateFeedback(`${error.message} 也可以复制更新提示词，交给 AI 工具来更新。`, true);
+      actions.innerHTML = `<button class="button primary" type="button" data-action="copy-update">复制更新提示词</button><button class="button ghost" type="button" data-action="close-dialog">关闭</button>`;
+      return;
+    }
+    const kept = installed.system_copies_changed.length ? `新版也修改了 ${installed.system_copies_changed.join("、")}；你系统目录里的副本没有自动覆盖，需要时让 AI 对比后合并。` : "";
+    updateFeedback(`已安装 ${installed.installed}，正在重启工作台…`);
+    if (!(await waitForVersion(installed.installed))) {
+      updateFeedback(`已安装 ${installed.installed}，但工作台没有自动重新启动。请重新启动工作台后刷新页面。${kept}`, true);
+      return;
+    }
+    try { localStorage.removeItem(updateKey); } catch {}
+    if (!kept) { location.reload(); return; }
+    updateFeedback(`已更新到 ${installed.installed}。${kept}`);
+    actions.innerHTML = `<button class="button primary" type="button" data-action="reload-page">刷新页面</button>`;
   }
 
   function updateFeedback(message, error = false) {
@@ -648,6 +677,13 @@ const app = (() => {
       case "new-report": newReport(); return;
       case "download": { const link = Object.assign(document.createElement("a"), { href: `api/raw?id=${encodeURIComponent(id)}`, download: "" }); link.click(); return; }
       case "check-update": setMenu(false); await checkUpdate(); return;
+      case "run-update": await runUpdate(); return;
+      case "reload-page": location.reload(); return;
+      case "copy-update": {
+        const copied = await copyUpdatePrompt();
+        updateFeedback(copied ? "更新提示词已复制。请在 AI 工具里粘贴并发送。" : "浏览器没能写入剪贴板，已选中完整提示词，请按 ⌘C 手动复制。", !copied);
+        return;
+      }
     }
     button.dataset.busy = "true"; button.disabled = true; button.setAttribute("aria-busy", "true");
     try {
@@ -661,17 +697,6 @@ const app = (() => {
           const result = document.getElementById("health-result"), check = document.getElementById("health-check-button").outerHTML;
           result.dataset.healthState = health.status === "ready" ? "ready" : "degraded";
           result.innerHTML = `<div class="settings-health-main"><span class="settings-health-state">${health.status === "ready" ? "服务正常" : esc(health.status)}</span><small>检查时间 ${esc(new Date().toLocaleString())}</small></div><div class="settings-health-metrics"><span><b>${esc(health.tasks ?? "—")}</b> 项任务</span><span><b>${esc(health.contract?.skills?.length ?? "—")}</b> 项基础 Skill</span><span>版本 <b>${esc(health.version || "—")}</b></span>${check}</div>`;
-          break;
-        }
-        case "run-update": {
-          const environment = updateState.environment;
-          if (!(await copyUpdatePrompt())) { updateFeedback("浏览器没能写入剪贴板，已选中完整提示词，请按 ⌘C 手动复制。", true); break; }
-          if (!environment?.ready) { updateFeedback("更新提示词已复制。请在 AI 工具里粘贴并发送。"); break; }
-          updateFeedback("更新提示词已复制，正在打开软件…");
-          try {
-            const opened = await api("api/executors/open", { executor_id: environment.default_executor, expected_revision: environment.revision, confirmation: true });
-            updateFeedback(`更新提示词已复制，已打开 ${opened.label}。请在里面粘贴并发送。`);
-          } catch (error) { updateFeedback(`更新提示词已复制，但没能打开软件：${error.message}。请手动打开 AI 工具粘贴发送。`, true); }
           break;
         }
       }

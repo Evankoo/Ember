@@ -285,10 +285,18 @@ class SettingsBrowserTests(unittest.TestCase):
         self.assertTrue(self.page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1"))
         self.assert_untouched()
 
-    def test_update_reminder_keeps_the_version_and_the_dialog_offers_two_choices(self):
+    def test_update_reminder_keeps_the_version_and_the_dialog_updates_in_place(self):
         newer = {"tag": "v99.0.0", "url": "https://github.com/Evankoo/Ember/releases/tag/v99.0.0",
                  "published_at": "2026-10-20", "notes": "<img src=x onerror=window.bad=1> 新功能"}
         current = re.compile(r"^v\d+\.\d+\.\d+ · 有更新$")
+        # Installing and restarting are the server's job (test_updates); here they are answered at the network.
+        installs = []
+        def install(route):
+            installs.append(route.request.post_data_json)
+            route.fulfill(json={"ok": True, "data": {"previous": "0", "installed": "99.0.0", "source": "GitHub",
+                                                     "skills_refreshed": True, "system_copies_changed": ["AGENTS.md"]}})
+        self.page.route("**/api/update/install", install)
+        self.page.route("**/api/health", lambda route: route.fulfill(json={"ok": True, "data": {"version": "99.0.0"}}))
         with patch("ember.updates.fetch_latest", return_value=newer) as fetch:
             self.page.goto(self.base + "/#library")
             expect(self.page.locator("#update-button")).to_have_text(current)
@@ -298,17 +306,31 @@ class SettingsBrowserTests(unittest.TestCase):
             self.assertEqual(fetch.call_count, 1)
             self.page.locator("#update-button").click()
             expect(self.page.locator(".update-summary")).to_contain_text("发现新版本 99.0.0")
-            actions = self.page.locator(".update-panel .form-actions button")
-            expect(actions).to_have_text(["更新", "暂不更新"])
+            expect(self.page.locator(".update-panel .form-actions button")).to_have_text(["更新", "暂不更新"])
             self.page.get_by_role("button", name="更新", exact=True).click()
-            expect(self.page.locator("#update-feedback")).to_contain_text("已复制")
-            self.assertIn("ember-99.0.0-py3-none-any.whl", self.page.evaluate("window.__copies")[-1])
-            self.page.get_by_role("button", name="暂不更新", exact=True).click()
-            expect(self.page.locator("#workbench-dialog")).not_to_be_visible()
+            expect(self.page.locator("#update-feedback")).to_contain_text("已更新到 99.0.0", timeout=10000)
+            expect(self.page.locator("#update-feedback")).to_contain_text("AGENTS.md")
+            self.assertEqual(installs, [{"version": "99.0.0", "confirmation": True}])
+            expect(self.page.get_by_role("button", name="刷新页面")).to_be_visible()
+        self.page.unroute("**/api/health")
+        self.page.locator("#dialog-close").click()
         with patch("ember.updates.fetch_latest", side_effect=OSError("offline")):
             self.page.locator("#update-button").click()
             expect(self.page.locator(".update-summary")).to_contain_text("没能检查更新")
         self.assertFalse(self.page.evaluate("Boolean(window.bad)"))
+        self.assert_untouched()
+
+    def test_failed_update_offers_the_ai_prompt(self):
+        newer = {"tag": "v99.0.0", "url": "https://github.com/Evankoo/Ember/releases/tag/v99.0.0", "published_at": "", "notes": ""}
+        self.page.route("**/api/update/install", lambda route: route.fulfill(status=503, json={"ok": False, "error": "没能下载新版程序包。"}))
+        with patch("ember.updates.fetch_latest", return_value=newer):
+            self.page.goto(self.base + "/#library")
+            self.page.locator("#update-button").click()
+            self.page.get_by_role("button", name="更新", exact=True).click()
+            expect(self.page.locator("#update-feedback")).to_contain_text("没能下载新版程序包")
+            self.page.get_by_role("button", name="复制更新提示词").click()
+            expect(self.page.locator("#update-feedback")).to_contain_text("已复制")
+            self.assertIn("ember-99.0.0-py3-none-any.whl", self.page.evaluate("window.__copies")[-1])
         self.assert_untouched()
 
     def test_a_check_older_than_an_hour_is_repeated(self):
@@ -316,6 +338,7 @@ class SettingsBrowserTests(unittest.TestCase):
         self.page.goto(self.base + "/#library")
         expect(self.page.locator("#update-button")).to_have_text(re.compile(r"^v\d+\.\d+\.\d+$"))
         version = self.page.locator("#update-button").text_content().lstrip("v")
+        self.page.wait_for_function("() => localStorage.getItem('ember-update-check') !== null")  # the page's own first check
         self.page.evaluate("v => localStorage.setItem('ember-update-check', JSON.stringify({at: Date.now() - 61 * 60 * 1000, version: v, latest: ''}))", version)
         newer = {"tag": "v99.0.0", "url": "https://github.com/Evankoo/Ember/releases/tag/v99.0.0", "published_at": "", "notes": ""}
         with patch("ember.updates.fetch_latest", return_value=newer):

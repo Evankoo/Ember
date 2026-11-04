@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import secrets
 import stat
+import threading
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from . import __version__, compat
@@ -40,6 +41,7 @@ class LocalServer(ThreadingHTTPServer):
         self.tasks = TaskService(PortableTaskStorage(workspace))
         self.executor_registry = executor_registry or ExecutorRegistry()
         self.csrf_token = secrets.token_urlsafe(32)
+        self.restart_requested = False
         super().__init__(("127.0.0.1", port), Handler)
 
 
@@ -162,7 +164,7 @@ class Handler(BaseHTTPRequestHandler):
                 from .pages import file_preview
                 self.json(file_preview(self.server.workspace.read_file(query.get("id", [""])[0])))
             elif path == "/api/update":
-                # Only on the user's click; the result says what is available, it installs nothing.
+                # Hourly from the page and on the user's click; the result says what is available, it installs nothing.
                 from .updates import check_update
                 self.json(check_update(self.server.workspace))
             elif path == "/api/preview":
@@ -264,6 +266,10 @@ class Handler(BaseHTTPRequestHandler):
                 result = reveal(w.locate(payload), mode)
             elif path == "/api/executors/open":
                 result = self.server.executor_registry.open_software(payload, w.path)
+            elif path == "/api/update/install":
+                from .updates import install_update
+                result = install_update(w, payload)
+                self.server.restart_requested = True
             elif path == "/api/onboarding/remove-init-skill":
                 from .onboarding_completion import remove_init_skill
                 result = remove_init_skill(w, payload)
@@ -284,6 +290,9 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 raise WorkspaceError("接口不存在", 404)
             self.json(result)
+            if path == "/api/update/install":
+                # The answer is sent; the new program starts once serve_forever stops, which needs another thread.
+                threading.Thread(target=self.server.shutdown, daemon=True).start()
         except (WorkspaceError, TaskError) as error:
             self.error(str(error), getattr(error, "status", 400))
         except (ValueError, UnicodeError):
@@ -359,3 +368,7 @@ def run(workspace, port=8783):
             pass
         finally:
             server.server_close()
+    if server.restart_requested:
+        print("已安装新版本，正在重新启动工作台。", flush=True)
+        from .updates import restart
+        restart()
