@@ -72,11 +72,9 @@ fieldset{margin:0;padding:0;border:0;min-width:0}
 .update-summary{display:grid;gap:4px;padding:12px 14px;border:1px solid var(--line-soft);border-radius:10px;background:var(--line-soft)}
 .update-summary strong{font-size:15px}
 .update-summary p{margin:0;font-size:12px;line-height:1.6}
+.update-summary a{color:inherit;text-decoration:underline}
+#update-prompt-body:empty{display:none}
 .update-summary.is-new{border-color:var(--brand-action,#8b2329)}
-.update-notes{border:1px solid var(--line-soft);border-radius:10px;padding:8px 12px}
-.update-notes summary{cursor:pointer;font-size:12px;font-weight:650}
-.update-notes .article{max-height:200px;overflow:auto;font-size:12px}
-.update-prompt .home-prompt-body{max-height:240px;overflow:auto}
 
 /* 任务检视: three actions need their own row on a phone, or the weekly state collapses. */
 @media (max-width: 700px) {

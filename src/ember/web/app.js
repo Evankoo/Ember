@@ -245,28 +245,28 @@ const app = (() => {
   }
 
   /* ---------- 检查更新 ---------- */
-  /* The sidebar version is the entry. The page asks GitHub at most once a day and on click, says nothing
-     when that fails, and leaves installing to the user's AI tool with the prompt below. */
-  const updateKey = "ember-update-check";
+  /* The sidebar version is the entry. The page asks GitHub at most once an hour and on click, says nothing
+     when that fails, and leaves installing to the user's AI tool with the prompt from api/update. */
+  const updateKey = "ember-update-check", updateInterval = 60 * 60 * 1000;
   const updateState = { result: null, environment: null, latest: "" };
   function renderVersion() {
-    const button = document.getElementById("update-button"), latest = updateState.latest;
+    const button = document.getElementById("update-button"), latest = updateState.latest, current = `v${data().version || ""}`;
     button.classList.toggle("has-update", Boolean(latest));
-    button.textContent = latest ? `有新版本 ${latest}` : `v${data().version || ""}`;
-    button.setAttribute("aria-label", latest ? `有新版本 ${latest}，查看更新` : "检查更新");
-    button.title = latest ? "查看更新" : "检查更新";
+    button.textContent = latest ? `${current} · 有更新` : current;
+    button.setAttribute("aria-label", latest ? `当前 ${current}，有新版本 ${latest}，查看更新` : "检查更新");
+    button.title = latest ? `有新版本 ${latest}` : "检查更新";
   }
 
   function rememberUpdate(latest) {
     updateState.latest = latest;
-    try { localStorage.setItem(updateKey, JSON.stringify({ day: new Date().toLocaleDateString("sv"), version: data().version, latest })); } catch {}
+    try { localStorage.setItem(updateKey, JSON.stringify({ at: Date.now(), version: data().version, latest })); } catch {}
     renderVersion();
   }
 
-  async function dailyUpdateCheck() {
+  async function periodicUpdateCheck() {
     let saved = null;
     try { saved = JSON.parse(localStorage.getItem(updateKey) || "null"); } catch {}
-    if (saved?.day === new Date().toLocaleDateString("sv") && saved.version === data().version) {
+    if (saved?.version === data().version && Date.now() - Number(saved.at) < updateInterval) {
       updateState.latest = saved.latest || "";
       renderVersion();
       return;
@@ -287,10 +287,11 @@ const app = (() => {
     if (!panel) return;
     const releases = "https://github.com/Evankoo/Ember/releases";
     if (failure) { panel.innerHTML = `<div class="update-summary"><strong>没能检查更新</strong><p class="form-error">${esc(failure)}</p></div><div class="form-actions"><a class="button ghost" href="${releases}" target="_blank" rel="noopener noreferrer">打开发行页</a></div>`; return; }
-    const link = `<a class="button ghost" href="${esc(result.url)}" target="_blank" rel="noopener noreferrer">查看发行页</a>`;
-    if (!result.newer) { panel.innerHTML = `<div class="update-summary is-current"><strong>已是最新版本 ${esc(result.current)}</strong><p class="muted">${result.source === "mirror" ? "国内下载源" : "GitHub"} 上最新的发行版是 ${esc(result.latest)}${result.published_at ? `（${esc(result.published_at)} 发布）` : ""}。</p></div><div class="form-actions">${link}</div>`; return; }
-    const environment = updateState.environment, selected = environment?.executors?.find(entry => entry.id === environment.default_executor);
-    panel.innerHTML = `<div class="update-summary is-new"><strong>发现新版本 ${esc(result.latest)}</strong><p class="muted">当前 ${esc(result.current)}${result.published_at ? ` · ${esc(result.published_at)} 发布` : ""}${result.source === "mirror" ? " · 信息来自国内下载源" : ""}。更新由你的 AI 工具执行：复制下面的提示词交给它，它会先备份、校验官方程序包，再更新并检查。</p></div>${result.notes.trim() ? `<details class="update-notes" open><summary>更新说明</summary><div class="article md">${markdown(result.notes)}</div></details>` : ""}<section class="home-prompt-review update-prompt"><header><span class="home-prompt-state ready">更新提示词</span><small>${new Intl.NumberFormat("zh-CN").format(result.prompt.text.length)} 字 · 只读</small></header><div class="home-prompt-body article md" id="update-prompt-body" tabindex="0">${markdown(result.prompt.text)}</div></section><p class="execution-confirm-feedback" id="update-feedback" role="status" aria-live="polite"></p><div class="form-actions">${link}<button class="button ghost" type="button" data-action="copy-update">复制更新提示词</button><button class="button primary" type="button" data-action="copy-open-update"${environment?.ready ? "" : " disabled"}>${environment?.ready ? `复制并用 ${esc(selected.label)} 打开` : "未配置执行软件"}</button></div>${environment?.ready ? "" : `<p class="muted">也可以先到 <a href="#settings" data-action="open-settings">设置 → 执行环境</a> 配置常用的 AI 工具。</p>`}`;
+    const link = `<a href="${esc(result.url)}" target="_blank" rel="noopener noreferrer">更新说明</a>`;
+    if (!result.newer) { panel.innerHTML = `<div class="update-summary is-current"><strong>已是最新版本 ${esc(result.current)}</strong><p class="muted">${result.source === "mirror" ? "国内下载源" : "GitHub"} 上最新的发行版是 ${esc(result.latest)}${result.published_at ? `（${esc(result.published_at)} 发布）` : ""}。</p></div><div class="form-actions"><button class="button ghost" type="button" data-action="close-dialog">好的</button></div>`; return; }
+    const environment = updateState.environment, tool = environment?.ready ? environment.executors?.find(entry => entry.id === environment.default_executor)?.label : "";
+    const how = tool ? `点“更新”会复制更新提示词并打开 ${esc(tool)}，在里面粘贴发送即可` : "点“更新”会复制更新提示词，粘贴到你常用的 AI 工具里发送即可";
+    panel.innerHTML = `<div class="update-summary is-new"><strong>发现新版本 ${esc(result.latest)}</strong><p class="muted">当前 ${esc(result.current)}${result.published_at ? ` · ${esc(result.published_at)} 发布` : ""} · ${link}</p><p class="muted">${how}；AI 会先备份，再更新并检查。</p></div><div id="update-prompt-body"></div><p class="execution-confirm-feedback" id="update-feedback" role="status" aria-live="polite"></p><div class="form-actions"><button class="button primary" type="button" data-action="run-update">更新</button><button class="button ghost" type="button" data-action="close-dialog">暂不更新</button></div>`;
   }
 
   function updateFeedback(message, error = false) {
@@ -647,11 +648,6 @@ const app = (() => {
       case "new-report": newReport(); return;
       case "download": { const link = Object.assign(document.createElement("a"), { href: `api/raw?id=${encodeURIComponent(id)}`, download: "" }); link.click(); return; }
       case "check-update": setMenu(false); await checkUpdate(); return;
-      case "copy-update": {
-        const copied = await copyUpdatePrompt();
-        updateFeedback(copied ? "更新提示词已复制。请在 AI 工具里粘贴并确认发送。" : "浏览器没能写入剪贴板，已选中完整提示词，请按 ⌘C 手动复制。", !copied);
-        return;
-      }
     }
     button.dataset.busy = "true"; button.disabled = true; button.setAttribute("aria-busy", "true");
     try {
@@ -667,14 +663,15 @@ const app = (() => {
           result.innerHTML = `<div class="settings-health-main"><span class="settings-health-state">${health.status === "ready" ? "服务正常" : esc(health.status)}</span><small>检查时间 ${esc(new Date().toLocaleString())}</small></div><div class="settings-health-metrics"><span><b>${esc(health.tasks ?? "—")}</b> 项任务</span><span><b>${esc(health.contract?.skills?.length ?? "—")}</b> 项基础 Skill</span><span>版本 <b>${esc(health.version || "—")}</b></span>${check}</div>`;
           break;
         }
-        case "copy-open-update": {
+        case "run-update": {
           const environment = updateState.environment;
-          if (!(await copyUpdatePrompt())) { updateFeedback("① 复制失败：浏览器没能写入剪贴板，因此没有打开软件。已选中完整提示词，请手动复制。", true); break; }
-          updateFeedback("① 已复制更新提示词；② 正在打开软件…");
+          if (!(await copyUpdatePrompt())) { updateFeedback("浏览器没能写入剪贴板，已选中完整提示词，请按 ⌘C 手动复制。", true); break; }
+          if (!environment?.ready) { updateFeedback("更新提示词已复制。请在 AI 工具里粘贴并发送。"); break; }
+          updateFeedback("更新提示词已复制，正在打开软件…");
           try {
             const opened = await api("api/executors/open", { executor_id: environment.default_executor, expected_revision: environment.revision, confirmation: true });
-            updateFeedback(`① 已复制更新提示词；② 已打开 ${opened.label}。请在软件里粘贴并确认发送。`);
-          } catch (error) { updateFeedback(`① 已复制更新提示词；② 打开失败：${error.message}`, true); }
+            updateFeedback(`更新提示词已复制，已打开 ${opened.label}。请在里面粘贴并发送。`);
+          } catch (error) { updateFeedback(`更新提示词已复制，但没能打开软件：${error.message}。请手动打开 AI 工具粘贴发送。`, true); }
           break;
         }
       }
@@ -728,7 +725,7 @@ const app = (() => {
   });
 
   route();
-  loadState().then(dailyUpdateCheck).catch(error => {
+  loadState().then(periodicUpdateCheck).catch(error => {
     main.className = "shell app-main";
     main.innerHTML = `<section class="panel load-error"><h1>工作区读取失败</h1><p class="form-error">${esc(error.message)}</p><p class="muted">确认本地服务已启动后，重新加载此页面。之前保存的数据不会被覆盖。</p></section>`;
     document.getElementById("workspace-state").textContent = "工作区不可用";
