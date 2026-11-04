@@ -1,5 +1,7 @@
 """The update check reports the official release; 更新 installs only a checksum-verified program package."""
 import hashlib
+import io
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -38,10 +40,12 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual((result["current"], result["latest"], result["newer"]), (__version__, newer, True))
         text = result["prompt"]["text"]
         self.assertTrue(text.startswith("## 余烬 · Ember 共享任务提示\n\n### 任务\n\n"))
-        self.assertIn(f"/releases/download/v{newer}/ember-{newer}-py3-none-any.whl", text)
-        self.assertIn(f"{MIRROR}/v{newer}/ember-{newer}-py3-none-any.whl", text)
+        self.assertIn(f"/releases/download/v{newer}/ember-init-{newer}.zip", text)
+        self.assertIn(f"{MIRROR}/v{newer}/ember-init-{newer}.zip", text)
+        self.assertIn(f"ember-init/assets/ember-{newer}-py3-none-any.whl", text)
         self.assertEqual(result["source"], "github")
-        self.assertIn("SHA256SUMS", text)
+        self.assertIn("digest", text)
+        self.assertIn(f"{MIRROR}/v{newer}/SHA256SUMS", text)
         self.assertIn(str(self.workspace.docs), text)
         self.assertIn("备份", text)
         self.assertIn("已移除的不恢复", text)
@@ -97,15 +101,25 @@ class UpdateTests(unittest.TestCase):
             archive.writestr("ember/skills/ember/SKILL.md", b"skill\n")
         return path.read_bytes()
 
-    def sources(self, data, sums=None, github_down=False):
-        name = "ember-99.0.0-py3-none-any.whl"
-        listing = f"{sums or hashlib.sha256(data).hexdigest()}  {name}\n".encode()
+    def package(self, wheel):
+        """The release's install package holding the wheel, as built for a real release."""
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr("ember-init/SKILL.md", "init\n")
+            archive.writestr("ember-init/assets/ember-99.0.0-py3-none-any.whl", wheel)
+        return buffer.getvalue()
+
+    def sources(self, data, sums=None, github_down=False, digest=True):
+        name = "ember-init-99.0.0.zip"
+        value = sums or hashlib.sha256(data).hexdigest()
+        listing = f"{value}  {name}\n".encode()
+        api = json.dumps({"assets": [{"name": name, "digest": f"sha256:{value}"} if digest else {"name": name}]}).encode()
         calls = []
         def get(url):
             calls.append(url)
-            if github_down and url.startswith(RELEASES):
+            if github_down and url.startswith(("https://api.github.com", RELEASES)):
                 raise urllib.error.URLError("timed out")
-            return listing if url.endswith("SHA256SUMS") else data
+            return api if url.startswith("https://api.github.com") else listing if url.endswith("SHA256SUMS") else data
         return get, calls
 
     def installed_package(self):
@@ -116,22 +130,28 @@ class UpdateTests(unittest.TestCase):
         (package / "skills/ember/SKILL.md").write_bytes(b"skill\n")
         return patch("ember.updates.PACKAGE", package)
 
-    def test_wheel_comes_from_github_or_the_mirror_and_must_match_its_checksums(self):
-        data = self.wheel()
+    def test_wheel_comes_from_the_install_package_on_github_or_the_mirror_and_must_match_its_checksum(self):
+        wheel = self.wheel()
+        data = self.package(wheel)
         get, calls = self.sources(data)
-        self.assertEqual(fetch_wheel("99.0.0", get), (data, "GitHub"))
-        self.assertTrue(all(url.startswith(RELEASES) for url in calls))
+        self.assertEqual(fetch_wheel("99.0.0", get), (wheel, "GitHub"))
+        self.assertTrue(all(url.startswith(("https://api.github.com", RELEASES)) for url in calls))
         get, calls = self.sources(data, github_down=True)
-        self.assertEqual(fetch_wheel("99.0.0", get), (data, "国内下载源"))
+        self.assertEqual(fetch_wheel("99.0.0", get), (wheel, "国内下载源"))
         self.assertTrue(calls[-1].startswith(MIRROR))
+        get, calls = self.sources(data, digest=False)
+        self.assertEqual(fetch_wheel("99.0.0", get), (wheel, "国内下载源"))
         get, calls = self.sources(data, sums="0" * 64)
-        with self.assertRaisesRegex(WorkspaceError, "SHA256SUMS 不一致"):
+        with self.assertRaisesRegex(WorkspaceError, "SHA256 不一致"):
             fetch_wheel("99.0.0", get)
         self.assertFalse(any(url.startswith(MIRROR) for url in calls))
+        get, _ = self.sources(wheel)
+        with self.assertRaisesRegex(WorkspaceError, "没有程序包"):
+            fetch_wheel("99.0.0", get)
 
     def test_install_puts_the_verified_wheel_into_this_environment_and_reports_changed_rules(self):
         before = self.files()
-        get, _ = self.sources(self.wheel(agents=b"# new rules\n"))
+        get, _ = self.sources(self.package(self.wheel(agents=b"# new rules\n")))
         commands = []
         def run(command, **kwargs):
             commands.append(command)
@@ -146,7 +166,7 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual(self.files(), before)
 
     def test_failed_pip_retries_the_pypi_mirror_then_reports(self):
-        get, _ = self.sources(self.wheel())
+        get, _ = self.sources(self.package(self.wheel()))
         commands = []
         def run(command, **kwargs):
             commands.append(command)
@@ -158,7 +178,7 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual(len(commands), 2)
 
     def test_install_needs_the_confirmed_current_release_and_an_installed_program(self):
-        get, calls = self.sources(self.wheel())
+        get, calls = self.sources(self.package(self.wheel()))
         never = lambda *a, **k: self.fail("nothing may run")
         with self.installed_package():
             for payload, fetch, message in (({"version": "99.0.0"}, release("v99.0.0"), "确认"),

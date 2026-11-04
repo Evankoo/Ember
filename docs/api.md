@@ -87,7 +87,7 @@ GET  /api/raw?id=...                 # 始终作为附件下载
 GET  /api/preview?id=...             # 图片、PDF、音视频在页面内预览；HTML、SVG 等不提供
 GET  /api/update                     # 页面每小时最多自动查询一次，用户点击时也查询 GitHub（不通时国内下载源）最新发行版，只读取公开版本信息；有新版时附带共享结构的更新提示词，供页面内更新失败时交给 AI
 POST /api/reveal                     # {id} 或 {task_id, folder:input|delivery} 或 {project, location}；mode:reveal|open
-POST /api/update/install             # {version, confirmation:true}；version 须为当前最新发行版。下载官方 wheel 并按同源 SHA256SUMS 校验，装进运行本服务的 Python 环境，刷新已登记的日常 Skill，回应后重启：常驻服务交给 launchd / Windows 守护循环拉起，临时启动的进程原地重启。不写任务、资料、交付，也不覆盖系统目录里的规则与 Skill（回应的 system_copies_changed 列出新版改过的项）；从源码运行时拒绝
+POST /api/update/install             # {version, confirmation:true}；version 须为当前最新发行版。下载官方安装包 ember-init-X.Y.Z.zip，按同源 SHA256 校验（GitHub 用附件 digest，国内下载源用 SHA256SUMS），取出其中的 wheel 装进运行本服务的 Python 环境，刷新已登记的日常 Skill，回应后重启：常驻服务交给 launchd / Windows 守护循环拉起，临时启动的进程原地重启。不写任务、资料、交付，也不覆盖系统目录里的规则与 Skill（回应的 system_copies_changed 列出新版改过的项）；从源码运行时拒绝
 POST /api/onboarding/remove-init-skill
 POST /api/projects
 POST /api/tasks

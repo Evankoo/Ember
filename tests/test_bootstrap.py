@@ -128,7 +128,11 @@ class BootstrapTests(unittest.TestCase):
     def test_wheel_download_falls_back_to_the_mirror(self):
         import io
         import urllib.error
+        import zipfile
         calls = []
+        package = io.BytesIO()
+        with zipfile.ZipFile(package, "w") as archive:
+            archive.writestr(f"ember-init/assets/{helper.WHEEL}", b"wheel")
 
         def urlopen(request, timeout):
             self.assertEqual(request.get_header("User-agent"), f"Ember/{helper.VERSION}")
@@ -136,7 +140,7 @@ class BootstrapTests(unittest.TestCase):
             calls.append(url)
             if "github.com" in url:
                 raise urllib.error.URLError("timed out")
-            return io.BytesIO(b"wheel")
+            return io.BytesIO(package.getvalue())
         with patch.object(helper.urllib.request, "urlopen", side_effect=urlopen):
             target = helper.download(self.root / helper.WHEEL)
         self.assertEqual(calls, list(helper.RELEASES))

@@ -19,12 +19,15 @@ import subprocess
 import sys
 import tempfile
 import urllib.request
+import zipfile
 
-VERSION = "0.18.0"
+VERSION = "0.19.0"
 WHEEL = f"ember-{VERSION}-py3-none-any.whl"
+# The release's one file; the wheel sits in it under ember-init/assets/.
+PACKAGE = f"ember-init-{VERSION}.zip"
 # GitHub first, then the same file on the maintainer's download mirror for networks where GitHub is unreliable.
-RELEASES = (f"https://github.com/Evankoo/Ember/releases/download/v{VERSION}/{WHEEL}",
-            f"https://ai.evan-manual.com/ember/download/v{VERSION}/{WHEEL}")
+RELEASES = (f"https://github.com/Evankoo/Ember/releases/download/v{VERSION}/{PACKAGE}",
+            f"https://ai.evan-manual.com/ember/download/v{VERSION}/{PACKAGE}")
 # Tried once when installing dependencies from PyPI fails.
 PYPI_MIRROR = "https://pypi.tuna.tsinghua.edu.cn/simple"
 
@@ -49,17 +52,20 @@ def contains(parent, child):
 
 
 def download(target):
-    """Fetch the release wheel from the first source that answers; a partial file never stays behind."""
+    """Take the wheel out of the release package from the first source that answers; a partial file never stays behind."""
     failures = []
     for url in RELEASES:
         try:
             # The mirror's host refuses Python's default User-Agent as a bot.
             request = urllib.request.Request(url, headers={"User-Agent": f"Ember/{VERSION}"})
-            with urllib.request.urlopen(request, timeout=60) as response, target.open("xb") as output:
-                while chunk := response.read(1024 * 1024):
-                    output.write(chunk)
+            with tempfile.TemporaryFile() as package:
+                with urllib.request.urlopen(request, timeout=60) as response:
+                    while chunk := response.read(1024 * 1024):
+                        package.write(chunk)
+                with zipfile.ZipFile(package) as archive, target.open("xb") as output:
+                    output.write(archive.read(f"ember-init/assets/{WHEEL}"))
             return target
-        except OSError as error:
+        except (OSError, zipfile.BadZipFile, KeyError) as error:
             target.unlink(missing_ok=True)
             failures.append(f"{url}：{getattr(error, 'reason', None) or error}")
     raise RuntimeError("下载余烬程序包失败：" + "；".join(failures))

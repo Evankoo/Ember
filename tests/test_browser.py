@@ -350,7 +350,7 @@ class SettingsBrowserTests(unittest.TestCase):
             expect(self.page.locator("#update-feedback")).to_contain_text("没能下载新版程序包")
             self.page.get_by_role("button", name="复制更新提示词").click()
             expect(self.page.locator("#update-feedback")).to_contain_text("已复制")
-            self.assertIn("ember-99.0.0-py3-none-any.whl", self.page.evaluate("window.__copies")[-1])
+            self.assertIn("ember-init-99.0.0.zip", self.page.evaluate("window.__copies")[-1])
         self.assert_untouched()
 
     def test_a_check_older_than_an_hour_is_repeated(self):
