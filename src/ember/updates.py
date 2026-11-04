@@ -92,7 +92,8 @@ def update_prompt(workspace, latest: str) -> dict:
         ]),
         "只从上面两个官方地址下载，先试 GitHub，打不开再用国内下载源；下载后用同一来源的 SHA256SUMS 核对，不一致就停止。动手前先把系统目录和文档库各复制一份带日期的备份，告诉用户备份位置。"
         "停止正在运行的工作台服务后，用上面的程序 Python 执行 `-m pip install --upgrade <程序包>`；再运行 `-m ember install-skill`（不带参数）更新已登记的 AI 工具日常 Skill。"
-        "系统目录里的规则文件与三个 Skill 不自动覆盖：先与新版逐项比较，用户改过的部分说明差异并取得确认后再合并。"
+        "系统目录里的规则文件与日常 Skill（`ember`、`ember-project`）不自动覆盖：先与新版逐项比较，用户改过的部分说明差异并取得确认后再合并。"
+        "初始化 Skill `ember-init` 只用于首次安装，确认完成后会从系统目录移除：已移除的不恢复，也不装进 AI 工具的 Skill 目录。"
         "若 `ember check` 提示旧版单目录工作区，先说明 `ember migrate-layout` 的作用并取得确认再迁移。不删除任务、资料或交付，不修改模型、账号或权限配置。"
         "在余烬系统项目（ember）下建立或继续一张系统维护任务卡，记录本次更新过程与结果。",
         f"`<程序 Python> -m ember --version` 显示 {latest}；`ember check` 通过；重新启动工作台后侧栏显示新版本；全局日常 Skill 已更新或说明未更新的原因；备份位置已告诉用户。",

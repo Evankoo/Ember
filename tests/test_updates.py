@@ -44,6 +44,8 @@ class UpdateTests(unittest.TestCase):
         self.assertIn("SHA256SUMS", text)
         self.assertIn(str(self.workspace.docs), text)
         self.assertIn("备份", text)
+        self.assertIn("已移除的不恢复", text)
+        self.assertNotIn("三个 Skill", text)
         self.assertEqual(self.files(), before)
 
     def test_same_or_older_release_needs_no_prompt(self):

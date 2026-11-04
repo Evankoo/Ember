@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "checked_at": "2026-11-04T17:06:59+00:00",
-  "source_commit": "7b056fd9a004356c345023a006e11486395b8c9f",
+  "checked_at": "2026-11-04T17:27:40+00:00",
+  "source_commit": "7f25aa75675b6c2e0064f42b69fb697a7a35f1f1",
   "ui_sha256": "874d827e5b290ad8cc57b47c84ad1c674eb32394247da8783e5c06f78fe34f0e",
   "pages": [
     "home",
