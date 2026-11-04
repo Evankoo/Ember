@@ -46,9 +46,11 @@ https://github.com/Evankoo/Ember
 
 AI 会从[最新发行版](https://github.com/Evankoo/Ember/releases/latest)下载 `ember-init-*.zip`，解压出三个 Skill，然后由初始化 Skill 一步一步带你完成：
 
+> GitHub 打不开时，同样的发行文件和 SHA256SUMS 也放在国内下载源。把上面那句话里的仓库地址换成 `https://ai.evan-manual.com/ember/download/latest.json` 发给 AI，它会按其中列出的地址下载 `ember-init-*.zip` 并核对 SHA256。
+
 1. 欢迎你，说明固定的安装位置：系统目录 `~/Ember`（规则、Skill、配置和程序）与文档库 `~/Ember文档`（项目、任务、资料和成果）；
 2. 安装程序、基础文件夹和三个自带 Skill，建立余烬系统项目，先保存安装记录，不提前建任务；
-3. 展示实际文档库目录，等你确认后，配置当前使用的 AI 工具并装好日常 Skill；以后可在“设置 → 执行环境 → 修改配置”更换工具；
+3. 展示实际文档库目录，等你确认后，配置当前使用的 AI 工具并装好日常 Skill；以后可在“设置 → 执行环境 → 修改配置”更换工具；再问你要不要让工作台登录后自动启动（macOS 与 Windows），同意就由 AI 装好常驻后台；
 4. 真正用日常 Skill 把本次对话创建为第一张“余烬首次使用”任务卡，让你在工作台检查；你反馈 OK 后才继续；
 5. 用建项目 Skill 带你确认并建立一个简单练习项目，再到工作台查看；
 6. 最后问你是否确认完成并移除一次性安装向导。确认后保留任务、项目和资料，日常 / 建项目两个 Skill 继续使用，只移除这份文档库内的初始化 Skill。

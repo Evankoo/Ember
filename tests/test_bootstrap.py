@@ -125,9 +125,39 @@ class BootstrapTests(unittest.TestCase):
                 helper.validate(self.args(port=listener.getsockname()[1]))
         self.assertFalse((self.root / "app").exists())
 
-    def run_installer_fixture(self, *, fail_workflow=False, fail_package=False, mode="empty", app_dir="app"):
+    def test_wheel_download_falls_back_to_the_mirror(self):
+        import io
+        import urllib.error
+        calls = []
+
+        def urlopen(request, timeout):
+            self.assertEqual(request.get_header("User-agent"), f"Ember/{helper.VERSION}")
+            url = request.full_url
+            calls.append(url)
+            if "github.com" in url:
+                raise urllib.error.URLError("timed out")
+            return io.BytesIO(b"wheel")
+        with patch.object(helper.urllib.request, "urlopen", side_effect=urlopen):
+            target = helper.download(self.root / helper.WHEEL)
+        self.assertEqual(calls, list(helper.RELEASES))
+        self.assertEqual(target.read_bytes(), b"wheel")
+
+    def test_wheel_download_failure_names_every_source_and_leaves_no_file(self):
+        import urllib.error
+
+        def urlopen(request, timeout):
+            raise urllib.error.URLError("timed out")
+        with patch.object(helper.urllib.request, "urlopen", side_effect=urlopen):
+            with self.assertRaises(RuntimeError) as raised:
+                helper.download(self.root / helper.WHEEL)
+        for url in helper.RELEASES:
+            self.assertIn(url, str(raised.exception))
+        self.assertFalse((self.root / helper.WHEEL).exists())
+
+    def run_installer_fixture(self, *, fail_workflow=False, fail_package=False, pypi_fails_once=False, mode="empty", app_dir="app"):
         """Mock only package installation; run real Core subprocesses and writes."""
         real_run = subprocess.run
+        self.pip_calls = []
 
         def run(argv, **kwargs):
             if argv[1:3] == ["-m", "venv"]:
@@ -138,6 +168,9 @@ class BootstrapTests(unittest.TestCase):
             if argv[1:4] == ["-m", "pip", "install"]:
                 if fail_package:
                     raise RuntimeError("fixture package installation failed")
+                self.pip_calls.append(argv)
+                if pypi_fails_once and len(self.pip_calls) == 1:
+                    raise subprocess.CalledProcessError(1, argv)
                 return subprocess.CompletedProcess(argv, 0)
             if fail_workflow and argv[1:3] == ["-c", helper.SMOKE]:
                 raise RuntimeError("fixture isolated workflow failed")
@@ -208,6 +241,13 @@ class BootstrapTests(unittest.TestCase):
         self.assertNotIn("task_id", receipt)
         self.assertEqual(Path(receipt["report_path"]).parent, self.root.resolve() / "app")
         self.assertIn("fixture isolated workflow failed", Path(receipt["report_path"]).read_text())
+
+    def test_failed_pypi_install_is_retried_once_on_the_mirror(self):
+        result, receipt = self.run_installer_fixture(pypi_fails_once=True)
+        self.assertEqual((result, receipt["status"]), (0, "ready"))
+        self.assertEqual(len(self.pip_calls), 2)
+        self.assertNotIn("--index-url", self.pip_calls[0])
+        self.assertEqual(self.pip_calls[1][-2:], ["--index-url", helper.PYPI_MIRROR])
 
     def test_package_failure_keeps_diagnostic_receipt_before_workspace_exists(self):
         result, receipt = self.run_installer_fixture(fail_package=True)

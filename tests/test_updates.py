@@ -7,7 +7,7 @@ import urllib.error
 
 from ember import __version__
 from ember.store import Workspace, WorkspaceError
-from ember.updates import check_update, parse_version
+from ember.updates import MIRROR, check_update, fetch_latest, parse_version
 
 
 def release(tag, notes="- 修复若干问题"):
@@ -34,6 +34,8 @@ class UpdateTests(unittest.TestCase):
         text = result["prompt"]["text"]
         self.assertTrue(text.startswith("## 余烬 · Ember 共享任务提示\n\n### 任务\n\n"))
         self.assertIn(f"/releases/download/v{newer}/ember-{newer}-py3-none-any.whl", text)
+        self.assertIn(f"{MIRROR}/v{newer}/ember-{newer}-py3-none-any.whl", text)
+        self.assertEqual(result["source"], "github")
         self.assertIn("SHA256SUMS", text)
         self.assertIn(str(self.workspace.docs), text)
         self.assertIn("备份", text)
@@ -53,6 +55,32 @@ class UpdateTests(unittest.TestCase):
                 check_update(self.workspace, fetch)
             self.assertEqual(raised.exception.status, 503)
             self.assertIn("没能检查更新", str(raised.exception))
+
+    def test_mirror_answers_when_github_cannot(self):
+        def offline(*args, **kwargs):
+            raise urllib.error.URLError("timed out")
+        mirror = {"tag": "99.0.0", "url": "https://github.com/Evankoo/Ember/releases/tag/v99.0.0",
+                  "published_at": "2026-11-03", "notes": "", "source": "mirror"}
+        for github in (offline, release("latest")):
+            with patch("ember.updates.fetch_github", side_effect=github), \
+                    patch("ember.updates.fetch_mirror", return_value=mirror) as fetch_mirror:
+                result = check_update(self.workspace)
+            fetch_mirror.assert_called_once()
+            self.assertEqual((result["latest"], result["newer"], result["source"]), ("99.0.0", True, "mirror"))
+
+    def test_github_answer_skips_the_mirror(self):
+        with patch("ember.updates.fetch_github", release("v99.0.0")), patch("ember.updates.fetch_mirror") as fetch_mirror:
+            self.assertEqual(fetch_latest()["tag"], "v99.0.0")
+        fetch_mirror.assert_not_called()
+
+    def test_both_sources_unreachable_is_reported(self):
+        def offline(*args, **kwargs):
+            raise urllib.error.URLError("timed out")
+        with patch("ember.updates.fetch_github", side_effect=offline), patch("ember.updates.fetch_mirror", side_effect=offline):
+            with self.assertRaises(WorkspaceError) as raised:
+                check_update(self.workspace)
+        self.assertEqual(raised.exception.status, 503)
+        self.assertIn("国内下载源", str(raised.exception))
 
     def test_the_endpoint_is_read_only(self):
         from http.client import HTTPConnection

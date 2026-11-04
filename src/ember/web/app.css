@@ -61,7 +61,11 @@ fieldset{margin:0;padding:0;border:0;min-width:0}
 .version-update:hover{color:#f3f4f6}
 .version-update:focus-visible{outline:2px solid #fff;outline-offset:2px}
 .version-update.has-update{color:#f3f4f6}
-.sidebar-runtime-status .version-update{align-items:center;cursor:pointer;font-family:inherit}
+.sidebar-runtime-status .version-update{align-items:center;cursor:pointer;font-family:inherit;white-space:nowrap}
+/* The shared shell stacks status chips. Here the second chip is the version, so they share one row. */
+.sidebar-runtime-status{grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:8px;row-gap:0}
+.sidebar-runtime-status .machine{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.sidebar-runtime-status .machine::before{display:inline-block;margin-right:6px;vertical-align:middle}
 .sidebar-runtime-status .version-update:not(.has-update)::before{display:none}
 .sidebar-runtime-status .version-update.has-update::before{display:block;content:"";flex:none;width:6px;height:6px;border-radius:50%;background:#e8604c;opacity:1}
 .update-panel{display:grid;gap:12px}

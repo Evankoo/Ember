@@ -20,9 +20,13 @@ import sys
 import tempfile
 import urllib.request
 
-VERSION = "0.15.0"
+VERSION = "0.16.0"
 WHEEL = f"ember-{VERSION}-py3-none-any.whl"
-RELEASE = f"https://github.com/Evankoo/Ember/releases/download/v{VERSION}/{WHEEL}"
+# GitHub first, then the same file on the maintainer's download mirror for networks where GitHub is unreliable.
+RELEASES = (f"https://github.com/Evankoo/Ember/releases/download/v{VERSION}/{WHEEL}",
+            f"https://ai.evan-manual.com/ember/download/v{VERSION}/{WHEEL}")
+# Tried once when installing dependencies from PyPI fails.
+PYPI_MIRROR = "https://pypi.tuna.tsinghua.edu.cn/simple"
 
 
 def child_env():
@@ -42,6 +46,23 @@ def new_directory(value):
 
 def contains(parent, child):
     return parent == child or parent in child.parents
+
+
+def download(target):
+    """Fetch the release wheel from the first source that answers; a partial file never stays behind."""
+    failures = []
+    for url in RELEASES:
+        try:
+            # The mirror's host refuses Python's default User-Agent as a bot.
+            request = urllib.request.Request(url, headers={"User-Agent": f"Ember/{VERSION}"})
+            with urllib.request.urlopen(request, timeout=60) as response, target.open("xb") as output:
+                while chunk := response.read(1024 * 1024):
+                    output.write(chunk)
+            return target
+        except OSError as error:
+            target.unlink(missing_ok=True)
+            failures.append(f"{url}：{getattr(error, 'reason', None) or error}")
+    raise RuntimeError("下载余烬程序包失败：" + "；".join(failures))
 
 
 def validate(args):
@@ -158,12 +179,13 @@ def run(args):
             if bundled.is_file():
                 source = bundled
             else:
-                source = app / WHEEL
-                with urllib.request.urlopen(RELEASE, timeout=60) as response:
-                    with source.open("xb") as output:
-                        while chunk := response.read(1024 * 1024):
-                            output.write(chunk)
-        command([python, "-m", "pip", "install", "--disable-pip-version-check", source])
+                source = download(app / WHEEL)
+        install = [python, "-m", "pip", "install", "--disable-pip-version-check", source]
+        try:
+            command(install)
+        except subprocess.CalledProcessError:
+            print(f"从 PyPI 安装依赖失败，改用国内镜像 {PYPI_MIRROR} 重试一次", flush=True)
+            command(install + ["--index-url", PYPI_MIRROR])
         receipt["stage"] = "workspace"
         save()
         print(f"3/5 建立系统目录 {workspace} 与文档库 {documents}", flush=True)

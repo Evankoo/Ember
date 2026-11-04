@@ -54,6 +54,14 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(run.call_count, 2)
         sleep.assert_called_once_with(service.RESTART_DELAY_SECONDS)
 
+    def test_first_install_offers_the_service_only_with_consent(self):
+        guide = (Path(service.__file__).parent / "skills/ember-init/SKILL.md").read_text(encoding="utf-8")
+        phase = guide[guide.index("### 8. 询问工作台是否登录后自动启动"):guide.index("### 9. ")]
+        self.assertIn("要开启吗？", phase)
+        self.assertIn("-m ember service install --workspace <系统目录> --port <端口>", phase)
+        self.assertLess(phase.index("先停止这个由本次启动的进程"), phase.index("-m ember service install"))
+        self.assertNotIn("守护程序", guide)
+
 
 if __name__ == "__main__":
     unittest.main()
