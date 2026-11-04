@@ -1,3 +1,7 @@
 {
-  "ember": {}
+  "ember": {
+    "3.0.0": "4c60d8b7432ac3278877f95e115e99d2b0bacc55364c1d76b8c650b805d574c5",
+    "3.1.0": "d127b817d2df4864a52f9e72de7009855f6f3397a720a901456c9c377ff719b1",
+    "3.1.1": "2efed5e4e4e5e714fbecb4b67ea6f9d1cf109b88e1ca87dc3497083cfb43ad02"
+  }
 }

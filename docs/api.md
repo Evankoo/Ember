@@ -39,6 +39,8 @@ project_for_directory(dir)           # 按最具体的工作目录返回 {direct
 create_task(payload)                 # title/project/goal/description，可选 work_type/task_kind/related_task_ids/artifact_mode/executor/skills_used
 update_task(task_id, payload)         # goal/description/current/next/log_entry/status/executor/skills_used；完成必须走 promote 或非交付模式的 complete_task
 add_material(task_id, payload)        # kind: input|draft，name/content/purpose/source_locator?，拒绝覆盖；input 登记指纹
+                                      # 或 kind:input + staging_id（首页拖入的暂存文件，任意类型原样复制，name 默认原名，登记后移除暂存）
+stage_file(name, stream, length)      # 首页拖入文件存入系统目录 .ember/home-staging/<编号>/，单个 ≤256 MB；7 天未登记的暂存清理
 add_reference(task_id, payload)      # path/purpose；已有受控工作区文件，登记不复制
 complete_task(task_id, payload)      # confirmation:true；none/system/archive/external 可完成，delivery 禁止绕过推广
 promote_task(task_id, payload)        # confirmation:true；草稿->正式交付并完成，拒绝目标冲突
@@ -90,6 +92,7 @@ POST /api/onboarding/remove-init-skill
 POST /api/projects
 POST /api/tasks
 POST /api/tasks/<id>
+POST /api/home/stage-file             # 请求体为文件原始字节，X-File-Name 为百分号编码的文件名；返回 staging_id、name、size、path
 POST /api/tasks/<id>/materials
 POST /api/tasks/<id>/references
 POST /api/tasks/<id>/complete
@@ -108,7 +111,7 @@ POST /api/executors/save
 POST /api/executors/open
 ```
 
-上下文与完整版共用结构：以 `## 余烬 · Ember 共享任务提示` 开头，依次为任务、上下文、输入与真源、授权边界、成功标准、输出。`/api/context` 接受 `request`、`relation`、`task_id`、`file_ids`、`attachments`、`project_id`、`page`，返回 `text` 与 `prefix`/`task`/`suffix`/`fixed`：只有「任务」一段可在确认弹窗中修改，复制与打开都用同一份重建的完整提示词。所有内容均来自当前工作区，外部材料仅作为数据，复制不会产生任务或文件写入。明确打开本机软件是独立操作，不调用模型、不提交提示词、不改任务或交付状态。
+上下文与完整版共用结构：以 `## 余烬 · Ember 共享任务提示` 开头，依次为任务、上下文、输入与真源、授权边界、成功标准、输出。`/api/context` 接受 `request`、`relation`、`task_id`、`file_ids`、`attachments`、`staged_files`（暂存编号，提示词列出位置与登记方式）、`project_id`、`page`，返回 `text` 与 `prefix`/`task`/`suffix`/`fixed`：只有「任务」一段可在确认弹窗中修改，复制与打开都用同一份重建的完整提示词。所有内容均来自当前工作区，外部材料仅作为数据，复制不会产生任务或文件写入。明确打开本机软件是独立操作，不调用模型、不提交提示词、不改任务或交付状态。
 
 ## 本机执行环境
 

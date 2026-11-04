@@ -13,7 +13,7 @@ const app = (() => {
   const statusNames = { active: "进行中", waiting_user: "待确认", blocked: "受阻", completed: "已完成" };
   const workNames = { text: "文字", image: "图片", video: "视频", audio: "音频", data: "数据", mixed: "混合", system: "系统" };
   const brandMark = `<svg class="brand-mark" viewBox="0 0 256 256" fill="none" aria-hidden="true" focusable="false"><path d="M68 146H194C197 106 186 68 162 36C154 58 128 68 100 86C76 102 62 124 62 150C62 194 94 222 134 222C160 222 180 212 194 196" stroke="currentColor" stroke-width="27" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-  const TEXT_FILE = /\.(md|markdown|txt|csv|json)$/i;
+  const TEXT_FILE = /\.(md|markdown|txt|csv|json)$/i, STAGING_LIMIT = 256 * 1024 * 1024;
   const ATTACHMENT_LIMIT = 16000;
 
   const esc = value => String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
@@ -203,29 +203,35 @@ const app = (() => {
 
   /* ---------- 任务台 ---------- */
   /* Rendered on the server with the full workbench's template (ember_ui/pages/home.py) and driven by
-     its scripts (ember_ui/home.js, task-overview.js). This page supplies search, previews, attached
-     text files, the prompt preview and what happens after confirmation, from the local workspace. */
+     its scripts (ember_ui/home.js, task-overview.js). This page supplies search, previews, dropped
+     files, the prompt preview and what happens after confirmation, from the local workspace. */
   const homeAttachments = new Map();
   const homeHooks = {
     search: query => api(`api/home/search?q=${encodeURIComponent(query)}`),
     taskPreview: id => api(`api/home/task-preview?id=${encodeURIComponent(id)}`),
     materialPreview: item => api(item.preview_url),
-    // Only text files are attached, as text inside the prompt; nothing is uploaded or stored.
+    // Any file is kept in the system directory until a task registers it; small text files also go into the prompt.
     async stageFile(file) {
-      if (!TEXT_FILE.test(file.name)) throw new Error("只接收 Markdown、TXT、CSV、JSON 文字文件");
-      if (file.size > 1048576) throw new Error("超过 1 MB，未加入");
-      const text = await file.text(), used = [...homeAttachments.values()].reduce((sum, item) => sum + item.text.length, 0);
-      if (used + text.length > ATTACHMENT_LIMIT) throw new Error("附带的文字已接近上下文上限");
-      const id = `local-${crypto.randomUUID()}`;
-      homeAttachments.set(id, { name: file.name, text });
-      return { staging_id: id, name: file.name, size: file.size };
+      if (!file.size) throw new Error("空文件，未加入");
+      if (file.size > STAGING_LIMIT) throw new Error("超过 256 MB，未加入");
+      const response = await fetch("api/home/stage-file", { method: "POST", body: file,
+        headers: { "Content-Type": "application/octet-stream", "X-Ember-Token": data()?.csrf_token || "", "X-File-Name": encodeURIComponent(file.name) } });
+      let result;
+      try { result = await response.json(); } catch { throw new Error("暂存失败，请检查工作台是否仍在运行"); }
+      if (!response.ok || !result.ok) throw new Error(result.error || `暂存失败（${response.status}）`);
+      const staged = result.data, used = [...homeAttachments.values()].reduce((sum, item) => sum + item.text.length, 0);
+      let text = "";
+      if (TEXT_FILE.test(file.name) && file.size <= 1048576) { text = await file.text(); if (used + text.length > ATTACHMENT_LIMIT) text = ""; }
+      homeAttachments.set(staged.staging_id, { name: file.name, text });
+      return staged;
     },
     async previewPrompt(form) {
       const fields = new FormData(form), taskId = String(fields.get("task_id") || ""), mode = String(fields.get("route_mode") || "new");
       const relation = taskId ? { continue: "continue", derive: "based" }[mode] || "new" : "new";
       const fileIds = fields.getAll("material_selection").map(value => { try { return JSON.parse(value).file_id; } catch { return undefined; } }).filter(Boolean);
-      const attachments = fields.getAll("staged_file_id").map(id => homeAttachments.get(String(id))).filter(Boolean);
-      const payload = { request: String(fields.get("request_text") || "").trim(), relation, file_ids: fileIds, attachments, page: "home" };
+      const staged = fields.getAll("staged_file_id").map(String);
+      const attachments = staged.map(id => homeAttachments.get(id)).filter(item => item?.text);
+      const payload = { request: String(fields.get("request_text") || "").trim(), relation, file_ids: fileIds, attachments, staged_files: staged, page: "home" };
       if (relation !== "new") payload.task_id = taskId;
       return executionPreview(form, payload);
     },

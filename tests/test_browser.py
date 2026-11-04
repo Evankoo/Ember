@@ -114,6 +114,26 @@ class SettingsBrowserTests(unittest.TestCase):
         self.assertTrue(self.page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1"))
         self.assert_untouched()
 
+    def test_home_accepts_any_dropped_file_and_names_it_in_the_prompt(self):
+        self.page.goto(self.base + "/#home")
+        self.page.locator("#homeCommandInput").fill("按参考图改海报")
+        transfer = self.page.evaluate_handle("""() => { const data = new DataTransfer();
+            data.items.add(new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3])], "参考图.png", { type: "image/png" }));
+            data.items.add(new File(["# 要点\\n- 标题放大"], "要点.md", { type: "text/markdown" })); return data; }""")
+        self.page.locator("#homeEntry").dispatch_event("drop", {"dataTransfer": transfer})
+        chips = self.page.locator(".home-material-chip")
+        expect(chips).to_have_count(2)
+        expect(self.page.locator(".home-material-chip.error")).to_have_count(0)
+        staged = sorted((self.workspace.path / ".ember/home-staging").glob("*/*"))
+        self.assertEqual(sorted(path.name for path in staged), ["参考图.png", "要点.md"])
+        self.page.locator("#homeConfirmOpen").click()
+        self.page.locator("#homePromptState.ready").wait_for()
+        preview = self.page.locator("#homePromptPreview")
+        expect(preview).to_contain_text("用户拖入的文件「参考图.png」（11 字节")
+        expect(preview).to_contain_text("add_material(kind=input, staging_id=<暂存编号>)")
+        expect(preview).to_contain_text("标题放大")
+        self.assertEqual(self.errors, [])
+
     def test_home_requires_a_request_before_confirming(self):
         self.page.goto(self.base + "/#home")
         for value in ("", "   "):

@@ -233,6 +233,11 @@ class Handler(BaseHTTPRequestHandler):
             self.local_request()
             if not secrets.compare_digest(self.headers.get("X-Ember-Token", ""), self.server.csrf_token):
                 raise WorkspaceError("请求凭据无效，请刷新页面", 403)
+            if unquote(urlsplit(self.path).path) == "/api/home/stage-file":
+                # The raw file is the body, of any type; its name travels percent-encoded in a header.
+                self.json(self.server.workspace.stage_file(unquote(self.headers.get("X-File-Name", "")),
+                                                           self.rfile, int(self.headers.get("Content-Length", "0"))))
+                return
             if self.headers.get_content_type() != "application/json":
                 raise WorkspaceError("请求必须为 JSON", 415)
             length = int(self.headers.get("Content-Length", "0"))

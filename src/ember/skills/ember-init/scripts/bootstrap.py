@@ -20,7 +20,7 @@ import sys
 import tempfile
 import urllib.request
 
-VERSION = "0.17.1"
+VERSION = "0.18.0"
 WHEEL = f"ember-{VERSION}-py3-none-any.whl"
 # GitHub first, then the same file on the maintainer's download mirror for networks where GitHub is unreliable.
 RELEASES = (f"https://github.com/Evankoo/Ember/releases/download/v{VERSION}/{WHEEL}",
