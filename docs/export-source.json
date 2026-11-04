@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "source_commit": "5cd7a46ad7efc5015e183d03a9a6b431b4f774bd",
+  "source_commit": "7b056fd9a004356c345023a006e11486395b8c9f",
   "files": {
     ".gitattributes": "084d9ddedc754a836de2d46882d06369027ab52556e8e4792c3ca6ccf99169c5",
     ".github/workflows/check.yml": "fc18e5daa1f8eb923d1d0a7688083161eda201e2fdd500a3c1afc3f647e5c7c6",
@@ -17,9 +17,9 @@
     "docs/initialization.md": "2ecb4f1582e4409c6a13eb6c37a03167e85f7fc8a2362ea5420be3a9b1933904",
     "docs/scope.md": "cbb87a8ccc3da3f168cb71f69f9555efd52c5a6c22552912346d4831cd08a579",
     "docs/skill-authoring.md": "db37ee3ffe8816c8040aa836a494103b5ff7834c4f053aef497e35faa39dcc01",
-    "docs/workbench-parity-record.json": "bd6bc738a0aa721196acd481b465268af32c045ce953a73dcc823d60631eac5e",
+    "docs/workbench-parity-record.json": "6d3a6f1f7e70a37f5deb51470ad9043aed4fe4e670b7a57f5d8cd8d707340c0c",
     "docs/workbench-parity.json": "560af7f459ad77f35d77f5176b2e4d92d92e4b56f4fd84462188fbf2b69769f8",
-    "docs/workbench-source.json": "ff95c72342e2091c69ebce6caf4e02c764144aecafdcc59486f8450fe60d15bb",
+    "docs/workbench-source.json": "5c4be084ae97a60dd76e45fa72d72f58be521c56c1099f4403d9f88ca7b8107f",
     "docs/workspace.md": "09da47db3daf37c346a074deac09d8e005113313f4b6d9c59a021b8cc941807e",
     "pyproject.toml": "b4ff15cee7899072e6dfd26786686cd5490a3060c9d113e8f2feef79d18a1881",
     "src/ember/__init__.py": "4010a4d5ba70314eff134e4029248cacdbab589713a98c2f7640b4a633650721",
@@ -143,7 +143,7 @@
     "tests/test_service.py": "6264f4d8cb83055c0f0f15ed207ff605e36f79c09d20e524c50013dbcdbac69f",
     "tests/test_store.py": "5f4f7fd42b95c2e92334a0f422c8c2c760494f3ba301e3654c6b51835d9a1fc5",
     "tests/test_task_service.py": "794a91e5d8f8137a1b94b9e4dfb98a0f6d9dd2f9b7ac90b0f888137444550d4b",
-    "tests/test_updates.py": "e32bd97c7b2ba58980c1e955aea940501d7da7ac98b19b157dcdf9fffdf31d23",
+    "tests/test_updates.py": "504b32570f32e7b89f9df6c9b6e52ca7c19356f0650947d8530949cde78bdd32",
     "tests/test_versions.py": "5285aa9cdf8a7314ff75085c563b727d5076555d866f108fa4a73c3460da5d3a",
     "tests/test_workbench_parity.py": "6615d242cc6494014ede37defcceca73c34cbf6c2568b64d00ce86c31b69f0e5",
     "tests/test_workbench_styles.py": "1221a2d1e90cede13e3b095548398fb2a70f7c01e42447e02b2404e6f186212a",

@@ -164,7 +164,7 @@ class UpdateTests(unittest.TestCase):
                                             ({"version": __version__, "confirmation": True}, release(f"v{__version__}"), "已是最新")):
                 with self.assertRaisesRegex(WorkspaceError, message):
                     install_update(self.workspace, payload, fetch, get, never)
-        with self.assertRaisesRegex(WorkspaceError, "源码运行"):
+        with patch("ember.updates.PACKAGE", Path(self.temp.name) / "checkout/src/ember"), self.assertRaisesRegex(WorkspaceError, "源码运行"):
             install_update(self.workspace, {"version": "99.0.0", "confirmation": True}, release("v99.0.0"), get, never)
         self.assertEqual(calls, [])
 
