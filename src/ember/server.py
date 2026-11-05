@@ -250,12 +250,12 @@ class Handler(BaseHTTPRequestHandler):
             w = self.server.workspace
             routes = {
                 "/api/projects": w.create_project,
+                "/api/projects/order": w.set_project_order,
                 "/api/tasks": w.create_task,
                 "/api/inbox/label": w.set_inbox_label,
                 "/api/context": w.build_context,
                 "/api/review/context": w.build_review_context,
                 "/api/review/weekly-context": w.build_weekly_context,
-                "/api/review/daily-context": w.build_daily_context,
                 "/api/reports": w.save_report,
                 "/api/executors/check": self.server.executor_registry.validate,
                 "/api/executors/save": self.server.executor_registry.save,

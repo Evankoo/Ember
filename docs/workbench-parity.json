@@ -89,11 +89,6 @@
   "ignore_classes": "^(active|current|selected|previewing|expanded|is-open|open|dragging|has-selection|has-materials|no-materials|loading|ready|error|dirty|saved|disabled|dimmed|located|empty|wide|inline|normal|attention|waiting|stalled|available|unavailable|needs-config|executor-provided|draft|final|waiting_user|blocked|completed|account_operations|course_teaching|novel_writing|system_building|has-delivery)$",
   "allowed": [
     {
-      "id": "review:only-core:.review-weekly-summary > .weekly-actions",
-      "status": "intentional",
-      "reason": "完整版的整理按钮随本周状态出现；开源版的提示词按钮常驻"
-    },
-    {
       "id": "settings:only-local:.settings-skills-module > .settings-skill-link",
       "status": "intentional",
       "reason": "开源版 Skills 留在设置页，不跟进完整版的独立 Skills 页"
@@ -212,16 +207,6 @@
       "id": "*:only-core:.project-hero-actions > .button.ghost",
       "status": "intentional",
       "reason": "开源版独有：项目页“新建任务”"
-    },
-    {
-      "id": "projects:only-core:.project-view-page-head > .button.ghost",
-      "status": "intentional",
-      "reason": "开源版独有：项目视图“新建项目”"
-    },
-    {
-      "id": "review:only-local:.ember-action-trigger > .ember-mark",
-      "status": "intentional",
-      "reason": "完整版独有：每周整理区的开始整理按钮"
     },
     {
       "id": "settings:only-local:*settings-catalog-section*",
@@ -422,21 +407,6 @@
       "id": "review:only-local:.review-weekly-summary > .button.ghost",
       "status": "intentional",
       "reason": "完整版独有：查看整理任务"
-    },
-    {
-      "id": "review:only-local:.weekly-actions > .ember-action-trigger",
-      "status": "intentional",
-      "reason": "完整版独有：再次整理的执行按钮"
-    },
-    {
-      "id": "review:only-local:.weekly-actions > .weekly-action-label",
-      "status": "intentional",
-      "reason": "完整版独有：再次整理的执行按钮"
-    },
-    {
-      "id": "review:only-core:.weekly-actions > .button.ghost",
-      "status": "intentional",
-      "reason": "开源版独有：报告由 AI 生成后手动保存"
     }
   ],
   "transparent_classes": "^(action-form)$"

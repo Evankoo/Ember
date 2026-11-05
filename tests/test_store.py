@@ -249,6 +249,20 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(self.card(identifier)[1], before)
         self.assertTrue(self.store.snapshot()["tasks"][0]["important"])
 
+    def test_project_order_is_complete_revision_guarded_and_kept_by_importance(self):
+        identifier = self.task()
+        projects = [item["id"] for item in self.store.snapshot()["projects"]]
+        order = ["independent", *reversed(projects)]
+        for invalid in (order[:-1], order + ["independent"], [*order[:-1], "missing"], "independent"):
+            with self.assertRaises(WorkspaceError):
+                self.store.set_project_order({"order": invalid, "revision": 0})
+        self.assertEqual(self.store.set_project_order({"order": order, "revision": 0})["revision"], 1)
+        with self.assertRaises(WorkspaceError) as raised:
+            self.store.set_project_order({"order": order, "revision": 0})
+        self.assertEqual(raised.exception.status, 409)
+        self.store.set_important(identifier, {"important": True, "revision": 1})
+        self.assertEqual(self.store.snapshot()["project_order"], order)
+
     def test_system_files_stay_out_of_the_document_library(self):
         self.assertEqual(sorted(item.name for item in self.docs.iterdir()), ["Inbox", "tasks", "交付", "任务资料", "管理中心", "项目"])
         for name in ("AGENTS.md", "config", "skills", "templates", ".agents"):

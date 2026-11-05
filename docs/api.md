@@ -17,7 +17,7 @@ tasks/completed/<task_id>.md
 交付/正式交付/<task_id>/
 Inbox/
 管理中心/整理记录/             # Markdown 报告，可有 title/mode/date/related_task_ids frontmatter
-管理中心/运行状态/任务视图/workbench-views.json   # {revision, important_task_ids: []}
+管理中心/运行状态/任务视图/workbench-views.json   # {revision, important_task_ids: [], project_order: []}
 管理中心/运行状态/Inbox标签/inbox-labels.json    # 指纹标签台账
 ```
 
@@ -45,11 +45,12 @@ add_reference(task_id, payload)      # path/purpose；已有受控工作区文�
 complete_task(task_id, payload)      # confirmation:true；none/system/archive/external 可完成，delivery 禁止绕过推广
 promote_task(task_id, payload)        # confirmation:true；草稿->正式交付并完成，拒绝目标冲突
 set_important(task_id, payload)       # important:bool, revision:int；仅改呈现台账
+set_project_order(payload)            # order:[全部项目 ID 与 independent，各一次], revision:int；项目视图卡片顺序，仅改呈现台账
 set_long_term(task_id, payload)       # enabled:bool；写任务卡 long_term，不改状态
 set_inbox_label(payload)              # id,label,revision；标签不移动文件
 build_context(payload)               # request,relation:new|continue|based,task_id?,file_ids? -> {text}
 build_review_context(payload)        # task_ids:[] -> {text}，仅建议不改任务
-save_report(payload)                 # title,content,mode:selected|weekly,task_ids:[]；明确用户保存的记录
+save_report(payload)                 # title,content,mode:selected|weekly,task_ids:[]；整理提示词让 AI 用它保存报告，只记录建议
 ```
 
 `executor` 是真实执行工具或界面，不是模型名；`skills_used` 是实际调用的非空、无重复 Skill 名称列表。创建时未传则沿用 `manual` 与 `['ember']` 的既有默认值。续接更新只替换最新执行器，并把新 Skill 去重追加到原有历史，不改变项目、生命周期或交付。空值、非文本、多行名称及重复列表在写入前拒绝。这些字段不会启动执行器或安装 Skill；Agent 应按实际执行填写，而不是依赖默认值猜测历史。
@@ -63,7 +64,7 @@ save_report(payload)                 # title,content,mode:selected|weekly,task_i
 ## Snapshot
 
 ```text
-version, workspace_name, revision, inbox_revision
+version, workspace_name, revision, inbox_revision, project_order
 projects: [{id,name,kind:project|system,description,focus,overview,timeline:[{date,title,text}]}]
 tasks: [{id,title,project,work_type,kind:task|task_line,status,date,updated_at,artifact_mode,goal,description,current,next,
          logs:[{date,text}],inputs:[file_id],outputs:[file_id],related:[task_id],important:bool,long_term:bool}]
@@ -90,6 +91,7 @@ POST /api/reveal                     # {id} 或 {task_id, folder:input|delivery}
 POST /api/update/install             # {version, confirmation:true}；version 须为当前最新发行版。下载官方安装包 ember-init-X.Y.Z.zip，按同源 SHA256 校验（GitHub 用附件 digest，国内下载源用 SHA256SUMS），取出其中的 wheel 装进运行本服务的 Python 环境，刷新已登记的日常 Skill，回应后重启：常驻服务交给 launchd / Windows 守护循环拉起，临时启动的进程原地重启。不写任务、资料、交付，也不覆盖系统目录里的规则与 Skill（回应的 system_copies_changed 列出新版改过的项）；从源码运行时拒绝
 POST /api/onboarding/remove-init-skill
 POST /api/projects
+POST /api/projects/order
 POST /api/tasks
 POST /api/tasks/<id>
 POST /api/home/stage-file             # 请求体为文件原始字节，X-File-Name 为百分号编码的文件名；返回 staging_id、name、size、path
@@ -103,7 +105,6 @@ POST /api/inbox/label
 POST /api/context
 POST /api/review/context
 POST /api/review/weekly-context
-POST /api/review/daily-context
 POST /api/reports
 POST /api/executors/discover
 POST /api/executors/check

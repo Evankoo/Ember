@@ -263,17 +263,8 @@ class HTTPTests(unittest.TestCase):
         self.assertIn(f"任务 ID：{unfinished['id']}", context["text"])
         self.assertNotIn(f"任务 ID：{finished['id']}", context["text"])
         self.assertIn("只提出建议", context["text"])
+        self.assertIn("`mode: weekly`", context["text"])
         self.assertEqual({x["id"]: x["status"] for x in tasks}, {x["id"]: x["status"] for x in self.workspace.snapshot()["tasks"]})
-
-    def test_daily_context_covers_recent_tasks_and_refuses_an_empty_day(self):
-        tasks = self.workspace.snapshot()["tasks"]
-        if all(str(x.get("updated_at") or x.get("date") or "") < "2026-10" for x in tasks):
-            with self.assertRaisesRegex(WorkspaceError, "没有更新的任务"):
-                self.workspace.build_daily_context({})
-        created = self.data("/api/tasks", "POST", {"title": "今天的新任务", "project": "independent", "goal": "验证日报"})
-        context = self.data("/api/review/daily-context", "POST", {})
-        self.assertIn(f"任务 ID：{created['id']}", context["text"])
-        self.assertIn("只读汇总", context["text"])
 
     def test_second_service_is_rejected_and_lock_is_released(self):
         with workspace_lock(self.workspace):

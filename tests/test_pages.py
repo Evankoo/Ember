@@ -3,6 +3,7 @@ import re
 import tempfile
 import unittest
 from pathlib import Path
+from datetime import datetime
 
 from ember.pages import projects_page_data, render_projects, report_preview, review_page_data, review_search, card_sections, file_preview, home_page_data, home_search, project_page, render_home, render_project, render_task, task_page, task_preview
 from ember.store import Workspace
@@ -158,7 +159,9 @@ class ProjectPageTests(TaskPageTests):
         self.assertEqual(important, {item["id"] for item in self.snapshot["tasks"] if item["project"] == "chenyu" and item.get("important")})
         self.assertFalse(important & {row["task_id"] for column in chenyu["columns"][1:] for row in column["rows"]})
         markup = render_projects(self.snapshot)
-        self.assertIn('data-action="new-project"', markup)
+        self.assertNotIn('data-action="new-project"', markup)
+        reordered = projects_page_data({**self.snapshot, "project_order": ["independent", "chenyu"]})
+        self.assertEqual([card["slug"] for card in reordered["cards"]][:2], ["independent", "chenyu"])
         self.assertIn('data-project-card="chenyu"', markup)
         self.assertIn('data-independent-task-overview', markup)
         self.assertIn('data-action="review-project" data-id="independent"', markup)
@@ -167,18 +170,20 @@ class ProjectPageTests(TaskPageTests):
 
 
 class ReviewPageTests(TaskPageTests):
-    def test_review_head_shows_the_latest_weekly_report_and_its_actions(self):
+    def test_review_head_shows_the_latest_weekly_report_and_the_organize_key(self):
         head = review_page_data(self.snapshot)["head_html"]
         self.assertIn('class="review-weekly-summary"', head)
         self.assertIn("九月末每周检视 · 2026-09-27", head)
-        self.assertIn("data-execution-confirm", head)
-        self.assertIn('id="save-report-button"', head)
-        self.assertIn("生成日报提示词", head)
+        self.assertIn('<span class="weekly-action-label">开始整理</span>', head)  # The example report is older than a week.
+        self.assertIn('class="ember-action-trigger"', head)
+        for removed in ("save-report-button", "生成日报提示词", "生成整理提示词"):
+            self.assertNotIn(removed, head)
+        recent = {"id": "w", "title": "本周", "mode": "weekly", "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S+08:00")}
+        self.assertIn("再次整理", review_page_data({**self.snapshot, "reports": [recent]})["head_html"])
         empty = review_page_data({**self.snapshot, "tasks": [], "reports": [{"id": "r", "title": "<手动>", "mode": "selected"}]})["head_html"]
         self.assertIn("还没有保存过每周整理", empty)
         self.assertNotIn("手动", empty)
-        self.assertIn("生成整理提示词</button>", empty)
-        self.assertIn('data-execution-confirm-trigger disabled', empty)
+        self.assertIn('data-execution-confirm-trigger aria-label="开始整理并确认执行器" title="开始整理并确认执行器" disabled', empty)
 
     def test_review_data_search_and_reports(self):
         page = review_page_data(self.snapshot)

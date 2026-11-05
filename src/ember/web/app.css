@@ -17,8 +17,6 @@ fieldset{margin:0;padding:0;border:0;min-width:0}
 
 .sidebar-empty{padding:4px 12px 6px 30px;color:#94a3b8;font-size:11px}
 
-.project-view-page-head{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:16px;align-items:end}
-.project-view-page-head>button{grid-column:2;grid-row:1/span 2;align-self:center}
 .project-scene-filters{grid-template-columns:minmax(0,1fr);margin-bottom:10px}
 .project-location-item{display:inline-flex;align-items:center;gap:8px}
 
@@ -43,7 +41,7 @@ fieldset{margin:0;padding:0;border:0;min-width:0}
 .library-text-preview{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.75 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 
 
-@media(max-width:700px){.field-grid{grid-template-columns:minmax(0,1fr)}.project-view-page-head{grid-template-columns:minmax(0,1fr)}.project-view-page-head>button{grid-column:1;grid-row:auto;justify-self:start;margin-top:8px}}
+@media(max-width:700px){.field-grid{grid-template-columns:minmax(0,1fr)}}
 
 .task-table td.empty{display:table-cell}
 .project-task-filters .chip{flex:none;white-space:nowrap}

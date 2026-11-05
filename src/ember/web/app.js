@@ -32,7 +32,6 @@ const app = (() => {
   const formError = form => form.querySelector(".form-error");
   const bytes = n => n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n >= 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n || 0} B`;
   const workType = item => workNames[item.work_type] || item.work_type;
-  const categories = () => [...new Set(data().projects.map(p => p.category).filter(Boolean))];
   const fileIcon = item => /\.md$/i.test(item.name) ? "M" : /\.(png|jpe?g|webp|gif)$/i.test(item.name) ? "◇" : /\.(mp4|mov|webm)$/i.test(item.name) ? "▶" : /\.pdf$/i.test(item.name) ? "P" : "·";
   const fileKind = item => `<span class="task-file-kind">${esc((String(item.name).match(/\.([a-z0-9]{1,8})$/i) || [, "文件"])[1].toUpperCase().slice(0, 4))}</span>`;
   function inline(text) {
@@ -347,12 +346,12 @@ const app = (() => {
 
   /* ---------- 项目视图 ---------- */
   /* Rendered on the server with the full workbench's template (ember_ui/pages/projects.py); the category
-     filter and task drag are ember_ui/projects.js. Dragging a task into or out of 当前重要事项 saves the
-     task's importance; this edition keeps no project order, so cards are not reordered. */
+     filter, task drag and card reordering are ember_ui/projects.js. Dragging a task into or out of
+     当前重要事项 saves the task's importance; dragging a card saves the card order in the workspace. */
   const projectsHooks = {
     setPriority: ({ taskId, important }) => mutate(`api/tasks/${encodeURIComponent(taskId)}/important`, { important, revision: data().revision }),
-    saveOrder: null,
-    saved: () => notice("重点状态已保存。任务内容与生命周期未改变。"),
+    saveOrder: order => mutate("api/projects/order", { order, revision: data().revision }),
+    saved: () => notice("已保存。任务内容与生命周期未改变。"),
     category: { read: () => ui.projectCategory, write: key => { ui.projectCategory = key; } },
     notify: (message, type) => notice(message, type === "error"),
   };
@@ -458,7 +457,7 @@ const app = (() => {
      confirms, the prompt is copied and then the saved software is opened; nothing calls a model. */
   const executionPrompts = new WeakMap();
   async function executionPreview(form, payload, title = "", scope = "") {
-    const [prompt, settings] = await Promise.all([payload.weekly ? api("api/review/weekly-context", {}) : payload.daily ? api("api/review/daily-context", {}) : payload.review ? api("api/review/context", { task_ids: payload.task_ids }) : api("api/context", payload), api("api/settings")]);
+    const [prompt, settings] = await Promise.all([payload.weekly ? api("api/review/weekly-context", {}) : payload.review ? api("api/review/context", { task_ids: payload.task_ids }) : api("api/context", payload), api("api/settings")]);
     const environment = settings.execution_environment, software = environment.executors.find(entry => entry.id === environment.default_executor);
     executionPrompts.set(form, { prompt, environment });
     return { fixed_prompt_html: markdown(prompt.fixed), fixed_prompt: prompt.fixed, task: prompt.task, prompt_prefix: prompt.prefix, prompt_suffix: prompt.suffix,
@@ -477,7 +476,6 @@ const app = (() => {
   // What a confirmation form asks for: continue a task, start in a project, or work on selected files.
   function executionRequest(form) {
     const fields = new FormData(form);
-    if (fields.has("daily")) return { payload: { daily: true }, title: "日报", scope: "昨天和今天更新的任务" };
     if (fields.has("weekly")) return { payload: { weekly: true }, title: "每周整理", scope: "未完成任务和最近 7 天更新的任务" };
     const taskId = String(fields.get("task_id") || ""), projectId = String(fields.get("project_id") || "");
     if (taskId) {
@@ -547,7 +545,6 @@ const app = (() => {
     main.innerHTML = page.html;
     state.review = window.EmberReview.mount(main, reviewHooks);
   }
-  const reviewSelection = () => [...main.querySelectorAll('[name="selected_task_id"]:checked')].map(input => input.value);
 
 
   /* ---------- 设置 ---------- */
@@ -597,9 +594,6 @@ const app = (() => {
     openDialog("新建任务", `<form id="new-task-form" class="stack dialog-form" data-form="new-task"><label>任务名称<input id="task-title" name="title" required maxlength="20" placeholder="20字内的完整名称"></label><div class="field-grid"><label>归属项目 / 系统<select id="task-project" name="project">${projectOptions(projectId, false)}</select></label><label>工作类型<select name="work_type">${Object.entries(workNames).map(([id, name]) => option(id, name, "mixed")).join("")}</select></label></div><label>任务目标<textarea id="task-goal" name="goal" required placeholder="明确要得到什么结果"></textarea></label><label>任务描述<textarea name="description" placeholder="背景、范围与约束"></textarea></label><p class="form-error" role="alert"></p><div class="form-actions"><button class="button primary" id="create-task-submit" type="submit">保存任务</button><button class="button ghost" type="button" data-action="close-dialog">取消</button></div></form>`);
   }
 
-  function newProject() {
-    openDialog("新建项目", `<form id="new-project-form" class="stack dialog-form" data-form="new-project"><div class="field-grid"><label>类型<select id="project-kind" name="kind"><option value="project">项目</option><option value="system">系统</option></select></label><label>分类<input id="project-category" name="category" maxlength="20" list="project-category-options" placeholder="可选，例如 内容运营"><datalist id="project-category-options">${categories().map(name => option(name, name, "")).join("")}</datalist></label></div><div class="field-grid"><label>名称<input id="project-name" name="name" required maxlength="60"></label><label>标识<input id="project-id" name="id" required pattern="[a-z0-9][a-z0-9_-]*" placeholder="例如 community-notes"></label></div><label>简短说明<textarea name="description" required></textarea></label><label>当前重点<input name="focus"></label><label>本机工作目录<input name="location" placeholder="可选，绝对路径；AI 在这个目录协作时会对应本项目"></label><p class="form-error" role="alert"></p><div class="form-actions"><button id="create-project-submit" type="submit" class="button primary">保存到工作区</button><button class="button ghost" type="button" data-action="close-dialog">取消</button></div></form>`);
-  }
 
   function editTask(id) {
     const t = task(id);
@@ -620,9 +614,6 @@ const app = (() => {
     openDialog("正式交付并完成", `<form id="promote-form" class="stack dialog-form" data-form="promote" data-id="${esc(id)}"><p>完成“${esc(t.title)}”，将${drafts.length ? ` ${drafts.length} 个草稿文件` : "现有草稿目录"}复制并校验为正式交付，保留草稿与输入，再保存任务完成状态。</p><div>${drafts.map(f => `<p class="muted">${esc(f.name)}</p>`).join("")}</div><label class="check-label"><input id="promote-confirmation" name="confirmation" type="checkbox" required><span>我已核对当前结果与交付内容，确认正式交付并完成这个任务。</span></label><p class="form-error" role="alert"></p><div class="form-actions"><button id="promote-submit" class="button primary" type="submit">确认正式交付并完成</button><button class="button ghost" type="button" data-action="close-dialog">取消</button></div></form>`);
   }
 
-  function newReport() {
-    openDialog("保存整理报告", `<form id="report-form" class="stack dialog-form" data-form="report"><label>报告名称<input id="report-title" name="title" required></label><label>报告范围<select name="mode"><option value="selected">所选任务</option><option value="weekly">按周整理</option></select></label><p class="muted">当前选择 ${reviewSelection().length} 项任务。保存的是你填写的报告，不会调整任务结构或生命周期。</p><label>报告内容<textarea id="report-content" name="content" required rows="14"></textarea></label><p class="form-error" role="alert"></p><div class="form-actions"><button id="report-submit" class="button primary" type="submit">保存报告</button><button class="button ghost" type="button" data-action="close-dialog">取消</button></div></form>`);
-  }
 
   async function mutate(path, payload) {
     const result = await api(path, payload);
@@ -643,12 +634,6 @@ const app = (() => {
           const created = await mutate("api/tasks", payload);
           closeDialog(); go(`task/${encodeURIComponent(created.id || created.task_id)}`); notice("任务已保存到当前工作区。"); break;
         }
-        case "new-project": {
-          const { location: place, ...fields } = payload;
-          if (place?.trim()) fields.locations = [place.trim()];
-          const created = await mutate("api/projects", fields);
-          closeDialog(); go(`project/${encodeURIComponent(created.id || payload.id)}`); notice(`${payload.kind === "system" ? "系统" : "项目"}已保存到工作区。`); break;
-        }
         case "edit-task": await mutate(`api/tasks/${encodeURIComponent(form.dataset.id)}`, payload); closeDialog(); notice("任务记录已保存。"); break;
         case "material": {
           const isReference = payload.kind === "reference";
@@ -658,7 +643,6 @@ const app = (() => {
         }
         case "complete": await mutate(`api/tasks/${encodeURIComponent(form.dataset.id)}/complete`, { confirmation: fields.has("confirmation") }); closeDialog(); notice("任务已完成，任务记录与资料已保留。"); break;
         case "promote": await mutate(`api/tasks/${encodeURIComponent(form.dataset.id)}/promote`, { confirmation: fields.has("confirmation") }); closeDialog(); notice("正式交付已保存，任务已完成。"); break;
-        case "report": await mutate("api/reports", { ...payload, task_ids: reviewSelection() }); closeDialog(); notice("整理报告已保存。"); break;
       }
     } catch (failure) { if (failure.saved) form.dataset.committed = "true"; if (error) error.textContent = failure.message; else notice(failure.message, true); }
     finally { delete form.dataset.busy; controls.forEach(button => { button.disabled = Boolean(form.dataset.committed); button.removeAttribute("aria-busy"); }); }
@@ -673,14 +657,12 @@ const app = (() => {
       case "scroll-to": document.getElementById(id)?.scrollIntoView({ block: "start" }); return;
       case "favorite": toggleFavorite(id); return;
       case "new-task": newTask(button.dataset.project); return;
-      case "new-project": newProject(); return;
       case "edit-task": editTask(id); return;
       case "add-material": addMaterial(id); return;
       case "promote": promote(id); return;
       case "complete": completeTask(id); return;
       // The full workbench opens 任务检视 filtered by ?project=; review.js reads it from the address.
       case "review-project": history.pushState(null, "", `${location.pathname}?project=${encodeURIComponent(id)}#review`); route(); return;
-      case "new-report": newReport(); return;
       case "download": { const link = Object.assign(document.createElement("a"), { href: `api/raw?id=${encodeURIComponent(id)}`, download: "" }); link.click(); return; }
       case "check-update": setMenu(false); await checkUpdate(); return;
       case "run-update": await runUpdate(); return;

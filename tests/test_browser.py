@@ -288,18 +288,15 @@ class SettingsBrowserTests(unittest.TestCase):
         self.assertEqual(self.page.locator("#createOrganizeTaskGroup").count(), 0)
         self.assert_untouched()
 
-    def test_weekly_summary_generates_a_prompt_and_stays_compact(self):
+    def test_weekly_summary_hands_organizing_to_the_ai_and_stays_compact(self):
         self.page.goto(self.base + "/#review")
         summary = self.page.locator(".review-weekly-summary")
         expect(summary.locator(".weekly-state")).to_contain_text("九月末每周检视")
-        self.assertLess(self.page.locator("#save-report-button").bounding_box()["width"], 200)
-        summary.get_by_role("button", name="生成整理提示词", exact=True).click()
+        expect(summary.locator(".weekly-action-label")).to_have_text("开始整理")
+        expect(summary.locator("button")).to_have_count(1)
+        summary.get_by_role("button", name="开始整理并确认执行器", exact=True).click()
         expect(self.page.locator("#executionConfirmScope")).to_have_text("未完成任务和最近 7 天更新的任务")
-        expect(self.page.locator("#executionConfirmFixed")).to_contain_text("任务检视")
-        self.page.keyboard.press("Escape")
-        expect(summary.get_by_role("button", name="生成日报提示词", exact=True)).to_be_enabled()
-        self.page.locator("#save-report-button").click()
-        expect(self.page.locator("#report-form")).to_be_visible()
+        expect(self.page.locator("#executionConfirmFixed")).to_contain_text("save_report")
         self.page.keyboard.press("Escape")
         self.page.set_viewport_size({"width": 390, "height": 900})
         self.assertTrue(self.page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1"))
@@ -397,7 +394,8 @@ class SettingsBrowserTests(unittest.TestCase):
         self.page.goto(self.base + "/#projects")
         cards = self.page.locator(".project-view-grid [data-project-card]:not(.hidden)")
         expect(cards).to_have_count(3)
-        self.assertEqual(self.page.locator('.project-view-grid[data-card-sort="off"]').count(), 1)
+        self.assertEqual(self.page.locator('.project-view-grid[data-card-sort="off"]').count(), 0)
+        self.assertEqual(self.page.locator("#new-project-button").count(), 0)
         self.page.locator('[data-project-category-filter="c:工作室运营"]').click()
         expect(cards).to_have_count(1)
         expect(cards).to_have_attribute("data-project-card", "studio")
@@ -418,6 +416,27 @@ class SettingsBrowserTests(unittest.TestCase):
         target.dispatch_event("drop", {"dataTransfer": transfer})
         expect(self.page.locator('[data-project="chenyu"][data-board-column="important"] [data-task-id="autumn-assets"]')).to_be_visible()
         self.assertTrue(any(url.endswith("/api/tasks/autumn-assets/important") and body["important"] is True for url, body in self.posts))
+        self.assertEqual(self.errors, [])
+
+    def test_projects_view_drags_a_card_into_a_new_order(self):
+        self.page.goto(self.base + "/#projects")
+        slugs = lambda: self.page.locator(".project-view-grid [data-project-card]").evaluate_all("cards => cards.map(card => card.dataset.projectCard)")  # noqa: E731
+        expect(self.page.locator(".project-view-grid [data-project-card]")).to_have_count(3)
+        before = slugs()
+        self.addCleanup(lambda: self.workspace.set_project_order({"order": before, "revision": self.workspace.snapshot()["revision"]}))
+        start = self.page.locator(f'[data-project-card="{before[1]}"] .project-focus').bounding_box()
+        top = self.page.locator(f'[data-project-card="{before[0]}"]').bounding_box()
+        self.page.mouse.move(start["x"] + 20, start["y"] + 10)
+        self.page.mouse.down()
+        self.page.mouse.move(start["x"] + 20, start["y"] - 20, steps=4)
+        self.page.mouse.move(top["x"] + 40, top["y"] + 10, steps=8)
+        self.page.mouse.up()
+        expected = [before[1], before[0], *before[2:]]
+        expect(self.page.get_by_text("已保存。任务内容与生命周期未改变。")).to_be_visible()
+        self.assertEqual(self.workspace.snapshot()["project_order"], expected)
+        self.page.reload()
+        expect(self.page.locator(".project-view-grid [data-project-card]").first).to_have_attribute("data-project-card", expected[0])
+        self.assertEqual(slugs(), expected)
         self.assertEqual(self.errors, [])
 
     def test_project_task_list_filters_without_losing_search_focus(self):

@@ -11,7 +11,8 @@ import re
 from urllib.parse import quote
 
 from .ember_ui.markdown import markdown_to_html
-from datetime import datetime
+from .ember_ui.marks import execution_confirm_button
+from datetime import datetime, timedelta
 
 from .ember_ui.pages import home, library as library_template, project as project_template, projects as projects_template, review as review_template, settings as settings_template, shell as shell_template, system as system_template, task_detail
 
@@ -409,6 +410,8 @@ def projects_page_data(snapshot: dict) -> dict:
                   "note": "独立任务可整理，并逐步形成项目。", "board_label": "独立任务看板",
                   "actions": [{"label": "查看独立任务", "href": "#review", "primary": True, "attrs": [("data-action", "review-project"), ("data-id", "independent")]}, review("independent")],
                   "columns": board(independent)})
+    order = {slug: index for index, slug in enumerate(snapshot.get("project_order") or [])}
+    cards.sort(key=lambda card: order.get(card["slug"], len(order)))  # Saved card order; new projects go last.
     names = list(dict.fromkeys(project["category"] for project in projects if project.get("category")))
     uncategorized = sum(not project.get("category") for project in projects)
     filters = [("all", "全部", len(projects) + 1)] + [(f"c:{name}", name, sum(project.get("category") == name for project in projects)) for name in names]
@@ -416,7 +419,6 @@ def projects_page_data(snapshot: dict) -> dict:
         filters.append(("other", "未分类", uncategorized))
     filters.append(("independent", "独立任务", 1))
     return {"counts": {"projects": len(projects), "active": sum(task["status"] == "active" for task in tasks), "attention": attention},
-            "head_actions_html": '<button id="new-project-button" class="button ghost" type="button" data-action="new-project">新建项目</button>',
             "filters": filters, "empty_html": "该分类尚未登记项目。", "cards": cards}
 
 
@@ -437,16 +439,15 @@ def _epoch(value: str) -> int:
 
 
 def _weekly_summary(snapshot: dict, has_tasks: bool) -> str:
-    """The full workbench's weekly summary; here the report comes from the user's AI and is saved by hand."""
+    """The full workbench's weekly summary; here the user's AI writes the report and saves it to the workspace."""
     latest = next((report for report in snapshot.get("reports") or [] if report.get("mode") == "weekly"), None)
     state = f'{latest["title"]} · {str(latest.get("date") or "")[:10] or "未记录日期"}' if latest else "还没有保存过每周整理"
-    disabled = "" if has_tasks else " disabled"
+    since = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+    label = "再次整理" if latest and str(latest.get("date") or "")[:10] >= since else "开始整理"
+    form = (f'<form class="action-form" id="weekly-prompt-form" data-execution-confirm data-execution-label="{label}">'
+            f'<input type="hidden" name="weekly" value="1">{execution_confirm_button(f"{label}并确认执行器", disabled=not has_tasks)}</form>')
     return (f'<div class="review-weekly-summary"><span class="review-weekly-label">上周整理</span><div class="weekly-state">{html.escape(state)}</div>'
-            '<div class="weekly-actions inline"><form id="weekly-prompt-form" data-execution-confirm data-execution-label="生成每周整理提示词">'
-            f'<input type="hidden" name="weekly" value="1"><button class="button ghost" type="submit" data-execution-confirm-trigger{disabled}>生成整理提示词</button></form>'
-            '<form id="daily-prompt-form" data-execution-confirm data-execution-label="生成日报提示词">'
-            f'<input type="hidden" name="daily" value="1"><button class="button ghost" type="submit" data-execution-confirm-trigger{disabled}>生成日报提示词</button></form>'
-            '<button id="save-report-button" class="button ghost" type="button" data-action="new-report">保存整理报告</button></div></div>')
+            f'<div class="weekly-actions inline"><span class="weekly-action-label">{label}</span>{form}</div></div>')
 
 
 def review_page_data(snapshot: dict) -> dict:
