@@ -21,7 +21,7 @@ import tempfile
 import urllib.request
 import zipfile
 
-VERSION = "0.20.0"
+VERSION = "0.20.1"
 WHEEL = f"ember-{VERSION}-py3-none-any.whl"
 # The release's one file; the wheel sits in it under ember-init/assets/.
 PACKAGE = f"ember-init-{VERSION}.zip"

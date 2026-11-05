@@ -598,7 +598,7 @@ WORKBENCH_DIALOG = ('<dialog id="workbench-dialog" class="paper-dialog workbench
 
 def render_index() -> str:
     sidebar = shell_template.sidebar({
-        "brand": {"href": "#home", "label": "余烬首页", "name": "余烬", "subtitle": "本地工作台"},
+        "brand": {"href": "#home", "label": "余烬首页", "name": "余烬", "subtitle": "AI 任务系统"},
         "aside_attrs": [("id", "sidebar"), ("aria-label", "工作台导航")],
         "nav_id": "sidebar-nav", "nav_attrs": [("aria-label", "页面与工作区")],
         "primary": [{"label": label, "href": f"#{key}", "attrs": [("data-nav", key)]} for key, label in PRIMARY_PAGES],

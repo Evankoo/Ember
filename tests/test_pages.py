@@ -169,6 +169,12 @@ class ProjectPageTests(TaskPageTests):
             self.assertNotIn(forbidden, markup)
 
 
+class ShellTests(unittest.TestCase):
+    def test_sidebar_brand_names_the_product_category(self):
+        from ember.pages import render_index
+        self.assertIn('余烬 <span class="brand-subtitle">AI 任务系统</span>', render_index())
+
+
 class ReviewPageTests(TaskPageTests):
     def test_review_head_shows_the_latest_weekly_report_and_the_organize_key(self):
         head = review_page_data(self.snapshot)["head_html"]
