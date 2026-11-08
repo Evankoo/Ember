@@ -1,0 +1,6 @@
+interface:
+  display_name: Ember Daily Tasks
+  short_description: Pick up earlier work from any folder: continue or create task cards, save materials and deliverables
+  default_prompt: Use $ember to handle the task in the current Ember workspace.
+policy:
+  allow_implicit_invocation: true

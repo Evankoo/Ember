@@ -7,8 +7,27 @@ from pathlib import Path
 import sys
 
 from . import __version__
+from . import language
+from .language import LANGUAGES
 from .locator import install_skill, read_default, refresh_targets, register_default, resolve_workspace
 from .store import Workspace, WorkspaceError
+
+LANGUAGE_QUESTION = ("请选择这个工作区的语言 / Choose the language of this workspace:\n"
+                     "  1. 中文\n  2. English\n"
+                     "选定后，文件夹名称、任务卡、工作台和 AI 回复都使用这种语言，建好后不能再更改。\n"
+                     "Folder names, task cards, the workbench and AI replies will use it. It cannot be changed later.\n> ")
+
+
+def ask_language(read=input) -> str:
+    """No silent default: without --language, ask on a terminal and refuse otherwise."""
+    if not sys.stdin or not sys.stdin.isatty():
+        raise WorkspaceError("请用 --language zh 或 --language en 选择工作区语言 / Choose the workspace language with --language zh or --language en.")
+    while True:
+        answer = read(LANGUAGE_QUESTION).strip().lower()
+        if answer in ("1", "zh", "中文"):
+            return "zh"
+        if answer in ("2", "en", "english"):
+            return "en"
 
 
 def main(argv=None):
@@ -20,6 +39,8 @@ def main(argv=None):
     init.add_argument("--documents", type=Path, help="文档库；默认与系统目录同级的“<系统目录名>文档”")
     init.add_argument("--example", action="store_true", help="安装完整虚构示例")
     init.add_argument("--name", help="工作区名称")
+    init.add_argument("--language", choices=LANGUAGES,
+                      help="工作区语言 zh 或 en，建好后不能更改 / workspace language, zh or en; cannot be changed later")
     serve = commands.add_parser("serve", help="启动本机工作台")
     serve.add_argument("--workspace", type=Path, help="默认使用本机登记的工作区")
     serve.add_argument("--port", type=int, default=8783)
@@ -109,22 +130,26 @@ def main(argv=None):
         if args.command == "use":
             print(json.dumps(register_default(Workspace(args.workspace), replace=args.replace), ensure_ascii=False, indent=2))
             return 0
-        workspace = Workspace(args.workspace, args.documents) if args.command == "init" else resolve_workspace(args.workspace)
+        if args.command == "init":
+            workspace = Workspace(args.workspace, args.documents, language=args.language or ask_language())
+        else:
+            workspace = resolve_workspace(args.workspace)
+        say = lambda message: print(language.finished(workspace.language, message))
         if args.command == "init":
             if args.name is not None and (not args.name.strip() or len(args.name.strip()) > 80):
                 raise WorkspaceError("工作区名称应为 1–80 字符")
             workspace.initialize(example=args.example)
             if args.name is not None:
                 workspace._write_json("config/workspace.json", {**workspace._json("config/workspace.json"), "name": args.name.strip()})
-            print(f"系统目录已建立：{workspace.path}")
-            print(f"文档库已建立：{workspace.docs}")
-            print(f"启动：ember serve --workspace {args.workspace} --port 8783")
-            print(f"设为本机默认（让任意目录的 AI 找到它）：ember use {args.workspace}")
+            say(f"系统目录已建立：{workspace.path}")
+            say(f"文档库已建立：{workspace.docs}")
+            say(f"启动：ember serve --workspace {args.workspace} --port 8783")
+            say(f"设为本机默认（让任意目录的 AI 找到它）：ember use {args.workspace}")
         elif args.command == "check":
             from .bootstrap import verify_workspace_contract
             verify_workspace_contract(workspace)
             state = workspace.snapshot()
-            print(f"校验通过：{len(state['projects'])} 项目 / {len(state['tasks'])} 任务 / {len(state['files'])} 文件")
+            say(f"校验通过：{len(state['projects'])} 项目 / {len(state['tasks'])} 任务 / {len(state['files'])} 文件")
         else:
             if not 0 <= args.port <= 65535:
                 parser.error("端口应在 0–65535 内")
@@ -134,6 +159,8 @@ def main(argv=None):
             from .server import run
             run(workspace, port=args.port)
     except (WorkspaceError, OSError) as error:
-        print(f"余烬：{error}", file=sys.stderr)
+        current = locals().get("workspace")
+        message = f"余烬：{error}"
+        print(language.finished(current.language, message) if isinstance(current, Workspace) else message, file=sys.stderr)
         return 1
     return 0

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from .bootstrap import verify_workspace_contract
-from .store import Workspace, WorkspaceError, project_card
+from .store import Workspace, WorkspaceError
 
 
 def plan_project(workspace: Workspace, payload: dict) -> dict:
@@ -20,14 +20,14 @@ def plan_project(workspace: Workspace, payload: dict) -> dict:
     focus = workspace._string(payload, "focus", limit=5000)
     locations = workspace._locations(payload.get("locations", []))
     category = workspace._category(payload.get("category", ""))
-    overview = workspace._string(payload, "overview") or workspace.project_overview(name, kind, description, focus, locations)
+    overview = workspace._string(payload, "overview") or workspace.project_overview(name, kind, description, focus, locations, workspace.language)
     matches = [{"id": item["id"], "name": item["name"], "kind": item["kind"]}
                for item in workspace.snapshot()["projects"]
                if item["id"] == identifier or item["name"].casefold() == name.casefold()]
     return {"project": {"id": identifier, "name": name, "kind": kind, "description": description,
                         "focus": focus, "overview": overview, "locations": locations, "category": category}, "matches": matches, "can_create": not matches,
-            "canonical_paths": ["config/projects.json", project_card(identifier)],
-            "boundaries": "只登记项目和说明；不迁移资料、重分配任务、调用模型或发布。"}
+            "canonical_paths": ["config/projects.json", workspace.project_card(identifier)],
+            "boundaries": workspace._w("只登记项目和说明；不迁移资料、重分配任务、调用模型或发布。")}
 
 
 def register_project(workspace: Workspace, payload: dict, *, task_id: str, confirmation: bool) -> dict:
@@ -43,5 +43,5 @@ def register_project(workspace: Workspace, payload: dict, *, task_id: str, confi
             raise WorkspaceError("发现同 ID 或同名项目；先确认复用或修订方案，不覆盖原项目。", 409)
         result = workspace.create_project(proposal["project"])
         workspace.update_task(task_id, {"skills_used": ["ember-project"],
-                              "log_entry": f"按确认方案登记{result['kind']}：{result['name']}（{result['id']}）；已回读登记与独立项目说明，未迁移资料或改变任务归属。"})
+                              "log_entry": workspace._w("按确认方案登记{kind}：{name}（{id}）；已回读登记与独立项目说明，未迁移资料或改变任务归属。", kind=result["kind"], name=result["name"], id=result["id"])})
         return result

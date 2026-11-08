@@ -1,0 +1,21 @@
+{
+  "revision": 0,
+  "items": {
+    "ba1d625cc2ae4995b2377a867be0528ffbe6dfc4edea6df87d0e42f9c3ce085c": {
+      "label": "\u672a\u5206\u7c7b",
+      "updated_at": "2026-09-24 12:00:00+08:00"
+    },
+    "c3f4e2b8b1a0f5a91edd71fb74712d2d528b9512a17c7a66e8400465eee77f4a": {
+      "label": "\u5904\u7406\u4e2d",
+      "updated_at": "2026-09-24 12:00:00+08:00"
+    },
+    "621a1c4e8780c95ec704068ef2de2f030b549fd88debf7764142d839a94ffa04": {
+      "label": "\u5f85\u5f52\u6863",
+      "updated_at": "2026-09-24 12:00:00+08:00"
+    },
+    "3751fa7107015e7df313ca6dad8267c7af798d62cdcf15c5713b57a9fdaaceb7": {
+      "label": "\u53ef\u5220\u9664",
+      "updated_at": "2026-09-24 12:00:00+08:00"
+    }
+  }
+}

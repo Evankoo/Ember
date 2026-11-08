@@ -12,7 +12,7 @@ import stat
 import threading
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 
-from . import __version__, compat
+from . import __version__, compat, i18n, language
 from .store import WorkspaceError, preview_kind
 from .executors import ExecutorRegistry
 import subprocess
@@ -45,6 +45,18 @@ class LocalServer(ThreadingHTTPServer):
         super().__init__(("127.0.0.1", port), Handler)
 
 
+def _in_workspace_language(method):
+    """Answers, pages and error messages use the language the workspace was created in."""
+    def handle(self):
+        token = i18n.use(self.server.workspace.language)
+        try:
+            return method(self)
+        finally:
+            i18n.reset(token)
+    handle.__name__ = method.__name__
+    return handle
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "Ember/" + __version__
 
@@ -75,7 +87,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send(status, {"ok": True, "data": result})
 
     def error(self, message, status=400):
-        self.send(status, {"ok": False, "error": message})
+        self.send(status, {"ok": False, "error": i18n.translate(str(message))})
 
     def local_request(self):
         port = self.server.server_port
@@ -86,6 +98,7 @@ class Handler(BaseHTTPRequestHandler):
         if origin and origin not in {"http://" + h for h in allowed_hosts}:
             raise WorkspaceError("跨来源请求不受支持", 403)
 
+    @_in_workspace_language
     def do_GET(self):
         self.framable = False
         try:
@@ -211,10 +224,13 @@ class Handler(BaseHTTPRequestHandler):
             from .pages import render_index
             self.send(200, render_index().encode("utf-8"), "text/html; charset=utf-8")
             return
+        if path == "/i18n-catalog.js":
+            self.send(200, i18n.catalog_script().encode("utf-8"), "text/javascript; charset=utf-8")
+            return
         relative = Path(path.lstrip("/"))
         if any(part in {"..", "."} or part.startswith(".") for part in relative.parts) or "\\" in path:
             raise WorkspaceError("资源路径无效", 404)
-        allowed = path in {"/app.js", "/app.css"} or path.startswith(("/assets/", "/fonts/", "/ember_ui/"))
+        allowed = path in {"/app.js", "/app.css", "/i18n.js"} or path.startswith(("/assets/", "/fonts/", "/ember_ui/"))
         base = WEB
         if relative.parts[:1] == ("ember_ui",):
             base, relative = SHARED_STATIC, Path(*relative.parts[1:])
@@ -228,6 +244,7 @@ class Handler(BaseHTTPRequestHandler):
             content_type += "; charset=utf-8"
         self.send(200, target.read_bytes(), content_type)
 
+    @_in_workspace_language
     def do_POST(self):
         try:
             self.local_request()
@@ -366,7 +383,7 @@ def run(workspace, port=8783):
     with workspace_lock(workspace):
         server = LocalServer(workspace, port)
         print(f"Ember {__version__} · http://127.0.0.1:{server.server_port}/", flush=True)
-        print("仅本机访问；按 Ctrl+C 停止。", flush=True)
+        print(language.finished(workspace.language, "仅本机访问；按 Ctrl+C 停止。"), flush=True)
         try:
             server.serve_forever()
         except KeyboardInterrupt:
@@ -374,6 +391,6 @@ def run(workspace, port=8783):
         finally:
             server.server_close()
     if server.restart_requested:
-        print("已安装新版本，正在重新启动工作台。", flush=True)
+        print(language.finished(workspace.language, "已安装新版本，正在重新启动工作台。"), flush=True)
         from .updates import restart
         restart()

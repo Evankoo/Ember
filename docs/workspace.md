@@ -34,6 +34,10 @@ Finder 生成的 `.DS_Store` 等隐藏文件不会被当成资料。旧版单目
 
 通过 `ember-init` 首次安装时，只登记余烬系统项目并在程序目录保存安装记录，不自动创建任务。配置当前 AI 工具后，由日常 Skill 把安装对话创建为第一张“余烬首次使用”任务卡，安装收据作为输入快照；用户检查 OK 后，再用 `ember-project` 建立确认的练习项目。最终确认完成并移除向导后，原任务完成、项目资料保留，文档库仅移除初始化 Skill 并同步登记；日常 / 建项目 Skill 继续使用。底层 `ember init` 仅建立骨架，不能拿它升级旧库。详见 [初始化流程](initialization.md)。
 
+## 语言
+
+工作区分中文和英文两种，在创建时选定，之后不能更改：`ember-init` 的第一个问题用中英双语请你选择，`ember init` 用 `--language zh|en` 指定（不带时在终端询问）。语言记在系统目录 `config/workspace.json` 的 `language`；没有这一项的工作区按中文处理，与 0.21.0 以前完全一致。英文工作区的文档库默认是 `~/EmberDocs`，文件夹为 `Inputs/`、`Deliverables/Drafts/`、`Deliverables/Final/`、`Projects/<id>/Project.md`、`Inbox/`、`Admin/`，任务卡标题为 Goal / Description / Current Result / Next Steps / Execution Log，规则文件、三个 Skill、提示词和工作台界面也都是英文；英文任务标题最长 60 个字符，项目分类最长 40 个字符。
+
 ## 项目与工作目录
 
 项目可以登记本机工作目录（`config/projects.json` 的 `locations`，绝对路径）。在这些目录或其子目录里协作时，`ember which-project` 会返回对应项目，日常 Skill 据此续接该项目的任务；查不到时由用户确认，不按目录名猜。用 `ember project-location <项目> <目录>` 登记，`--remove` 移除；只改登记，不改项目说明正文。工作目录本身留在原位，不搬进工作区。

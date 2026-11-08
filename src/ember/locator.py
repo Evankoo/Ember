@@ -84,8 +84,11 @@ def _read_tree(root: Path) -> dict[str, bytes]:
     return files
 
 
-def _source_tree() -> dict[str, bytes]:
-    return _read_tree(PACKAGE / "skills" / DAILY_SKILL)
+def _source_tree(language: str = "zh") -> dict[str, bytes]:
+    from .bootstrap import skill_tree
+    files = skill_tree(DAILY_SKILL, language)
+    files.pop("LICENSE", None)
+    return files
 
 
 def _official_fingerprints() -> dict[str, str]:
@@ -120,7 +123,7 @@ def install_skill(target, home=None) -> dict:
     destination = target / DAILY_SKILL
     if destination.is_symlink():
         raise WorkspaceError(f"{destination} 是符号链接，未写入；请改为普通目录或手动维护。")
-    files = _source_tree()
+    files = _source_tree(_default_language(home))
     version, previous = skill_version(), None
     if destination.exists():
         installed = fingerprint(_read_tree(destination))
@@ -157,6 +160,15 @@ def install_skill(target, home=None) -> dict:
     if previous:
         result["from"] = previous
     return result
+
+
+def _default_language(home=None) -> str:
+    """The daily Skill copied into AI tools follows the language of this machine's default workspace."""
+    try:
+        stored = read_default(home)
+        return Workspace(stored["workspace"]).language if stored else "zh"
+    except WorkspaceError:
+        return "zh"
 
 
 def skill_version() -> str:

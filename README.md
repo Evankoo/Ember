@@ -1,5 +1,7 @@
 # 余烬 · Ember
 
+中文 · [English](README.en.md)
+
 **Token 烧完了，还剩什么？**
 
 **每一次对话，都从上一次的余烬里燃起。**
@@ -48,6 +50,7 @@ AI 会从[最新发行版](https://github.com/Evankoo/Ember/releases/latest)下�
 
 > GitHub 打不开时，同样的安装包也放在国内下载源，另附 SHA256SUMS。把上面那句话里的仓库地址换成 `https://ai.evan-manual.com/ember/download/latest.json` 发给 AI，它会按其中列出的地址下载 `ember-init-*.zip` 并核对 SHA256。
 
+0. 先用中英双语请你选择语言：中文或 English。选定后，文件夹名称、任务卡、工作台和 AI 的回复都用这种语言，安装完成后不能再更改；
 1. 欢迎你，说明固定的安装位置：系统目录 `~/Ember`（规则、Skill、配置和程序）与文档库 `~/Ember文档`（项目、任务、资料和成果）；
 2. 安装程序、基础文件夹和三个自带 Skill，建立余烬系统项目，先保存安装记录，不提前建任务；
 3. 展示实际文档库目录，等你确认后，配置当前使用的 AI 工具并装好日常 Skill；以后可在“设置 → 执行环境 → 修改配置”更换工具；再问你要不要让工作台登录后自动启动（macOS 与 Windows），同意就由 AI 装好常驻后台；
@@ -65,12 +68,12 @@ AI 会从[最新发行版](https://github.com/Evankoo/Ember/releases/latest)下�
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install .
-ember init ~/Ember --example     # 同时建立 ~/Ember文档
+ember init ~/Ember --language zh --example     # 同时建立 ~/Ember文档；英文用 --language en
 ember use ~/Ember
 ember serve
 ```
 
-浏览器打开 **http://127.0.0.1:8783/**，按 `Ctrl+C` 停止。`--example` 会放入完全虚构的示例客户、项目和任务；去掉它就是空白文档库。文档库默认是系统目录旁边的“<系统目录名>文档”，也可用 `--documents` 指定。
+浏览器打开 **http://127.0.0.1:8783/**，按 `Ctrl+C` 停止。`--language` 选定工作区语言，建好后不能更改；不带它时会在终端里询问。英文工作区的文档库默认是 `~/EmberDocs`，文件夹名、任务卡和界面都是英文。`--example` 会放入完全虚构的示例客户、项目和任务；去掉它就是空白文档库。文档库默认是系统目录旁边的“<系统目录名>文档”，也可用 `--documents` 指定。
 
 旧版（0.10 及以前）把规则和资料放在同一个文件夹。用 `ember migrate-layout <旧文件夹> ~/Ember` 复制成新结构，核对后再 `ember use ~/Ember --replace`；旧文件夹不会被改动。
 

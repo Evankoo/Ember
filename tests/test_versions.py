@@ -19,6 +19,12 @@ class VersionConsistencyTests(unittest.TestCase):
         self.assertIn(f"v{__version__}", skill)
         self.assertNotRegex(skill.replace(__version__, ""), r"ember-\d+\.\d+\.\d+-py3")
 
+    def test_translated_skills_keep_the_version_of_their_original(self):
+        for translated in (PACKAGE / "skills").glob("*/locale/*/SKILL.md"):
+            original = translated.parents[2] / "SKILL.md"
+            version = lambda path: re.search(r"^version: (\S+)", path.read_text(), re.M).group(1)
+            self.assertEqual(version(translated), version(original), translated)
+
     def test_changelog_describes_the_current_release(self):
         self.assertRegex((ROOT / "CHANGELOG.md").read_text(), rf"(?m)^## {re.escape(__version__)}[：:]")
 
@@ -35,7 +41,7 @@ class VersionConsistencyTests(unittest.TestCase):
         guide = (ROOT / "docs/skill-authoring.md").read_text()
         headings = re.findall(r"(?m)^## ([A-Z][a-z].+)$", guide)
         self.assertEqual(headings, ["Contract", "When to Use", "References", "Phases", "Output Format", "Anti-Patterns", "Tools Used"])
-        for skill in (PACKAGE / "skills").glob("*/SKILL.md"):
+        for skill in [*(PACKAGE / "skills").glob("*/SKILL.md"), *(PACKAGE / "skills").glob("*/locale/*/SKILL.md")]:
             text = skill.read_text()
             self.assertTrue(text.startswith("---\n"), skill)
             self.assertEqual(re.findall(r"(?m)^## ([A-Z][a-z].+)$", text), headings, skill)

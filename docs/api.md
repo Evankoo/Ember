@@ -7,7 +7,7 @@
 ```text
 # 系统目录
 config/projects.json          # {"projects": [{id,name,kind:project|system,description,focus,category?: 分类名, locations?: [绝对路径]}]}
-config/workspace.json         # {name, documents: 文档库绝对路径}
+config/workspace.json         # {name, documents: 文档库绝对路径, language?: "en"}（无 language 即中文；英文工作区的文档库目录名见“工作区与使用说明”）
 # 文档库（资料 ID、delivery.folder、inputs.folder 都相对文档库）
 项目/<project_id>/项目看板.md   # 项目说明正本：总览 / 工作位置与入口 / 范围与要求 / 当前阶段 / 时间线
 tasks/active/<task_id>.md
@@ -25,7 +25,7 @@ Inbox/
 
 ## Python 存储接口
 
-`Workspace(system, documents=None)`（`path` 为系统目录，`docs` 为文档库），错误统一为 `WorkspaceError(message, status=400)`。单机服务原子写入并串行修改；拒绝工作区内符号链接及路径越界，不扫描工作区之外。
+`Workspace(system, documents=None, language=None)`（`path` 为系统目录，`docs` 为文档库；`language` 只在新建时给出 `zh` 或 `en`，已建工作区读取自身配置，给出不同语言会以 409 拒绝），错误统一为 `WorkspaceError(message, status=400)`。单机服务原子写入并串行修改；拒绝工作区内符号链接及路径越界，不扫描工作区之外。
 
 ```python
 initialize(example=False)             # 拒绝覆盖非空目录；安装契约、任务模板与三 Skill，仍为底层空结构

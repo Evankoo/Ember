@@ -4,32 +4,62 @@ from __future__ import annotations
 from pathlib import Path
 
 from . import __version__
+from . import language as lang
 
 PACKAGE = Path(__file__).resolve().parent
 CONTRACT_FILES = ("AGENTS.md", "SOUL.md", "MEMORY.md", "RESOLVER.md", "WORKBENCH_DESIGN.md", "templates/task-card.md")
 INIT_ROUTE = "- 首次安装或建立新工作区：读取 [ember-init](../.agents/skills/ember-init/SKILL.md)。"
 INIT_ROOT_ROUTE = "| 首次安装 Skill | 系统目录 .agents/skills/ember-init/SKILL.md |"
+# Translations of a template or Skill file live beside it under locale/<language>/ and replace it there.
+LOCALE = "locale"
+
+
+def init_routes(language: str = lang.DEFAULT) -> tuple[str, str]:
+    return lang.text(language, INIT_ROUTE), lang.text(language, INIT_ROOT_ROUTE)
+
+
+def localized_tree(root: Path, language: str = lang.DEFAULT) -> dict[str, bytes]:
+    """Files of a template or Skill folder as installed in a workspace of `language`."""
+    files = {}
+    for source in sorted(root.rglob("*")):
+        relative = source.relative_to(root)
+        if (source.is_file() and "__pycache__" not in relative.parts and source.suffix != ".pyc"
+                and source.name != ".DS_Store" and relative.parts[0] != LOCALE):
+            files[relative.as_posix()] = source.read_bytes()
+    translated = root / LOCALE / language
+    if language != lang.DEFAULT and translated.is_dir():
+        for source in sorted(translated.rglob("*")):
+            if source.is_file() and "__pycache__" not in source.parts and source.suffix != ".pyc":
+                files[source.relative_to(translated).as_posix()] = source.read_bytes()
+    return files
+
+
+def skill_tree(name: str, language: str = lang.DEFAULT) -> dict[str, bytes]:
+    return localized_tree(PACKAGE / "skills" / name, language)
 
 
 def install_workspace_contract(workspace):
     from .store import _parse_markdown
 
+    language = workspace.language
+    templates = localized_tree(PACKAGE / "templates", language)
     for name in CONTRACT_FILES:
-        workspace._atomic_text(name, (PACKAGE / "templates" / name).read_text(encoding="utf-8"), new=True)
+        workspace._atomic_text(name, templates[name].decode("utf-8"), new=True)
     skills = []
     for name, purpose in (("ember-init", "首次安装、新手实操与确认完成后的引导清理"), ("ember", "按系统规则处理日常任务、资料与交付"), ("ember-project", "确认建项方案，登记业务项目或系统工作区")):
-        skill_root = PACKAGE / "skills" / name
-        for source in sorted(skill_root.rglob("*")):
-            if source.is_file() and "__pycache__" not in source.parts and source.suffix != ".pyc":
-                relative = source.relative_to(skill_root).as_posix()
-                workspace._atomic_text(f".agents/skills/{name}/" + relative, source.read_text(encoding="utf-8"), new=True)
-        header, _ = _parse_markdown((skill_root / "SKILL.md").read_text(encoding="utf-8"), name)
-        skills.append({"name": name, "version": header["version"], "path": f".agents/skills/{name}/SKILL.md", "purpose": purpose})
+        files = skill_tree(name, language)
+        for relative, data in files.items():
+            workspace._atomic_text(f".agents/skills/{name}/" + relative, data.decode("utf-8"), new=True)
+        header, _ = _parse_markdown(files["SKILL.md"].decode("utf-8"), name)
+        skills.append({"name": name, "version": header["version"], "path": f".agents/skills/{name}/SKILL.md", "purpose": workspace._w(purpose)})
     workspace._write_json("skills/manifest.json", {"version": 1, "skills": skills}, new=True)
-    workspace._atomic_text("skills/RESOLVER.md", "# Skills Resolver\n\n- 首次安装或建立新工作区：读取 [ember-init](../.agents/skills/ember-init/SKILL.md)。\n- 日常任务入口与只读检索：读取 [ember](../.agents/skills/ember/SKILL.md)，先判断是否需要任务卡；跟随系统级 [AGENTS.md](../AGENTS.md)、项目说明与原任务。\n- 新建业务项目或系统工作区：读取 [ember-project](../.agents/skills/ember-project/SKILL.md)，先查重、展示方案并取得确认；不迁移资料或重分配任务。\n- 其他业务 Skill 只在实际需要且可用时调用，不随余烬安装。\n- 初始化 Skill 不重置、迁移或升级现有工作区。\n", new=True)
+    workspace._atomic_text("skills/RESOLVER.md", workspace._w(RESOLVER), new=True)
     # A user's chosen name is local data, not an installation default in source code.
     if not workspace._safe("config/workspace.json").exists():
-        workspace._write_json("config/workspace.json", {"name": "余烬"}, new=True)
+        workspace._write_json("config/workspace.json", {"name": workspace._w("余烬")}, new=True)
+
+
+RESOLVER = ("# Skills Resolver\n\n- 首次安装或建立新工作区：读取 [ember-init](../.agents/skills/ember-init/SKILL.md)。\n- 日常任务入口与只读检索：读取 [ember](../.agents/skills/ember/SKILL.md)，先判断是否需要任务卡；跟随系统级 [AGENTS.md](../AGENTS.md)、项目说明与原任务。\n- 新建业务项目或系统工作区：读取 [ember-project](../.agents/skills/ember-project/SKILL.md)，先查重、展示方案并取得确认；不迁移资料或重分配任务。\n- 其他业务 Skill 只在实际需要且可用时调用，不随余烬安装。\n- 初始化 Skill 不重置、迁移或升级现有工作区。\n")
 
 
 def verify_workspace_contract(workspace):
@@ -46,7 +76,8 @@ def verify_workspace_contract(workspace):
             if workspace._safe(".agents/skills/ember-init").exists() or any(
                     isinstance(item, dict) and item.get("name") == "ember-init" for item in manifest.get("skills", [])):
                 raise WorkspaceError("初始化完成记录与现有 Skill 不一致。")
-            if INIT_ROUTE in workspace._text("skills/RESOLVER.md") or INIT_ROOT_ROUTE in workspace._text("RESOLVER.md"):
+            init_route, init_root_route = init_routes(workspace.language)
+            if init_route in workspace._text("skills/RESOLVER.md") or init_root_route in workspace._text("RESOLVER.md"):
                 raise WorkspaceError("初始化 Skill 已清理，但路由尚未更新。")
         else:
             names.insert(0, "ember-init")

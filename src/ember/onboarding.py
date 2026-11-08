@@ -9,9 +9,9 @@ import sys
 import tempfile
 
 from . import __version__, compat
-from .bootstrap import CONTRACT_FILES, PACKAGE, verify_workspace_contract
+from .bootstrap import CONTRACT_FILES, PACKAGE, skill_tree, verify_workspace_contract
 from .project_registration import plan_project
-from .store import INBOX_LEDGER, VIEWS, Workspace, WorkspaceError, _now, _tree, project_card
+from .store import Workspace, WorkspaceError, _now, _tree
 
 
 def _factory_workspace(workspace: Workspace, mode: str) -> None:
@@ -20,16 +20,14 @@ def _factory_workspace(workspace: Workspace, mode: str) -> None:
         raise WorkspaceError("初始化模式必须为 empty 或 example。")
     state = workspace.snapshot()
     allowed = {*CONTRACT_FILES, "config/projects.json", "config/workspace.json", "skills/manifest.json",
-               "skills/RESOLVER.md", VIEWS, INBOX_LEDGER, ".ember/service.lock"}
+               "skills/RESOLVER.md", workspace.v.views, workspace.v.inbox_ledger, ".ember/service.lock"}
     for name in ("ember-init", "ember", "ember-project"):
-        source = PACKAGE / "skills" / name
-        allowed.update(f".agents/skills/{name}/{p.relative_to(source).as_posix()}" for p in source.rglob("*")
-                       if p.is_file() and "__pycache__" not in p.parts and p.suffix != ".pyc")
+        allowed.update(f".agents/skills/{name}/{relative}" for relative in skill_tree(name, workspace.language))
     if mode == "empty":
         if state["projects"] or state["tasks"] or state["files"] or state["reports"]:
             raise WorkspaceError("安装登记只适用于新工作区；已有业务不得重新初始化。", 409)
     else:
-        source = PACKAGE / "examples/workspace"
+        source = PACKAGE / "examples" / ("workspace" if workspace.language == "zh" else f"workspace-{workspace.language}")
         for path in _tree(source):
             if path.is_file():
                 relative = path.relative_to(source).as_posix()
@@ -62,21 +60,21 @@ def begin_installation(workspace: Workspace, *, app_dir: Path, executor: str = "
     _app_directory(workspace, app_dir)
     with workspace._lock:
         _factory_workspace(workspace, mode)
-        proposal = plan_project(workspace, {"id": "ember", "name": "余烬", "kind": "system",
-                               "description": "管理本机余烬的安装、验收和后续独立系统维护；不代替业务项目。",
-                               "focus": "完成本次首次安装与人工验收",
-                               "overview": "\n".join([
+        proposal = plan_project(workspace, {"id": "ember", "name": workspace._w("余烬"), "kind": "system",
+                               "description": workspace._w("管理本机余烬的安装、验收和后续独立系统维护；不代替业务项目。"),
+                               "focus": workspace._w("完成本次首次安装与人工验收"),
+                               "overview": "\n".join(map(workspace._f, [
                                    "# 余烬", "", "## 当前概况", "", "本机余烬的安装、验收与维护入口。业务目标使用独立业务项目。", "",
                                    "## 工作位置与入口", "", "| 类型 | 环境 | 路径或网址 | 用途与访问说明 |", "|---|---|---|---|",
                                    f"| 系统目录 | 本机 | `{workspace.path}` | 规则、Skill、配置与程序；平时不用打开 |",
                                    f"| 文档库 | 本机 | `{workspace.docs}` | 项目、任务、输入资料与交付 |", "",
                                    "## 范围与要求", "", "只管理本机余烬；不配置模型凭据、不自动运行 AI，也不提供归档或删除接口。", "",
                                    "## 当前阶段", "", "完成本次首次安装与人工验收。", "",
-                                   "## 时间线", "", f"- {_now()[:10]}：安装余烬并登记本系统。", ""])})
+                                   "## 时间线", "", f"- {_now()[:10]}：安装余烬并登记本系统。", ""]))})
         if not proposal["can_create"]:
             raise WorkspaceError("余烬系统项目已存在；保留现有安装，不重复创建。", 409)
         workspace.create_project(proposal["project"])
-        return {"system_project_id": "ember", "system_project_path": project_card("ember")}
+        return {"system_project_id": "ember", "system_project_path": workspace.project_card("ember")}
 
 
 def record_installation(workspace: Workspace, receipt: dict) -> dict:
@@ -104,15 +102,16 @@ def record_installation(workspace: Workspace, receipt: dict) -> dict:
     if status == "installing":
         return {}
     error = workspace._string(receipt, "error", limit=5000)
-    current = ("技术检查全部通过；工作台常驻服务尚未启动，首次使用引导尚未完成。" if status == "ready"
-               else f"安装在 {stage} 阶段失败：{error}。已保留现场，不声称验证通过。")
-    next_step = ("按启动命令打开工作台并配置当前 AI 工具；由 ember 使用普通建任务接口，将当前对话建成第一张真实任务卡。用户在工作台检查 OK 后，再通过 ember-project 确认并建立练习项目。" if status == "ready"
-                 else "检查应用目录中的安装收据、失败说明及保留的隔离测试目录；修复前保留现有证据，不重置工作区。")
-    content = (f"# 余烬安装记录\n\n- 版本：{__version__}\n- 安装状态：{status}\n- 阶段：{stage}\n"
-               f"- 应用目录：{app}\n- 系统目录：{workspace.path}\n- 文档库：{workspace.docs}\n- 模式：{receipt['mode']}\n"
-               f"- 检查：{'、'.join(checks) or '尚无'}\n\n{current}\n\n"
-               "技术测试使用隔离工作区。安装记录保存在应用目录，不是任务输入或交付；安装脚本不创建首任务，不调用模型。\n\n"
-               f"## 下一步\n\n{next_step}\n")
+    w = workspace._w
+    current = (w("技术检查全部通过；工作台常驻服务尚未启动，首次使用引导尚未完成。") if status == "ready"
+               else w("安装在 {stage} 阶段失败：{error}。已保留现场，不声称验证通过。", stage=stage, error=error))
+    next_step = (w("按启动命令打开工作台并配置当前 AI 工具；由 ember 使用普通建任务接口，将当前对话建成第一张真实任务卡。用户在工作台检查 OK 后，再通过 ember-project 确认并建立练习项目。") if status == "ready"
+                 else w("检查应用目录中的安装收据、失败说明及保留的隔离测试目录；修复前保留现有证据，不重置工作区。"))
+    content = w("# 余烬安装记录\n\n- 版本：{version}\n- 安装状态：{status}\n- 阶段：{stage}\n- 应用目录：{app}\n- 系统目录：{system}\n"
+                "- 文档库：{docs}\n- 模式：{mode}\n- 检查：{checks}\n\n{current}\n\n"
+                "技术测试使用隔离工作区。安装记录保存在应用目录，不是任务输入或交付；安装脚本不创建首任务，不调用模型。\n\n"
+                "## 下一步\n\n{next_step}\n", version=__version__, status=status, stage=stage, app=app, system=workspace.path,
+                docs=workspace.docs, mode=receipt["mode"], checks=w("、").join(checks) or w("尚无"), current=current, next_step=next_step)
     path = app / ("installation-report.md" if status == "ready" else "installation-failure.md")
     if path.is_symlink() or (path.exists() and not path.is_file()):
         raise WorkspaceError("安装报告必须是应用目录中的普通文件，保留现有路径。", 409)

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ember First-Use Guide"
+  short_description: "Install one question at a time, set up AI, create the first card and a practice project, then remove the guide after final confirmation"
+  default_prompt: "Use $ember-init to install Ember with me one question at a time: confirm the document library first, and the installation only saves a record; after setting up the current AI tool, turn this conversation into the first task card with the daily Skill, and create a practice project after I check it and say OK. Finally ask me whether to confirm completion and remove this library's one-time init guide."

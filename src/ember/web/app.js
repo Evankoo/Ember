@@ -10,6 +10,8 @@ const app = (() => {
   const dialogBody = document.getElementById("dialog-body");
   const state = { data: null, route: "home", id: "", dialogReturn: null, taskMaterials: null, home: null, overview: null, review: null, library: null, preview: null, settings: null, contextRequest: 0 };
   const ui = { projectCategory: "" };
+  // Text sent to the server rather than shown; in an English workspace web/i18n.js translates it.
+  const localized = (value) => (window.emberText ? window.emberText(value) : value);
   const statusNames = { active: "进行中", waiting_user: "待确认", blocked: "受阻", completed: "已完成" };
   const workNames = { text: "文字", image: "图片", video: "视频", audio: "音频", data: "数据", mixed: "混合", system: "系统" };
   const brandMark = `<svg class="brand-mark" viewBox="0 0 256 256" fill="none" aria-hidden="true" focusable="false"><path d="M68 146H194C197 106 186 68 162 36C154 58 128 68 100 86C76 102 62 124 62 150C62 194 94 222 134 222C160 222 180 212 194 196" stroke="currentColor" stroke-width="27" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -483,19 +485,19 @@ const app = (() => {
       if (!t) throw new Error("该任务已不在当前工作区，请刷新页面。");
       const fileIds = fields.getAll("selection").map(value => { try { const item = JSON.parse(value); return outputAt(item.task_id, item.path)?.id; } catch { return undefined; } }).filter(Boolean);
       const based = t.status === "completed" || fields.has("create_new_task");
-      return { payload: { request: based ? `基于${t.status === "completed" ? "已完成任务" : "所选文件"}准备新工作：${t.title}` : t.next || `继续推进：${t.title}`,
+      return { payload: { request: based ? localized(`基于${t.status === "completed" ? "已完成任务" : "所选文件"}准备新工作：${t.title}`) : t.next || localized(`继续推进：${t.title}`),
                           relation: based ? "based" : "continue", task_id: t.id, file_ids: fileIds, page: "task" },
                title: `${based ? "基于" : "继续"} · ${t.title}`, scope: `任务 ${t.id} · 所选文件 ${fileIds.length} 个` };
     }
     if (projectId) {
       const p = project(projectId);
-      return { payload: { request: `在「${projectName(projectId)}」中开始一项新工作：先读取${p?.kind === "system" ? "系统" : "项目"}说明，等待我补充具体要求。`, relation: "new", project_id: projectId, file_ids: [], page: "project" },
+      return { payload: { request: localized(`在「${projectName(projectId)}」中开始一项新工作：先读取${p?.kind === "system" ? "系统" : "项目"}说明，等待我补充具体要求。`), relation: "new", project_id: projectId, file_ids: [], page: "project" },
                title: `新任务 · ${projectName(projectId)}`, scope: `${p?.kind === "system" ? "系统" : "项目"} ${projectId}` };
     }
     const reviewIds = fields.getAll("selected_task_id").map(String);
     if (reviewIds.length) return { payload: { task_ids: reviewIds, review: true }, title: "整理所选任务", scope: `所选任务 ${reviewIds.length} 项` };
     const fileIds = fields.getAll("selection").map(value => { try { return JSON.parse(value).file_id; } catch { return undefined; } }).filter(Boolean);
-    return { payload: { request: "请先核对所选资料，再按我的要求处理：", relation: "new", file_ids: fileIds, page: "library" },
+    return { payload: { request: localized("请先核对所选资料，再按我的要求处理："), relation: "new", file_ids: fileIds, page: "library" },
              title: "基于所选资料新建", scope: `所选资料 ${fileIds.length} 项` };
   }
   window.EmberRunner.preview = async form => { const request = executionRequest(form); return executionPreview(form, request.payload, request.title, request.scope); };

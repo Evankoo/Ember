@@ -1,7 +1,7 @@
 ---
 name: ember-init
-version: 4.2.1
-description: 一问一答引导首次安装余烬：欢迎并说明固定的系统目录 ~/Ember 与文档库 ~/Ember文档，展示基础目录；把用户当前 AI 工具登记为默认执行器并装好日常 Skill，询问是否让工作台登录后自动启动，实际用它把本次对话创建为第一张任务卡；用户在工作台确认后，用建项目 Skill 建立简单练习项目，最终确认完成后移除本库的一次性初始化向导。不重置、迁移或升级已有工作区。
+version: 4.3.0
+description: 一问一答引导首次安装余烬：先用中英双语请用户选择工作区语言（选定后不能更改；选 English 时改读 locale/en/SKILL.md），再欢迎并说明固定的系统目录 ~/Ember 与文档库 ~/Ember文档，展示基础目录；把用户当前 AI 工具登记为默认执行器并装好日常 Skill，询问是否让工作台登录后自动启动，实际用它把本次对话创建为第一张任务卡；用户在工作台确认后，用建项目 Skill 建立简单练习项目，最终确认完成后移除本库的一次性初始化向导。不重置、迁移或升级已有工作区。
 triggers: [初始化余烬, 安装余烬, 安装余烬开源版, 建立新工作区, 首次使用余烬]
 tools: [read_file, terminal, browser]
 mutating: true
@@ -16,7 +16,7 @@ writes_pages: false
 
 每一阶段简短说明“正在做什么、验证了什么、下一步是什么”，不要只扔出一串命令。沿用当前对话已确认的信息，只补问影响结果的关键缺项，一次一项；已经授权的新目录安装不重复索取许可。默认名称余烬、端口 8783、空白业务模式。先讲用户将看到什么、需要回答什么；技术命令由 AI 执行。安装记录、第一次建卡、练习建项按顺序发生，不能提前替用户完成教学步骤。
 
-**调用即开始引导。** 网站安装提示就是本 Skill 的入口。先从官方发行初始包读取本文件和安装脚本，在当前对话中直接开始，不要求用户再发送“激活 Skill”。“激活”指当前 AI 读取并执行本流程；程序与 Skill 文件不会自行发起 AI 对话。三项 Skill 随初始包和程序 wheel 提供，建立文档库时再复制到其中；不要求新用户另找一个初始化 Skill。若工具不能读取文件或执行本机命令，明确说明缺少的能力，不声称已安装或已激活。
+**调用即开始引导，第一个问题永远是语言。** 网站安装提示就是本 Skill 的入口。先从官方发行初始包读取本文件和安装脚本，在当前对话中直接开始，不要求用户再发送“激活 Skill”。“激活”指当前 AI 读取并执行本流程；程序与 Skill 文件不会自行发起 AI 对话。三项 Skill 随初始包和程序 wheel 提供，建立文档库时再复制到其中；不要求新用户另找一个初始化 Skill。若工具不能读取文件或执行本机命令，明确说明缺少的能力，不声称已安装或已激活。
 
 首次面向用户统一称“文档库”，首次解释它就是命令中的“工作区 / workspace”。不要让新用户先理解虚拟环境、端口、执行器或模型；这些由 AI 检查。收到安装请求先问文档库位置，确认后才创建。安装完成必须继续展示真实目录并等待反馈，不能以“安装成功，请自己调用初始化 Skill”结束。
 
@@ -37,6 +37,26 @@ bootstrap 完成后的空白业务模式是一个系统项目、零任务；示�
 - 执行器登记使用程序 `ember.executors.ExecutorRegistry` 或工作台同名 HTTP 接口，字段与行为见仓库 `docs/api.md`；不直接改写本机软件 JSON。
 
 ## Phases
+
+### 0. 先选择语言（第一个问题）
+
+在欢迎语、环境检查和任何安装动作之前，第一条用户可见回复只问语言，原样使用下面的中英双语文字：
+
+> 欢迎安装余烬 · Ember。开始之前，请先选择语言：
+> Welcome to Ember. Before we begin, please choose a language:
+>
+> 1. 中文
+> 2. English
+>
+> 选定后，文档库的文件夹名称、任务卡格式、工作台界面和 AI 的回复都会使用这种语言，安装完成后不能再更改。
+> Your choice sets the language of folder names, task cards, the workbench and AI replies. It cannot be changed after installation.
+
+即使用户用某种语言开口也照样询问，不替用户推断；用户已在本次对话中明确选过就不重复问。等用户回答后再继续：
+
+- 选 **中文**：按本文件继续，安装命令带 `--language zh`，文档库默认 `~/Ember文档`。
+- 选 **English**：读取同目录的 `locale/en/SKILL.md` 并完全按它继续，此后所有回复使用英文；安装命令带 `--language en`，文档库默认 `~/EmberDocs`。
+
+在安装脚本真正建立目录之前，用户仍可改选；目录一旦建好，语言就锁定，不能通过重装或改配置切换。已有工作区的语言以其 `config/workspace.json` 为准，没有 `language` 的是中文。
 
 ### 1. 欢迎，说明固定位置
 
@@ -67,10 +87,10 @@ bootstrap 完成后的空白业务模式是一个系统项目、零任务；示�
 使用实际解释器和路径，不猜执行器或模型：
 
 ```text
-<真实Python> <Skill目录>/scripts/bootstrap.py --mode empty|example --name <名称> --port 8783 --executor <实际调用工具>
+<真实Python> <Skill目录>/scripts/bootstrap.py --language zh --mode empty|example --name <名称> --port 8783 --executor <实际调用工具>
 ```
 
-实际调用工具可为 opencode、codex、claude-code、workbuddy、qianwen-office（千问办公）、doubao-work（豆包工作）等；未知则 manual，不能填模型名。独立初始包含 `ember-init`、`ember`、`ember-project` 三个 Skill 文件夹，init 内含 `assets/ember-0.20.1-py3-none-any.whl`；没有 wheel 时从固定 v0.20.1 地址的 `ember-init-0.20.1.zip` 里取出。开发可传 `--source`。PyYAML 依赖仍须网络或缓存，不声称完全离线。
+实际调用工具可为 opencode、codex、claude-code、workbuddy、qianwen-office（千问办公）、doubao-work（豆包工作）等；未知则 manual，不能填模型名。独立初始包含 `ember-init`、`ember`、`ember-project` 三个 Skill 文件夹，init 内含 `assets/ember-0.21.0-py3-none-any.whl`；没有 wheel 时从固定 v0.21.0 地址的 `ember-init-0.21.0.zip` 里取出。开发可传 `--source`。PyYAML 依赖仍须网络或缓存，不声称完全离线。
 
 ### 4. 保存安装记录，保留空任务列表
 

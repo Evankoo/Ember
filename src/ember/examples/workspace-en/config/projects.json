@@ -1,0 +1,18 @@
+{
+  "projects": [
+    {
+      "id": "chenyu",
+      "name": "Chenyu Coffee content partnership",
+      "category": "Content partnerships",
+      "description": "An ongoing content partnership with a fictional neighborhood café, with a completed plan, a new round of drafts and event preparation.",
+      "focus": "Keep the confirmed brand voice and give each round's new requests a clear entry."
+    },
+    {
+      "id": "studio",
+      "name": "Qimu Studio operations",
+      "category": "Studio operations",
+      "description": "Day-to-day business material of a fictional one-person studio, organizing its service introduction and pricing template.",
+      "focus": "Explain the service scope, the delivery process and the information still to check."
+    }
+  ]
+}

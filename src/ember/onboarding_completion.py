@@ -8,7 +8,7 @@ from pathlib import Path
 import shutil
 import sys
 
-from .bootstrap import INIT_ROOT_ROUTE, INIT_ROUTE, PACKAGE
+from .bootstrap import init_routes, skill_tree
 from .store import Workspace, WorkspaceError, _now, _tree
 
 INIT = ".agents/skills/ember-init"
@@ -52,11 +52,9 @@ def validate_completion(workspace, record):
     _accepted_task(workspace, record.get("task_id"))
 
 
-def _official_tree(path, *, complete=True):
+def _official_tree(path, *, complete=True, language="zh"):
     """Refuse edits, extra files (including unknown bytecode), and all links."""
-    source = PACKAGE / "skills/ember-init"
-    expected = {p.relative_to(source).as_posix(): p.read_bytes() for p in _tree(source)
-                if p.is_file() and "__pycache__" not in p.parts and p.suffix != ".pyc"}
+    expected = skill_tree("ember-init", language)
     actual = {}
     directories = {str(Path(name).parent) for name in expected}
     directories |= {str(parent) for name in expected for parent in Path(name).parents if str(parent) != "."}
@@ -73,7 +71,7 @@ def _official_tree(path, *, complete=True):
         raise WorkspaceError("初始化 Skill 文件不完整，保留现场，不自动删除。")
 
 
-def _updated_documents(original, record):
+def _updated_documents(original, record, language="zh"):
     try:
         manifest = json.loads(original["skills/manifest.json"])
     except (ValueError, KeyError) as error:
@@ -86,7 +84,7 @@ def _updated_documents(original, record):
     manifest["skills"] = [item for item in manifest["skills"] if item not in entries]
     manifest["onboarding_completion"] = record
     updated = {"skills/manifest.json": json.dumps(manifest, ensure_ascii=False, indent=2) + "\n"}
-    for name, route in (("skills/RESOLVER.md", INIT_ROUTE), ("RESOLVER.md", INIT_ROOT_ROUTE)):
+    for name, route in zip(("skills/RESOLVER.md", "RESOLVER.md"), init_routes(language)):
         lines = original[name].splitlines(keepends=True)
         if sum(line.rstrip("\r\n") == route for line in lines) != 1:
             raise WorkspaceError("初始化 Skill 路由已修改，保留现场，不自动删除。")
@@ -114,10 +112,10 @@ def remove_init_skill(workspace, payload):
                 if manifest["onboarding_completion"]["task_id"] != task_id:
                     raise WorkspaceError("已由另一安装任务完成引导清理。", 409)
                 return {"removed": True, "already_removed": True, **manifest["onboarding_completion"]}
-            _official_tree(workspace._safe(INIT, exists=True))
+            _official_tree(workspace._safe(INIT, exists=True), language=workspace.language)
             record = {"task_id": task_id, "completed_at": _now(), "removed_skill": INIT}
             original = {name: workspace._text(name) for name in DOCUMENTS}
-            _updated_documents(original, record)  # Validate every mutation before staging anything.
+            _updated_documents(original, record, workspace.language)  # Validate every mutation before staging anything.
             workspace._write_json(journal_path, {"record": record, "original": original}, new=True)
         journal = workspace._json(journal_path)
         if set(journal) != {"record", "original"} or not isinstance(journal["original"], dict) or set(journal["original"]) != set(DOCUMENTS):
@@ -126,7 +124,7 @@ def remove_init_skill(workspace, payload):
         validate_completion(workspace, record)
         if record["task_id"] != task_id or any(not isinstance(value, str) for value in original.values()):
             raise WorkspaceError("清理事务与当前安装任务不一致。", 409)
-        updated = _updated_documents(original, record)
+        updated = _updated_documents(original, record, workspace.language)
         for name in DOCUMENTS:
             if workspace._text(name) not in (original[name], updated[name]):
                 raise WorkspaceError("清理期间登记或路由发生其他修改，请保留现场。", 409)
@@ -137,12 +135,12 @@ def remove_init_skill(workspace, payload):
         if live.exists():
             if staged.exists() or committed:
                 raise WorkspaceError("清理副本与活动 Skill 状态冲突，请保留现场。")
-            _official_tree(live)
+            _official_tree(live, language=workspace.language)
             live.rename(staged)
         elif not staged.exists() and not committed:
             raise WorkspaceError("清理副本缺失，拒绝伪造完成记录。")
         if staged.exists():
-            _official_tree(staged, complete=not committed)
+            _official_tree(staged, complete=not committed, language=workspace.language)
         try:
             for name in ("RESOLVER.md", "skills/RESOLVER.md", "skills/manifest.json"):
                 if workspace._text(name) != updated[name]:

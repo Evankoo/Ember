@@ -9,6 +9,8 @@ from pathlib import Path
 import re
 from typing import Protocol
 
+from . import language as lang
+
 
 class TaskError(ValueError):
     def __init__(self, message: str, status: int = 400):
@@ -47,8 +49,9 @@ class TaskService:
             raise TaskError('Unknown task operation or invalid payload.')
         if operation == 'create':
             title = payload.get('title')
-            if not isinstance(title, str) or not 1 <= len(title.strip()) <= 20 or any(x in title for x in ('\n', '\r', '…', '...')):
-                raise TaskError('任务标题应为 1–20 字的单行完整短语，不含省略号。')
+            limit = getattr(getattr(self.storage, 'workspace', None), 'v', lang.ZH).title_limit
+            if not isinstance(title, str) or not 1 <= len(title.strip()) <= limit or any(x in title for x in ('\n', '\r', '…', '...')):
+                raise TaskError(f'任务标题应为 1–{limit} 字的单行完整短语，不含省略号。')
         elif not task_id:
             raise TaskError('Task ID is required.')
         if operation in {'promote', 'complete'} and payload.get('confirmation') is not True:
@@ -58,7 +61,8 @@ class TaskService:
 
 def _sections(body: str) -> dict[str, str]:
     matches = list(re.finditer(r'(?m)^## ([^\n]+)\s*$', body))
-    return {m.group(1).strip(): body[m.end():matches[i + 1].start() if i + 1 < len(matches) else len(body)].strip()
+    # English cards use the English headings; both map to the same fields.
+    return {lang.EN.internal(m.group(1).strip()): body[m.end():matches[i + 1].start() if i + 1 < len(matches) else len(body)].strip()
             for i, m in enumerate(matches)}
 
 

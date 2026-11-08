@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ember Project Setup"
+  short_description: "Check for duplicates, confirm a project or system plan, register its description and read it back"
+  default_prompt: "Use $ember-project to prepare a project plan for the current Ember workspace; check for duplicates first and wait for my confirmation."
