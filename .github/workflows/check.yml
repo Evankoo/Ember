@@ -13,8 +13,10 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: python -m pip install .
       - run: python -m unittest discover -s tests -v
-      - run: ember init /tmp/ember-example --example
+      - run: ember init /tmp/ember-example --language zh --example
       - run: ember check --workspace /tmp/ember-example
+      - run: ember init /tmp/ember-example-en --language en --example
+      - run: ember check --workspace /tmp/ember-example-en
       - run: python -m pip wheel . --no-deps -w dist
       - name: Verify wheel resources and exclude bytecode
         run: |
@@ -27,6 +29,8 @@ jobs:
               assert {'ember/ember_ui/pages/shell.py', 'ember/pages.py', 'ember/web/app.js', 'ember/web/fonts/OFL.txt', 'ember/skills/ember-init/scripts/bootstrap.py', 'ember/executors.py'} <= names
               assert {'ember/onboarding.py', 'ember/onboarding_completion.py', 'ember/project_registration.py', 'ember/skills/ember-project/SKILL.md', 'ember/skills/ember-project/scripts/project.py'} <= names
               assert any(name.startswith('ember/examples/workspace/tasks/') for name in names)
+              assert {'ember/language.py', 'ember/i18n.py', 'ember/locales/en.py', 'ember/web/i18n.js', 'ember/templates/locale/en/AGENTS.md', 'ember/skills/ember/locale/en/SKILL.md', 'ember/skills/ember-init/locale/en/SKILL.md', 'ember/skills/ember-project/locale/en/SKILL.md'} <= names
+              assert any(name.startswith('ember/examples/workspace-en/tasks/') for name in names)
               assert not any(name.startswith('ember/examples/workspace/archive/') or name.endswith('/archive-records.json') for name in names)
               assert b'def archive_item(' not in wheel.read('ember/store.py')
               assert b'"/api/archive"' not in wheel.read('ember/server.py')
@@ -47,8 +51,10 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: python -m pip install .
       - run: python -m unittest discover -s tests -v
-      - run: ember init "$env:RUNNER_TEMP\余烬测试" --example
+      - run: ember init "$env:RUNNER_TEMP\余烬测试" --language zh --example
       - run: ember check --workspace "$env:RUNNER_TEMP\余烬测试"
+      - run: ember init "$env:RUNNER_TEMP\Ember test" --language en --example
+      - run: ember check --workspace "$env:RUNNER_TEMP\Ember test"
   browser:
     # Playwright 1.60.0 has no Chromium build for the newer ubuntu-latest image.
     runs-on: ubuntu-24.04
