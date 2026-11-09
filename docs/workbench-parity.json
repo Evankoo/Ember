@@ -407,6 +407,21 @@
       "id": "review:only-local:.review-weekly-summary > .button.ghost",
       "status": "intentional",
       "reason": "完整版独有：查看整理任务"
+    },
+    {
+      "id": "review:only-core:.review-weekly-summary > .weekly-actions",
+      "status": "intentional",
+      "reason": "数据：完整版本轮整理进行中时只显示“查看整理任务”，不显示整理菜单"
+    },
+    {
+      "id": "review:only-core:.weekly-actions > *",
+      "status": "intentional",
+      "reason": "数据：整理菜单随本轮整理状态出现"
+    },
+    {
+      "id": "review:only-core:.ember-action-trigger > .ember-mark",
+      "status": "intentional",
+      "reason": "数据：整理菜单按钮的标记随本轮整理状态出现"
     }
   ],
   "transparent_classes": "^(action-form)$"
