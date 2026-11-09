@@ -594,7 +594,7 @@ class SettingsBrowserTests(unittest.TestCase):
                     self.page.locator('#compactSkillBrowser > summary').click()
                     self.page.locator('#compactSkillList .compact-skill-row').first.wait_for()
                     self.assertEqual(self.page.locator('#compactSkillList .compact-skill-row strong').all_text_contents(),
-                                     ['ember-init', 'ember', 'ember-project'])
+                                     ['ember-init', 'ember', 'ember-project', 'ember-review', 'ember-skill-authoring'])
                 self.assertEqual(workspace.snapshot()['tasks'][0]['status'], 'active')
                 post('/api/projects', {'id': 'practice', 'name': '余烬练习项目', 'kind': 'project',
                     'description': '隔离测试中模拟用户确认的练习', 'overview': '# 余烬练习项目'})
@@ -606,9 +606,9 @@ class SettingsBrowserTests(unittest.TestCase):
                     self.page.set_viewport_size({'width': width, 'height': 1000})
                     self.page.goto(base + '/#settings')
                     self.page.reload()
-                    expect(self.page.locator('#compactSkillList .compact-skill-row')).to_have_count(2)
+                    expect(self.page.locator('#compactSkillList .compact-skill-row')).to_have_count(4)
                     self.assertEqual(self.page.locator('#compactSkillList .compact-skill-row strong').all_text_contents(),
-                                     ['ember', 'ember-project'])
+                                     ['ember', 'ember-project', 'ember-review', 'ember-skill-authoring'])
                     self.assertNotIn('三项基础 Skill', self.page.locator('#main-content').inner_text())
                     self.page.goto(base + '/#project/practice')
                     self.page.locator('#main-content h1', has_text='余烬练习项目').wait_for()

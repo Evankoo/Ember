@@ -9,6 +9,8 @@
 | 首次安装 Skill | 系统目录 .agents/skills/ember-init/SKILL.md |
 | 日常工作入口 Skill | 系统目录 .agents/skills/ember/SKILL.md |
 | 项目/系统建项 Skill | 系统目录 .agents/skills/ember-project/SKILL.md |
+| 任务整理 Skill | 系统目录 .agents/skills/ember-review/SKILL.md |
+| Skill 写法 Skill | 系统目录 .agents/skills/ember-skill-authoring/SKILL.md |
 | Skill 注册与路由 | 系统目录 skills/manifest.json、skills/RESOLVER.md |
 | 任务创建模板 | 系统目录 templates/task-card.md |
 | 程序、安装收据与报告 | 系统目录 app/ |

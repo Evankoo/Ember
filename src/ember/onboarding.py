@@ -9,7 +9,7 @@ import sys
 import tempfile
 
 from . import __version__, compat
-from .bootstrap import CONTRACT_FILES, PACKAGE, skill_tree, verify_workspace_contract
+from .bootstrap import BUNDLED_SKILLS, CONTRACT_FILES, PACKAGE, skill_tree, verify_workspace_contract
 from .project_registration import plan_project
 from .store import Workspace, WorkspaceError, _now, _tree
 
@@ -21,7 +21,7 @@ def _factory_workspace(workspace: Workspace, mode: str) -> None:
     state = workspace.snapshot()
     allowed = {*CONTRACT_FILES, "config/projects.json", "config/workspace.json", "skills/manifest.json",
                "skills/RESOLVER.md", workspace.v.views, workspace.v.inbox_ledger, ".ember/service.lock"}
-    for name in ("ember-init", "ember", "ember-project"):
+    for name, _purpose in BUNDLED_SKILLS:
         allowed.update(f".agents/skills/{name}/{relative}" for relative in skill_tree(name, workspace.language))
     if mode == "empty":
         if state["projects"] or state["tasks"] or state["files"] or state["reports"]:

@@ -134,8 +134,8 @@ ember project-category autumn-site 内容运营
 | 工作台 | 界面取自完整版工作台，五个页面加项目与任务详情：任务台（写要求、`fd` 检索、粘贴文字文件）、项目视图（自定义分类、收藏）、任务检视（整理建议与手动报告）、资料浏览（交付与输入）、设置（本机执行环境与当前基础 Skill） |
 | 任务档案 | 每项工作一张任务卡：目标、描述、当前结果、下一步和执行日志；任务线只引用关联任务 |
 | 资料与交付 | 输入、草稿、正式交付分开存放；同名文件拒绝覆盖 |
-| 三个 Skill | `ember-init` 首次安装，`ember` 日常接续，`ember-project` 确认后建项目 |
-| 命令行 | `init`、`use`、`where`、`check`、`serve`、`install-skill`、`which-project`、`project-location`、`project-category` |
+| 五个 Skill | `ember-init` 首次安装，`ember` 日常接续，`ember-project` 确认后建项目，`ember-review` 每周整理与所选任务整理，`ember-skill-authoring` 编写自己的 Skill |
+| 命令行 | `init`、`use`、`where`、`check`、`serve`、`install-skill`、`add-skills`、`which-project`、`project-location`、`project-category` |
 
 开源版是单机基础版，不包含完整版的归档中心、多机同步、知识库、运行 Agent、模型认证和自动发布，也不提供永久删除、自动合并任务或自动备份。请自行备份工作区。详见 [开源版范围](docs/scope.md)。
 

@@ -52,7 +52,7 @@ A task without deliverable files is closed through the separately confirmed comp
 
 ## Review and Task Lines
 
-Reports only record suggestions. Each suggestion is classified as no_change / merge / split; approving a report does not approve structural changes. Task lines are retired: do not create or suggest them, and use long-term tasks for ongoing work; existing task lines stay readable and keep their links. The public edition performs no automatic merging, splitting or deletion.
+Reports only record suggestions. Each suggestion is classified as no_change / merge / split; approving a report does not approve structural changes. Task lines are retired: do not create or suggest them, and use long-term tasks for ongoing work; existing task lines stay readable and keep their links. The public edition performs no automatic merging, splitting or deletion. Reviews follow `ember-review`: after the proposal report is saved, the promote or complete API is called only for items the user confirms one by one by number. The user's own Skills are written and registered with `ember-skill-authoring`; bundled Skills are never changed.
 
 ## Inbox and Historical Material
 

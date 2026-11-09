@@ -1,0 +1,4 @@
+interface:
+  display_name: "余烬任务整理"
+  short_description: "读取整理上下文，逐项提出建议并保存报告，确认后晋级或收口"
+  default_prompt: "使用 $ember-review 为当前余烬工作区做每周整理，先保存整理报告并等待我逐项确认。"

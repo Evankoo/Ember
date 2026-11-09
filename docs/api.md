@@ -51,6 +51,7 @@ set_inbox_label(payload)              # id,label,revision；标签不移动文�
 build_context(payload)               # request,relation:new|continue|based,task_id?,file_ids? -> {text}
 build_review_context(payload)        # task_ids:[] -> {text}，仅建议不改任务
 save_report(payload)                 # title,content,mode:selected|weekly,task_ids:[]；整理提示词让 AI 用它保存报告，只记录建议
+bootstrap.add_bundled_skills(workspace)  # 旧工作区补装 ember-review、ember-skill-authoring 并登记 manifest 与 Resolver；只新增，已有同名文件夹时拒绝；命令行 `ember add-skills`
 ```
 
 `executor` 是真实执行工具或界面，不是模型名；`skills_used` 是实际调用的非空、无重复 Skill 名称列表。创建时未传则沿用 `manual` 与 `['ember']` 的既有默认值。续接更新只替换最新执行器，并把新 Skill 去重追加到原有历史，不改变项目、生命周期或交付。空值、非文本、多行名称及重复列表在写入前拒绝。这些字段不会启动执行器或安装 Skill；Agent 应按实际执行填写，而不是依赖默认值猜测历史。

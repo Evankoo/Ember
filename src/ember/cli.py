@@ -52,6 +52,8 @@ def main(argv=None):
     commands.add_parser("where", help="显示本机登记的默认工作区")
     skill = commands.add_parser("install-skill", help="把日常 Skill 安装到 AI 工具的全局 Skills 目录")
     skill.add_argument("--target", type=Path, help="AI 工具的用户级 Skills 目录；省略时更新以前安装过的全部目录")
+    addskills = commands.add_parser("add-skills", help="为旧工作区补装新版自带的 Skill；只新增，不覆盖")
+    addskills.add_argument("--workspace", type=Path, help="默认使用本机登记的工作区")
     which = commands.add_parser("which-project", help="查找某个目录对应的项目")
     which.add_argument("--dir", type=Path, default=Path.cwd(), help="默认当前目录")
     which.add_argument("--workspace", type=Path, help="默认使用本机登记的工作区")
@@ -98,6 +100,10 @@ def main(argv=None):
                 print(json.dumps(background.install(resolve_workspace(args.workspace).path, args.port), ensure_ascii=False, indent=2))
             else:
                 print(json.dumps(getattr(background, args.action)(), ensure_ascii=False, indent=2))
+            return 0
+        if args.command == "add-skills":
+            from .bootstrap import add_bundled_skills
+            print(json.dumps(add_bundled_skills(resolve_workspace(args.workspace)), ensure_ascii=False, indent=2))
             return 0
         if args.command == "which-project":
             print(json.dumps(resolve_workspace(args.workspace).project_for_directory(args.dir), ensure_ascii=False))

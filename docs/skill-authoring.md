@@ -1,11 +1,11 @@
 # Skill 写法
 
-Skill 是一份给 AI 工具读的操作说明，规定一类工作怎么做。这份文档说明怎么给本机余烬新增或修改自己的 Skill。自带的三个 Skill（`ember-init`、`ember`、`ember-project`）就是按这里的写法写的，可以直接当例子看。
+Skill 是一份给 AI 工具读的操作说明，规定一类工作怎么做。这份文档说明怎么给本机余烬新增或修改自己的 Skill。自带的五个 Skill（`ember-init`、`ember`、`ember-project`、`ember-review`、`ember-skill-authoring`）就是按这里的写法写的，可以直接当例子看。其中 `ember-skill-authoring` 就是这份文档的 Skill 版：对 AI 说“把这套做法写成 Skill”，它会按下面的步骤做。
 
 ## 动手之前
 
 1. 读 `skills/manifest.json` 和 `skills/RESOLVER.md`，看有没有 Skill 已经覆盖这件事。有就改它，不要再建一个触发词重叠的新 Skill。
-2. 不要改自带的三个 Skill。升级时 `ember install-skill` 遇到被改过的副本会停止，不覆盖，你的副本也就不再更新。需要不同的做法时，新建自己的 Skill。
+2. 不要改自带的五个 Skill。升级时 `ember install-skill` 遇到被改过的副本会停止，不覆盖，你的副本也就不再更新。需要不同的做法时，新建自己的 Skill。
 3. 一次性的操作不用写 Skill，写进任务卡就够了。
 
 ## 放在哪里

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ember Skill Authoring"
+  short_description: "Check for overlaps, write a Skill in the standard structure, register it in the manifest and Resolver, and verify"
+  default_prompt: "Use $ember-skill-authoring to turn this way of working into my own Ember Skill; show me the plan before writing anything."

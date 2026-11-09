@@ -9,6 +9,8 @@ The folder holding this file is Ember's **system folder** on this computer (defa
 | First-installation Skill | system folder .agents/skills/ember-init/SKILL.md |
 | Daily work entry Skill | system folder .agents/skills/ember/SKILL.md |
 | Project/system creation Skill | system folder .agents/skills/ember-project/SKILL.md |
+| Task review Skill | system folder .agents/skills/ember-review/SKILL.md |
+| Skill authoring Skill | system folder .agents/skills/ember-skill-authoring/SKILL.md |
 | Skill registry and routes | system folder skills/manifest.json, skills/RESOLVER.md |
 | Task creation template | system folder templates/task-card.md |
 | Program, installation receipt and report | system folder app/ |

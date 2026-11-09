@@ -1,6 +1,6 @@
 ---
 name: ember-init
-version: 4.3.0
+version: 4.4.0
 description: 一问一答引导首次安装余烬：先用中英双语请用户选择工作区语言（选定后不能更改；选 English 时改读 locale/en/SKILL.md），再欢迎并说明固定的系统目录 ~/Ember 与文档库 ~/Ember文档，展示基础目录；把用户当前 AI 工具登记为默认执行器并装好日常 Skill，询问是否让工作台登录后自动启动，实际用它把本次对话创建为第一张任务卡；用户在工作台确认后，用建项目 Skill 建立简单练习项目，最终确认完成后移除本库的一次性初始化向导。不重置、迁移或升级已有工作区。
 triggers: [初始化余烬, 安装余烬, 安装余烬开源版, 建立新工作区, 首次使用余烬]
 tools: [read_file, terminal, browser]
@@ -12,11 +12,11 @@ writes_pages: false
 
 ## Contract
 
-输入是用户已确认的首次安装范围、程序目录、数据目录、名称及模式。安装阶段输出独立应用环境、新文档库、余烬系统项目、三项基础 Skill 和程序目录内的真实安装记录，**此时不创建任务卡**。配置执行器后，由日常 `ember` Skill 使用普通建任务接口，把当前对话创建为第一张真实任务卡；它属于本机的余烬系统项目。最后用户确认完成后，完成这张卡并受控移除本库 `ember-init`，保留日常与建项目 Skill、全部项目、任务和资料。
+输入是用户已确认的首次安装范围、程序目录、数据目录、名称及模式。安装阶段输出独立应用环境、新文档库、余烬系统项目、五项自带 Skill 和程序目录内的真实安装记录，**此时不创建任务卡**。配置执行器后，由日常 `ember` Skill 使用普通建任务接口，把当前对话创建为第一张真实任务卡；它属于本机的余烬系统项目。最后用户确认完成后，完成这张卡并受控移除本库 `ember-init`，保留其余自带 Skill、全部项目、任务和资料。
 
 每一阶段简短说明“正在做什么、验证了什么、下一步是什么”，不要只扔出一串命令。沿用当前对话已确认的信息，只补问影响结果的关键缺项，一次一项；已经授权的新目录安装不重复索取许可。默认名称余烬、端口 8783、空白业务模式。先讲用户将看到什么、需要回答什么；技术命令由 AI 执行。安装记录、第一次建卡、练习建项按顺序发生，不能提前替用户完成教学步骤。
 
-**调用即开始引导，第一个问题永远是语言。** 网站安装提示就是本 Skill 的入口。先从官方发行初始包读取本文件和安装脚本，在当前对话中直接开始，不要求用户再发送“激活 Skill”。“激活”指当前 AI 读取并执行本流程；程序与 Skill 文件不会自行发起 AI 对话。三项 Skill 随初始包和程序 wheel 提供，建立文档库时再复制到其中；不要求新用户另找一个初始化 Skill。若工具不能读取文件或执行本机命令，明确说明缺少的能力，不声称已安装或已激活。
+**调用即开始引导，第一个问题永远是语言。** 网站安装提示就是本 Skill 的入口。先从官方发行初始包读取本文件和安装脚本，在当前对话中直接开始，不要求用户再发送“激活 Skill”。“激活”指当前 AI 读取并执行本流程；程序与 Skill 文件不会自行发起 AI 对话。初始包带 `ember-init`、`ember`、`ember-project` 三项 Skill，程序 wheel 带全部五项自带 Skill，建立文档库时再复制到其中；不要求新用户另找一个初始化 Skill。若工具不能读取文件或执行本机命令，明确说明缺少的能力，不声称已安装或已激活。
 
 首次面向用户统一称“文档库”，首次解释它就是命令中的“工作区 / workspace”。不要让新用户先理解虚拟环境、端口、执行器或模型；这些由 AI 检查。收到安装请求先问文档库位置，确认后才创建。安装完成必须继续展示真实目录并等待反馈，不能以“安装成功，请自己调用初始化 Skill”结束。
 
@@ -32,7 +32,7 @@ bootstrap 完成后的空白业务模式是一个系统项目、零任务；示�
 
 - 先读同目录 `scripts/bootstrap.py`，使用标准库编排安装和隔离验证。
 - 安装后读工作区 `AGENTS.md`、`SOUL.md`、`MEMORY.md`、`RESOLVER.md`、`skills/RESOLVER.md` 与 `templates/task-card.md`；系统级 AGENTS.md 是规则正本。
-- 三项 Skill 的唯一正文在 `.agents/skills/ember-init`、`ember`、`ember-project`，`skills/manifest.json` 及 Resolver 登记它们。
+- 五项自带 Skill 的唯一正文在 `.agents/skills/` 下的 `ember-init`、`ember`、`ember-project`、`ember-review`、`ember-skill-authoring`，`skills/manifest.json` 及 Resolver 登记它们。
 - 首个业务项目使用 `ember-project`，日常任务交给 `ember`；不要复制私有系统建项规范。
 - 执行器登记使用程序 `ember.executors.ExecutorRegistry` 或工作台同名 HTTP 接口，字段与行为见仓库 `docs/api.md`；不直接改写本机软件 JSON。
 
@@ -78,7 +78,7 @@ bootstrap 完成后的空白业务模式是一个系统项目、零任务；示�
 
 核对 `~/Ember` 与 `~/Ember文档` 都不存在或为空。已存在且非空时停止，说明这台电脑已经装过余烬，本 Skill 不覆盖旧库；旧版单目录工作区按“已有工作区”说明使用 `ember migrate-layout` 另行迁移。用固定路径展示简短安装计划，只补问缺少的确认：
 
-> 我会把余烬装到 `<用户目录>/Ember`（程序在其中的 `app/`），把文档库建在 `<用户目录>/Ember文档`。我会装上自带的三个 Skill，建立基础文件夹，先保存安装记录；等软件配置好后，再带你把这次对话做成第一张任务卡。默认不加入虚构业务。按这个计划开始可以吗？
+> 我会把余烬装到 `<用户目录>/Ember`（程序在其中的 `app/`），把文档库建在 `<用户目录>/Ember文档`。我会装上自带的五个 Skill，建立基础文件夹，先保存安装记录；等软件配置好后，再带你把这次对话做成第一张任务卡。默认不加入虚构业务。按这个计划开始可以吗？
 
 已有相同范围的明确授权就直接执行。空业务模式不创建示例客户；安装过程会登记 `ember` / 余烬 / `kind:system` ，不创建“余烬初始化验收”任务。本次安装不包含任意业务项目、软件登录或旧资料迁移。不要在 bootstrap 之前手工填充这两个目录，否则其拒绝非空目录的检查会阻止安装。
 
@@ -90,15 +90,15 @@ bootstrap 完成后的空白业务模式是一个系统项目、零任务；示�
 <真实Python> <Skill目录>/scripts/bootstrap.py --language zh --mode empty|example --name <名称> --port 8783 --executor <实际调用工具>
 ```
 
-实际调用工具可为 opencode、codex、claude-code、workbuddy、qianwen-office（千问办公）、doubao-work（豆包工作）等；未知则 manual，不能填模型名。独立初始包含 `ember-init`、`ember`、`ember-project` 三个 Skill 文件夹，init 内含 `assets/ember-0.21.0-py3-none-any.whl`；没有 wheel 时从固定 v0.21.0 地址的 `ember-init-0.21.0.zip` 里取出。开发可传 `--source`。PyYAML 依赖仍须网络或缓存，不声称完全离线。
+实际调用工具可为 opencode、codex、claude-code、workbuddy、qianwen-office（千问办公）、doubao-work（豆包工作）等；未知则 manual，不能填模型名。独立初始包含 `ember-init`、`ember`、`ember-project` 三个 Skill 文件夹，init 内含 `assets/ember-0.22.0-py3-none-any.whl`；没有 wheel 时从固定 v0.22.0 地址的 `ember-init-0.22.0.zip` 里取出。开发可传 `--source`。PyYAML 依赖仍须网络或缓存，不声称完全离线。
 
 ### 4. 保存安装记录，保留空任务列表
 
 脚本登记文档库 `项目/ember/项目看板.md` 和系统注册，说明它负责本机余烬的安装与维护。安装阶段、实际目录和技术检查保存在程序目录（`~/Ember/app`）的 `installation.json` 与成功时的 `installation-report.md`（失败为 `installation-failure.md`），不是任务输入或交付。此时空白文档库的任务列表应为零；不调用 `create_task`，也不为说明文件制造任务或交付文件夹。失败保留程序目录的收据、报告和检查现场，不重复初始化或编造首任务。
 
-### 5. 回读三项基础 Skill
+### 5. 回读自带 Skill
 
-检查工作区规则、任务模板、三项 Skill 正文、版本、脚本、manifest 和 Resolver。安装到工作区的 Skill 不等于自动加入所有客户端：若当前工具不发现 `.agents/skills`，让用户按该客户端规则导入或显式读取，不改其账号、权限或模型配置。
+检查工作区规则、任务模板、五项自带 Skill 正文、版本、脚本、manifest 和 Resolver。安装到工作区的 Skill 不等于自动加入所有客户端：若当前工具不发现 `.agents/skills`，让用户按该客户端规则导入或显式读取，不改其账号、权限或模型配置。
 
 **先展示文档库，再继续指引。** bootstrap 返回后先回读实际收据和文件目录，把本轮已经建立的结构展示给用户。下面是阅读顺序与中文说明，不能把示意树当作执行证据；必须只显示实际存在的目录，并将根替换成实际绝对路径：
 
@@ -114,7 +114,7 @@ bootstrap 完成后的空白业务模式是一个系统项目、零任务；示�
   管理中心/            检视报告和工作台状态
 ```
 
-补充说明系统规则、三个 Skill（`.agents/skills/`）、版本路由（`skills/`）和程序（`app/`）都在 `<用户目录>/Ember`，文档库里只有上面这些文件夹。给出可点击的文档库路径；当前工具支持文件浏览时展示该目录，不自动启动 VS Code 或其他软件。说明空的基础目录正常，任务子目录只在实际资料或成果出现后创建。
+补充说明系统规则、自带 Skill（`.agents/skills/`）、版本路由（`skills/`）和程序（`app/`）都在 `<用户目录>/Ember`，文档库里只有上面这些文件夹。给出可点击的文档库路径；当前工具支持文件浏览时展示该目录，不自动启动 VS Code 或其他软件。说明空的基础目录正常，任务子目录只在实际资料或成果出现后创建。
 
 结束这一轮只问：
 
@@ -209,9 +209,9 @@ bootstrap 已先检查真实文档库，再在自己的临时文档库中测试�
 
 1. 在仍活跃的原任务追加最终真实结果、练习项目 ID / 用途、用户最终确认和拟移除范围；没有真实后续事项就不虚构。通过既有 `complete_task(id,{confirmation:true})` 或 POST `/api/tasks/<id>/complete` 完成本次 `artifact_mode:none` 的任务。不能用普通状态更新绕过完成门禁；不得制造正式交付文件。
 2. 运行服务时 POST `/api/onboarding/remove-init-skill`，payload 仅为 `{task_id:<已完成的首任务ID>,confirmation:true}`，使用当前服务的 CSRF token。服务未运行时用程序 Python 执行 `-m ember.onboarding_completion --workspace <系统目录> --task-id <ID> --confirm`。清理接口核对本次安装记录、已完成任务及实际 Skill 历史，只处理固定的 `.agents/skills/ember-init`，并同步 manifest / Resolver 与完成记录。不能自行使用 `rm -rf`，不能传任意路径；检测到用户改过的向导就保留并说明。
-3. 清理失败时，原任务已完成的事实保留；只重试同一清理动作，不再建卡、不再次完成任务、不声称已删。成功后 check，并回读 `/api/health`、`/api/settings` 和已完成任务 / 项目。刷新工作台，确认仍正常、当前 Skills 仅保留 `ember` 与 `ember-project`，再给用户结果。
+3. 清理失败时，原任务已完成的事实保留；只重试同一清理动作，不再建卡、不再次完成任务、不声称已删。成功后 check，并回读 `/api/health`、`/api/settings` 和已完成任务 / 项目。刷新工作台，确认仍正常、当前 Skills 为 `ember`、`ember-project`、`ember-review` 与 `ember-skill-authoring`，再给用户结果。
 
-移除仅指当前文档库内的初始化 Skill；程序包中的原版、原始下载包和用户自行安装的其他全局副本不在这个动作范围。它们不影响本库的两项日常 Skill；将来新建文档库仍可通过 `ember skill-path` 读取程序自带初始化指引。升级程序或更新全局日常 Skill 不会重装已经移除的文档库向导。
+移除仅指当前文档库内的初始化 Skill；程序包中的原版、原始下载包和用户自行安装的其他全局副本不在这个动作范围。它们不影响本库其余的自带 Skill；将来新建文档库仍可通过 `ember skill-path` 读取程序自带初始化指引。升级程序或更新全局日常 Skill 不会重装已经移除的文档库向导。
 
 已有同版程序只建新库时，也必须保留独立的本次安装记录，不能覆盖原应用目录的另一库收据；先确认独立记录位置和现有安装支持的流程，不用旧收据伪造本次 ready。已有工作区不在本 Skill 升级或清理范围。
 

@@ -107,7 +107,7 @@ class OnboardingCompletionTests(unittest.TestCase):
         self.assertFalse((self.workspace.path / INIT).exists())
         self.assertFalse((self.workspace.path / PENDING).exists())
         contract = verify_workspace_contract(self.workspace)
-        self.assertEqual(contract["skills"], ["ember", "ember-project"])
+        self.assertEqual(contract["skills"], ["ember", "ember-project", "ember-review", "ember-skill-authoring"])
         self.assertEqual(len(self.workspace.snapshot()["tasks"]), 1)
         self.assertEqual(len(self.workspace.snapshot()["projects"]), 2)
         for name, content in before.items():
@@ -179,7 +179,7 @@ class OnboardingCompletionTests(unittest.TestCase):
             verify_workspace_contract(self.workspace)
         result = remove_init_skill(self.workspace, self.payload)
         self.assertTrue(result["removed"])
-        self.assertEqual(verify_workspace_contract(self.workspace)["skills"], ["ember", "ember-project"])
+        self.assertEqual(verify_workspace_contract(self.workspace)["skills"], ["ember", "ember-project", "ember-review", "ember-skill-authoring"])
 
     def test_partial_deletion_is_recoverable_and_does_not_recreate_removed_files(self):
         def fail_delete(path):
@@ -190,7 +190,7 @@ class OnboardingCompletionTests(unittest.TestCase):
                 remove_init_skill(self.workspace, self.payload)
         self.assertFalse((self.workspace.path / PENDING / "skill/SKILL.md").exists())
         self.assertTrue(remove_init_skill(self.workspace, self.payload)["removed"])
-        self.assertEqual(verify_workspace_contract(self.workspace)["skills"], ["ember", "ember-project"])
+        self.assertEqual(verify_workspace_contract(self.workspace)["skills"], ["ember", "ember-project", "ember-review", "ember-skill-authoring"])
 
     def test_cleanup_retry_refuses_intervening_user_edits(self):
         with patch("ember.onboarding_completion.shutil.rmtree", side_effect=OSError("模拟失败")):
@@ -225,7 +225,7 @@ class OnboardingCompletionTests(unittest.TestCase):
             result = main(["--workspace", str(self.workspace.path), "--task-id", self.task["id"], "--confirm"])
         self.assertEqual(result, 0)
         self.assertTrue(json.loads(output.getvalue())["removed"])
-        self.assertEqual(verify_workspace_contract(self.workspace)["skills"], ["ember", "ember-project"])
+        self.assertEqual(verify_workspace_contract(self.workspace)["skills"], ["ember", "ember-project", "ember-review", "ember-skill-authoring"])
 
     def test_cli_refuses_when_service_holds_workspace_lock(self):
         with workspace_lock(self.workspace), contextlib.redirect_stderr(io.StringIO()):
@@ -253,7 +253,7 @@ class OnboardingCompletionTests(unittest.TestCase):
                 status, result = request(path)
                 self.assertEqual(status, 200, result)
                 if path == "/api/settings":
-                    self.assertEqual([item["name"] for item in result["data"]["skills"]], ["ember", "ember-project"])
+                    self.assertEqual([item["name"] for item in result["data"]["skills"]], ["ember", "ember-project", "ember-review", "ember-skill-authoring"])
         finally:
             server.shutdown()
             server.server_close()

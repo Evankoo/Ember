@@ -38,7 +38,7 @@ class BootstrapTests(unittest.TestCase):
         self.assertEqual(state["tasks"], [])
         self.assertEqual(state["projects"], [])
         contract = verify_workspace_contract(workspace)
-        self.assertEqual(contract["skills"], ["ember-init", "ember", "ember-project"])
+        self.assertEqual(contract["skills"], ["ember-init", "ember", "ember-project", "ember-review", "ember-skill-authoring"])
         for relative in CONTRACT_FILES:
             self.assertTrue((workspace.path / relative).stat().st_size)
         self.assertTrue((workspace.path / ".agents/skills/ember-init/scripts/bootstrap.py").is_file())
@@ -53,13 +53,13 @@ class BootstrapTests(unittest.TestCase):
                 self.assertEqual(task["next"], "")
         self.assertEqual(main(["check", "--workspace", str(workspace.path)]), 0)
 
-    def test_three_skills_have_conformant_frontmatter_and_registered_versions(self):
+    def test_bundled_skills_have_conformant_frontmatter_and_registered_versions(self):
         workspace = Workspace(self.root / "skills")
         workspace.initialize()
         manifest = workspace._json("skills/manifest.json")
         resolver = (workspace.path / "skills/RESOLVER.md").read_text()
         required = ["Contract", "When to Use", "References", "Phases", "Output Format", "Anti-Patterns", "Tools Used"]
-        self.assertEqual(len(manifest["skills"]), 3)
+        self.assertEqual(len(manifest["skills"]), 5)
         for record in manifest["skills"]:
             text = (workspace.path / record["path"]).read_text()
             header = yaml.safe_load(text.split("---", 2)[1])

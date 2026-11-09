@@ -28,7 +28,7 @@ Ember turns each piece of work into a task record, so whoever picks it up next, 
 
 ## Languages
 
-Ember comes in Chinese and English. **The language is chosen once, when a workspace is created, and cannot be changed afterwards.** An English workspace is English throughout: folder names (`~/EmberDocs`, `Deliverables/Drafts`, `Inputs`, `Projects`, `Admin`…), task-card headings, execution logs, project descriptions, the rule files, the three Skills, the prompts given to AI and the workbench interface. There is one installation package for both languages.
+Ember comes in Chinese and English. **The language is chosen once, when a workspace is created, and cannot be changed afterwards.** An English workspace is English throughout: folder names (`~/EmberDocs`, `Deliverables/Drafts`, `Inputs`, `Projects`, `Admin`…), task-card headings, execution logs, project descriptions, the rule files, the bundled Skills, the prompts given to AI and the workbench interface. There is one installation package for both languages.
 
 ## Install
 
@@ -99,8 +99,8 @@ The daily Skill can also be installed globally by hand, for example `ember insta
 | Workbench | Task desk, Projects, Review, Library and Settings, plus project and task details |
 | Task records | One task card per piece of work: Goal, Description, Current Result, Next Steps and Execution Log |
 | Materials and deliverables | Inputs, drafts and final deliverables are kept apart; same-name files are never overwritten |
-| Three Skills | `ember-init` for the first installation, `ember` for daily work, `ember-project` for creating projects after confirmation |
-| Command line | `init`, `use`, `where`, `check`, `serve`, `install-skill`, `which-project`, `project-location`, `project-category` |
+| Five Skills | `ember-init` for the first installation, `ember` for daily work, `ember-project` for creating projects after confirmation, `ember-review` for weekly and selected-task reviews, `ember-skill-authoring` for writing your own Skills |
+| Command line | `init`, `use`, `where`, `check`, `serve`, `install-skill`, `add-skills`, `which-project`, `project-location`, `project-category` |
 
 The open-source edition is the single-computer base edition. It does not include the full edition's archive center, multi-computer sync, knowledge base, runtime Agents, model authentication or automatic publishing, and offers no permanent deletion, automatic task merging or automatic backups. Back up your workspace yourself. The service only listens on the local loopback address; do not expose a workspace to the internet through a reverse proxy.
 

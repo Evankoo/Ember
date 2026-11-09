@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ember Task Review"
+  short_description: "Read the review context, propose item by item, save the report, and promote or close only confirmed items"
+  default_prompt: "Use $ember-review to run the weekly review of the current Ember workspace; save the review report first and wait for my item-by-item confirmation."

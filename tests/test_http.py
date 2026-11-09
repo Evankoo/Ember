@@ -105,7 +105,7 @@ class HTTPTests(unittest.TestCase):
     def test_health_requires_installed_workspace_contract(self):
         health = self.data("/api/health")
         self.assertEqual(health["status"], "ready")
-        self.assertEqual(health["contract"]["skills"], ["ember-init", "ember", "ember-project"])
+        self.assertEqual(health["contract"]["skills"], ["ember-init", "ember", "ember-project", "ember-review", "ember-skill-authoring"])
         (self.root / "AGENTS.md").unlink()
         self.assertEqual(self.request("/api/health")[0], 404)
 
@@ -121,8 +121,8 @@ class HTTPTests(unittest.TestCase):
         before = {str(path.relative_to(self.root)): path.read_bytes() for path in self.root.rglob("*") if path.is_file()}
         with patch.object(self.registry, "discover") as discovery, patch("ember.executors.subprocess.run") as launch:
             settings = self.data("/api/settings")
-        self.assertEqual({item["name"] for item in settings["skills"]}, {"ember-init", "ember", "ember-project"})
-        self.assertEqual(len(settings["skills"]), 3)
+        self.assertEqual({item["name"] for item in settings["skills"]}, set(["ember-init", "ember", "ember-project", "ember-review", "ember-skill-authoring"]))
+        self.assertEqual(len(settings["skills"]), 5)
         self.assertEqual(settings["execution_environment"]["executors"], [])
         self.assertFalse(self.registry.path.exists())
         self.assertEqual(before, {str(path.relative_to(self.root)): path.read_bytes() for path in self.root.rglob("*") if path.is_file()})

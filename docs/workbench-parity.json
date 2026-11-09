@@ -422,6 +422,16 @@
       "id": "review:only-core:.ember-action-trigger > .ember-mark",
       "status": "intentional",
       "reason": "数据：整理菜单按钮的标记随本轮整理状态出现"
+    },
+    {
+      "id": "task-line:style:.group-related-row > .group-related-dot",
+      "status": "intentional",
+      "reason": "数据：圆点颜色随关联任务状态变化，完整版对照的任务线关联的是已完成任务（灰），示例关联的是进行中任务（绿）"
+    },
+    {
+      "id": "settings:only-local:.settings-section-head > .button.ghost",
+      "status": "intentional",
+      "reason": "完整版独有：Agents 区的“扫描 Agent 文件夹”按钮，开源版没有运行 Agent"
     }
   ],
   "transparent_classes": "^(action-form)$"

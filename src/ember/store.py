@@ -1604,6 +1604,7 @@ class Workspace:
             self._w("每组建议必须归类为 no_change、merge 或 split，并说明目标、依据、受影响任务、资料计划及生命周期处置。"
                     "合并须明确存续任务与全部来源，拆分须明确各新任务目标与来源处置。缺乏依据时保持 no_change。"
                     "长期任务只列出，不建议完成、推广或合并。任务卡写着下一步不妨碍建议收口，只需顺带说明。任务线已停用，不要建议新建。"),
+            self._w("先读取系统目录的 `.agents/skills/ember-review/SKILL.md`，按它的步骤整理；旧工作区没有这个 Skill 时按本提示整理。") +
             self._w("输出简洁的任务判断、逐项建议和待确认问题；把整理报告用 `save_report`（工作台运行时 POST `/api/reports`）保存为 "
                     "`mode: {mode}`、`task_ids` 为所涉任务，回读后请用户在任务检视的历史整理报告中查看。保留所有原始任务、输入、交付及执行日志；"
                     "其余动作等用户逐项明确授权后再执行。", mode=mode), language=self.language)

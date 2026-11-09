@@ -80,7 +80,7 @@ class LanguageTests(unittest.TestCase):
         self.assertEqual(chinese_files(workspace.path / "templates"), [])
         for name in ("AGENTS.md", "SOUL.md", "MEMORY.md", "RESOLVER.md", "WORKBENCH_DESIGN.md"):
             self.assertIsNone(HAN.search((workspace.path / name).read_text()), name)
-        for skill in ("ember", "ember-project", "ember-init"):
+        for skill in ("ember", "ember-project", "ember-init", "ember-review", "ember-skill-authoring"):
             text = (workspace.path / ".agents/skills" / skill / "SKILL.md").read_text()
             self.assertFalse((workspace.path / ".agents/skills" / skill / "locale").exists())
             # The init guide's language question is the only Chinese an English installation keeps.

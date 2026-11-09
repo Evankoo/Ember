@@ -1,0 +1,4 @@
+interface:
+  display_name: "余烬 Skill 写法"
+  short_description: "查重、按统一结构写 Skill，登记到 manifest 与 Resolver 并验证"
+  default_prompt: "使用 $ember-skill-authoring 把这套做法写成我自己的余烬 Skill，先给我看方案再写入。"

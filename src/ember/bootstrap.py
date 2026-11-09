@@ -12,6 +12,11 @@ INIT_ROUTE = "- 首次安装或建立新工作区：读取 [ember-init](../.agen
 INIT_ROOT_ROUTE = "| 首次安装 Skill | 系统目录 .agents/skills/ember-init/SKILL.md |"
 # Translations of a template or Skill file live beside it under locale/<language>/ and replace it there.
 LOCALE = "locale"
+BUNDLED_SKILLS = (("ember-init", "首次安装、新手实操与确认完成后的引导清理"), ("ember", "按系统规则处理日常任务、资料与交付"),
+                  ("ember-project", "确认建项方案，登记业务项目或系统工作区"), ("ember-review", "每周整理与所选任务整理，确认后晋级或收口"),
+                  ("ember-skill-authoring", "按统一结构新建或修改用户自己的 Skill 并登记"))
+# Added in 0.22.0: workspaces created earlier may lack them, so they are checked only once registered.
+OPTIONAL_SKILLS = ("ember-review", "ember-skill-authoring")
 
 
 def init_routes(language: str = lang.DEFAULT) -> tuple[str, str]:
@@ -46,7 +51,7 @@ def install_workspace_contract(workspace):
     for name in CONTRACT_FILES:
         workspace._atomic_text(name, templates[name].decode("utf-8"), new=True)
     skills = []
-    for name, purpose in (("ember-init", "首次安装、新手实操与确认完成后的引导清理"), ("ember", "按系统规则处理日常任务、资料与交付"), ("ember-project", "确认建项方案，登记业务项目或系统工作区")):
+    for name, purpose in BUNDLED_SKILLS:
         files = skill_tree(name, language)
         for relative, data in files.items():
             workspace._atomic_text(f".agents/skills/{name}/" + relative, data.decode("utf-8"), new=True)
@@ -59,7 +64,50 @@ def install_workspace_contract(workspace):
         workspace._write_json("config/workspace.json", {"name": workspace._w("余烬")}, new=True)
 
 
-RESOLVER = ("# Skills Resolver\n\n- 首次安装或建立新工作区：读取 [ember-init](../.agents/skills/ember-init/SKILL.md)。\n- 日常任务入口与只读检索：读取 [ember](../.agents/skills/ember/SKILL.md)，先判断是否需要任务卡；跟随系统级 [AGENTS.md](../AGENTS.md)、项目说明与原任务。\n- 新建业务项目或系统工作区：读取 [ember-project](../.agents/skills/ember-project/SKILL.md)，先查重、展示方案并取得确认；不迁移资料或重分配任务。\n- 其他业务 Skill 只在实际需要且可用时调用，不随余烬安装。\n- 初始化 Skill 不重置、迁移或升级现有工作区。\n")
+RESOLVER = ("# Skills Resolver\n\n- 首次安装或建立新工作区：读取 [ember-init](../.agents/skills/ember-init/SKILL.md)。\n- 日常任务入口与只读检索：读取 [ember](../.agents/skills/ember/SKILL.md)，先判断是否需要任务卡；跟随系统级 [AGENTS.md](../AGENTS.md)、项目说明与原任务。\n- 新建业务项目或系统工作区：读取 [ember-project](../.agents/skills/ember-project/SKILL.md)，先查重、展示方案并取得确认；不迁移资料或重分配任务。\n- 每周整理或整理所选任务：读取 [ember-review](../.agents/skills/ember-review/SKILL.md)，只保存建议报告，逐项确认后晋级或收口。\n- 新建或修改自己的 Skill：读取 [ember-skill-authoring](../.agents/skills/ember-skill-authoring/SKILL.md)，不改自带 Skill。\n- 其他业务 Skill 只在实际需要且可用时调用，不随余烬安装。\n- 初始化 Skill 不重置、迁移或升级现有工作区。\n")
+
+
+def skill_route(name: str, language: str = lang.DEFAULT) -> str:
+    """The workspace Resolver line for a bundled Skill, as `RESOLVER` writes it."""
+    prefix = "- "
+    for line in lang.text(language, RESOLVER).splitlines():
+        if f"/{name}/SKILL.md" in line and line.startswith(prefix):
+            return line
+    raise KeyError(name)
+
+
+def add_bundled_skills(workspace) -> dict:
+    """Add bundled Skills an older workspace lacks; only adds, never overwrites a folder or entry."""
+    from .store import WorkspaceError, _parse_markdown
+    with workspace._lock:
+        verify_workspace_contract(workspace)
+        manifest = workspace._json("skills/manifest.json")
+        registered = {item.get("name") for item in manifest.get("skills", []) if isinstance(item, dict)}
+        purposes = dict(BUNDLED_SKILLS)
+        added, present = [], []
+        for name in OPTIONAL_SKILLS:
+            if name in registered:
+                present.append(name)
+                continue
+            if workspace._safe(f".agents/skills/{name}").exists():
+                raise WorkspaceError(f"系统目录已有未登记的 .agents/skills/{name}，未覆盖；请先比较后自行登记或改名。", 409)
+            files = skill_tree(name, workspace.language)
+            for relative, data in files.items():
+                workspace._atomic_text(f".agents/skills/{name}/" + relative, data.decode("utf-8"), new=True)
+            header, _ = _parse_markdown(files["SKILL.md"].decode("utf-8"), name)
+            manifest.setdefault("skills", []).append({"name": name, "version": header["version"], "path": f".agents/skills/{name}/SKILL.md",
+                                                      "purpose": workspace._w(purposes[name])})
+            added.append(name)
+        if added:
+            routes = workspace._text("skills/RESOLVER.md").rstrip("\n").splitlines()
+            missing = [skill_route(name, workspace.language) for name in added]
+            missing = [line for line in missing if line not in routes]
+            anchor = next((index for index, line in enumerate(routes) if "/ember-project/SKILL.md" in line), len(routes) - 1)
+            routes[anchor + 1:anchor + 1] = missing
+            workspace._write_json("skills/manifest.json", manifest)
+            workspace._atomic_text("skills/RESOLVER.md", "\n".join(routes) + "\n")
+        verify_workspace_contract(workspace)
+        return {"added": added, "already_present": present}
 
 
 def verify_workspace_contract(workspace):
@@ -82,6 +130,11 @@ def verify_workspace_contract(workspace):
         else:
             names.insert(0, "ember-init")
             required += [".agents/skills/ember-init/SKILL.md", ".agents/skills/ember-init/scripts/bootstrap.py"]
+        registered = {item.get("name") for item in manifest.get("skills", []) if isinstance(item, dict)}
+        for name in OPTIONAL_SKILLS:
+            if name in registered:
+                names.append(name)
+                required.append(f".agents/skills/{name}/SKILL.md")
         for name in required:
             path = workspace._safe(name, exists=True)
             if not path.is_file() or not path.stat().st_size:

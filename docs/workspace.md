@@ -36,7 +36,7 @@ Finder 生成的 `.DS_Store` 等隐藏文件不会被当成资料。旧版单目
 
 ## 语言
 
-工作区分中文和英文两种，在创建时选定，之后不能更改：`ember-init` 的第一个问题用中英双语请你选择，`ember init` 用 `--language zh|en` 指定（不带时在终端询问）。语言记在系统目录 `config/workspace.json` 的 `language`；没有这一项的工作区按中文处理，与 0.21.0 以前完全一致。英文工作区的文档库默认是 `~/EmberDocs`，文件夹为 `Inputs/`、`Deliverables/Drafts/`、`Deliverables/Final/`、`Projects/<id>/Project.md`、`Inbox/`、`Admin/`，任务卡标题为 Goal / Description / Current Result / Next Steps / Execution Log，规则文件、三个 Skill、提示词和工作台界面也都是英文；英文任务标题最长 60 个字符，项目分类最长 40 个字符。
+工作区分中文和英文两种，在创建时选定，之后不能更改：`ember-init` 的第一个问题用中英双语请你选择，`ember init` 用 `--language zh|en` 指定（不带时在终端询问）。语言记在系统目录 `config/workspace.json` 的 `language`；没有这一项的工作区按中文处理，与 0.21.0 以前完全一致。英文工作区的文档库默认是 `~/EmberDocs`，文件夹为 `Inputs/`、`Deliverables/Drafts/`、`Deliverables/Final/`、`Projects/<id>/Project.md`、`Inbox/`、`Admin/`，任务卡标题为 Goal / Description / Current Result / Next Steps / Execution Log，规则文件、自带 Skill、提示词和工作台界面也都是英文；英文任务标题最长 60 个字符，项目分类最长 40 个字符。
 
 ## 项目与工作目录
 

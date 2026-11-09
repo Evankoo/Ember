@@ -62,7 +62,7 @@ AI 读取 `ember-project`，先查重并展示名称、用途、范围和独立�
 
 网站提示要求 AI 直接读取并执行发行包内的 `ember-init`。用户不用安装完再输入“激活”；Skill 文件本身不会发起聊天，提问由当前 AI 执行。
 
-初始 ZIP 有 `ember-init/`、`ember/`、`ember-project/` 三个同级目录，init 内附同版本 wheel。wheel 包含程序、三个 Skill、系统规则、页面、虚构示例及字体许可证。程序依赖 Python ≥3.10、macOS / Windows / Linux；PyYAML 仍需网络或缓存，不声称完全离线。
+初始 ZIP 有 `ember-init/`、`ember/`、`ember-project/` 三个同级目录，init 内附同版本 wheel。wheel 包含程序、五个自带 Skill、系统规则、页面、虚构示例及字体许可证。程序依赖 Python ≥3.10、macOS / Windows / Linux；PyYAML 仍需网络或缓存，不声称完全离线。
 
 ```text
 ~/Ember/                          系统目录（与完整版的运行目录对应）
