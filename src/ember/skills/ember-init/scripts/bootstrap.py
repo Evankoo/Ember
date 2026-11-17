@@ -21,7 +21,7 @@ import tempfile
 import urllib.request
 import zipfile
 
-VERSION = "0.22.0"
+VERSION = "0.23.0"
 WHEEL = f"ember-{VERSION}-py3-none-any.whl"
 # The release's one file; the wheel sits in it under ember-init/assets/.
 PACKAGE = f"ember-init-{VERSION}.zip"
@@ -42,7 +42,6 @@ ENGLISH = {
     "需要 Python 3.10 或更新版本": "Python 3.10 or newer is required",
     "此版本支持 macOS、Linux 和 Windows": "This version supports macOS, Linux and Windows",
     "系统目录和文档库必须独立，不能互相包含": "The system folder and the document library must be separate and must not contain each other",
-    "程序目录应为系统目录下的 app，且不能与文档库互相包含": "The program folder must be app inside the system folder and must not overlap the document library",
     "工作区名称应为 1–80 字符": "The workspace name must be 1–80 characters",
     "executor 应为真实执行工具的单行名称，不是模型名称": "executor must be the one-line name of the actual AI tool, not a model name",
     "端口应为 1–65535": "The port must be between 1 and 65535",
@@ -115,11 +114,10 @@ def validate(args):
         raise ValueError(say("此版本支持 macOS、Linux 和 Windows"))
     workspace = new_directory(args.workspace or Path.home() / "Ember")
     documents = new_directory(args.documents or workspace.parent / (workspace.name + DOCUMENTS_SUFFIX[LANGUAGE]))
-    app = new_directory(args.app_dir or workspace / "app")
+    # The program always lives in the system folder's app/: Ember is these two folders and nothing else.
+    app = new_directory(workspace / "app")
     if contains(workspace, documents) or contains(documents, workspace):
         raise ValueError(say("系统目录和文档库必须独立，不能互相包含"))
-    if contains(app, documents) or contains(documents, app) or (app != workspace / "app" and (contains(app, workspace) or contains(workspace, app))):
-        raise ValueError(say("程序目录应为系统目录下的 app，且不能与文档库互相包含"))
     if not args.name.strip() or len(args.name.strip()) > 80:
         raise ValueError(say("工作区名称应为 1–80 字符"))
     executor = getattr(args, "executor", "manual")
@@ -297,7 +295,6 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="安装余烬到固定位置并验证初始化：系统目录 ~/Ember，文档库 ~/Ember文档")
     parser.add_argument("--workspace", help="系统目录；默认 ~/Ember")
     parser.add_argument("--documents", help="文档库；默认与系统目录同级的“<系统目录名>文档”")
-    parser.add_argument("--app-dir", help="程序目录；默认系统目录下的 app")
     parser.add_argument("--mode", choices=("empty", "example"), required=True)
     parser.add_argument("--name", help="工作区名称；默认 余烬（中文）或 Ember（英文） / workspace name; default 余烬 or Ember")
     parser.add_argument("--language", choices=("zh", "en"), required=True,

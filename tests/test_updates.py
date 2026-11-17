@@ -52,6 +52,24 @@ class UpdateTests(unittest.TestCase):
         self.assertNotIn("三个 Skill", text)
         self.assertEqual(self.files(), before)
 
+    def test_a_program_outside_the_system_folder_is_reported_and_moved_by_the_update_prompt(self):
+        installed = Path(self.temp.name) / "lib/python3.12/site-packages/ember"
+        in_place = self.workspace.path / "app/.venv"
+        outside = Path(self.temp.name) / "Ember-app"
+        self.assertIsNone(updates.program_outside(self.workspace, in_place, installed))
+        self.assertIsNone(updates.program_outside(self.workspace, outside / ".venv"))  # running from source
+        self.assertEqual(updates.program_outside(self.workspace, outside / ".venv", installed), outside.resolve())
+        major, minor, _ = parse_version(__version__)
+        newer = f"{major}.{minor + 1}.0"
+        with patch.object(updates, "program_outside", return_value=outside):
+            result = check_update(self.workspace, release(f"v{newer}"))
+        self.assertEqual(result["program_outside"], str(outside))
+        self.assertIn(f"- 程序目前在系统目录之外：{outside}", result["prompt"]["text"])
+        self.assertIn(f"`{self.workspace.path / 'app' / '.venv'}` 新建环境", result["prompt"]["text"])
+        self.assertIn("不替用户删除", result["prompt"]["text"])
+        self.assertEqual(check_update(self.workspace, release(f"v{newer}"))["program_outside"], "")
+        self.assertNotIn("系统目录之外", check_update(self.workspace, release(f"v{newer}"))["prompt"]["text"])
+
     def test_same_or_older_release_needs_no_prompt(self):
         for tag in (f"v{__version__}", "v0.1.0"):
             result = check_update(self.workspace, release(tag))

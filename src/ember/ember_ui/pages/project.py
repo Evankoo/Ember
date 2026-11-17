@@ -11,7 +11,8 @@ returns markup only. Keys (optional ones may be omitted):
   strip      {items: [{label, value, wide, strong}], actions: [{href, label}]}
   counts     {tasks, delivery, input}; task_search_label; has_delivery
   rows       [{task_id, title, href, task_line, description, status, status_label, important, group,
-               has_delivery, search}]
+               has_delivery, search, progress, type_label, updated}]; the project page's table shows
+             progress (the task's current progress, as on the home page), the system page description
   materials_html  the file browser shown by the 交付文件 / 输入资料 tabs
 """
 from __future__ import annotations
@@ -199,6 +200,27 @@ def task_rows(rows, *, show_artifacts: bool = True) -> str:
     return "".join(items)
 
 
+def task_table(rows) -> str:
+    """The project page's task list, in the home page's task-table markup without its 项目 column."""
+    if not rows:
+        return '<div class="project-task-empty">暂无任务。</div>'
+    items = []
+    for row in rows:
+        description = _esc(row.get("progress", row["description"]))
+        items.append(
+            f'<tr class="project-task-table-row" data-task-search="{_esc(row["search"])}" data-task-id="{_esc(row["task_id"])}" data-status="{_esc(row["status"])}" '
+            f'data-important="{"1" if row.get("important") else "0"}" data-group="{"1" if row.get("group") else "0"}" data-has-delivery="{"1" if row.get("has_delivery") else "0"}" '
+            f'data-href="{_esc(row["href"])}" tabindex="0"><td class="name"><a class="task-name" href="{_esc(row["href"])}">{html.escape(row["title"])}{task_tag(row)}</a></td>'
+            f'<td class="desc" title="{description}">{description}</td>'
+            f'<td class="overview-status"><span class="badge {_esc(row["status"])}">{html.escape(row["status_label"])}</span></td>'
+            f'<td class="overview-type">{html.escape(row.get("type_label", ""))}</td><td class="overview-updated">{html.escape(row.get("updated", ""))}</td></tr>'
+        )
+    return ('<table class="task-table project-overview-table project-task-table"><colgroup><col class="overview-name-col"><col class="overview-desc-col">'
+            '<col class="overview-status-col"><col class="overview-type-col"><col class="overview-updated-col"></colgroup>'
+            '<thead><tr><th>任务名称</th><th>当前进展</th><th>状态</th><th class="overview-type">类型</th><th>更新时间</th></tr></thead>'
+            f'<tbody>{"".join(items)}</tbody></table>')
+
+
 def workspace(page: dict) -> str:
     counts = page.get("counts", {})
     label = page.get("task_search_label", "搜索项目任务")
@@ -225,8 +247,8 @@ def workspace(page: dict) -> str:
             <button type="button" class="chip" data-task-filter="completed" aria-pressed="false">已完成</button>
             {delivery_filter}
           </div>
-          <div class="project-task-list" id="projectTaskList">
-            {task_rows(rows, show_artifacts=has_delivery)}
+          <div class="project-task-list project-task-table-wrap" id="projectTaskList">
+            {task_table(rows)}
           </div>
         </div>
         {page.get("materials_html", "")}

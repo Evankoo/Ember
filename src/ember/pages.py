@@ -317,9 +317,11 @@ def project_page(snapshot: dict, project_id: str) -> dict | None:
         "task_search_label": t("搜索{entity}任务", entity=entity), "has_delivery": True,
         "rows": [{"task_id": item["id"], "title": item["title"], "href": task_href(item["id"]), "long_term": bool(item.get("long_term")),
                   "description": item.get("description") or item.get("goal") or "", "status": item["status"],
+                  "progress": _progress(item), "type_label": t(WORK_NAMES.get(item.get("work_type") or "", item.get("work_type") or "")),
+                  "updated": str(item.get("updated_at") or item.get("date") or "")[:16],
                   "status_label": t(STATUS_NAMES.get(item["status"], item["status"])), "important": bool(item.get("important")),
                   "group": item.get("kind") == "task_line", "has_delivery": bool(item.get("outputs")),
-                  "search": " ".join(str(item.get(key) or "") for key in ("title", "description", "goal", "id")).casefold()} for item in tasks],
+                  "search": " ".join(str(item.get(key) or "") for key in ("title", "description", "goal", "current", "id")).casefold()} for item in tasks],
         "materials_html": library_template.pane({"materials": library_materials(snapshot, project_id), "project": (project_id, project["name"]),
                                                  "forms": _library_forms(), "browser": {"sync_url": False, "controller": "EmberProjectMaterialSwitch"}}),
     }

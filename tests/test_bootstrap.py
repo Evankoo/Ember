@@ -1,6 +1,7 @@
 """Verify real initialization resources and refusal before any installation write."""
 import argparse
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -82,7 +83,7 @@ class BootstrapTests(unittest.TestCase):
         self.assertEqual(main(["check", "--workspace", str(workspace.path)]), 1)
 
     def args(self, **changes):
-        values = dict(app_dir=str(self.root / "app"), workspace=str(self.root / "data"), documents=None,
+        values = dict(workspace=str(self.root / "data"), documents=None,
                       name="Ember", port=8783, source=None, mode="empty", executor="opencode")
         values.update(changes)
         return argparse.Namespace(**values)
@@ -94,21 +95,23 @@ class BootstrapTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             helper.validate(self.args())
         self.assertEqual(sentinel.read_text(), "keep")
-        self.assertFalse((self.root / "app").exists())
-        with self.assertRaises(ValueError):
-            helper.validate(self.args(app_dir=str(self.root / "new"), workspace=str(self.root / "new/data")))
-        self.assertFalse((self.root / "new").exists())
+        self.assertFalse((self.root / "data/app").exists())
+
+    def test_program_folder_cannot_be_moved_out_of_the_system_folder(self):
+        with patch.object(sys, "stderr", io.StringIO()), self.assertRaises(SystemExit):
+            helper.main(["--mode", "empty", "--language", "zh", "--app-dir", str(self.root / "Ember-app")])
+        self.assertFalse((self.root / "Ember-app").exists())
 
     def test_default_locations_are_fixed_under_the_user_folder(self):
         with patch.dict(os.environ, {"HOME": str(self.root), "USERPROFILE": str(self.root)}):
-            app, workspace, documents, _ = helper.validate(self.args(app_dir=None, workspace=None))
+            app, workspace, documents, _ = helper.validate(self.args(workspace=None))
         base = self.root.resolve()
         self.assertEqual((workspace, documents, app), (base / "Ember", base / "Ember文档", base / "Ember/app"))
         with self.assertRaises(ValueError):
             helper.validate(self.args(workspace=str(self.root / "sys"), documents=str(self.root / "sys/docs")))
 
     def test_default_installer_keeps_program_in_system_folder_and_data_in_library(self):
-        result, receipt = self.run_installer_fixture(app_dir=None)
+        result, receipt = self.run_installer_fixture()
         self.assertEqual(result, 0)
         workspace = Workspace(self.root / "data")
         self.assertEqual(Path(receipt["app_dir"]), workspace.path / "app")
@@ -123,7 +126,7 @@ class BootstrapTests(unittest.TestCase):
             listener.bind(("127.0.0.1", 0))
             with self.assertRaises(OSError):
                 helper.validate(self.args(port=listener.getsockname()[1]))
-        self.assertFalse((self.root / "app").exists())
+        self.assertFalse((self.root / "data/app").exists())
 
     def test_wheel_download_falls_back_to_the_mirror(self):
         import io
@@ -158,7 +161,7 @@ class BootstrapTests(unittest.TestCase):
             self.assertIn(url, str(raised.exception))
         self.assertFalse((self.root / helper.WHEEL).exists())
 
-    def run_installer_fixture(self, *, fail_workflow=False, fail_package=False, pypi_fails_once=False, mode="empty", app_dir="app"):
+    def run_installer_fixture(self, *, fail_workflow=False, fail_package=False, pypi_fails_once=False, mode="empty"):
         """Mock only package installation; run real Core subprocesses and writes."""
         real_run = subprocess.run
         self.pip_calls = []
@@ -180,7 +183,7 @@ class BootstrapTests(unittest.TestCase):
                 raise RuntimeError("fixture isolated workflow failed")
             # The fixture does not create a real venv; retain this test interpreter's dependencies.
             venv = ".venv/Scripts/python.exe" if os.name == "nt" else ".venv/bin/python"
-            if Path(argv[0]) in (self.root.resolve() / "app" / venv, self.root.resolve() / "data/app" / venv):
+            if Path(argv[0]) == self.root.resolve() / "data/app" / venv:
                 argv = [sys.executable, *argv[1:]]
             return real_run(argv, **kwargs)
 
@@ -191,10 +194,8 @@ class BootstrapTests(unittest.TestCase):
         self.home.mkdir(exist_ok=True)
         # Installer subprocesses write machine config under HOME; never touch the real one.
         with patch.object(helper.subprocess, "run", side_effect=run), patch.dict(os.environ, {"HOME": str(self.home), "USERPROFILE": str(self.home)}):
-            result = helper.run(self.args(source=str(Path(__file__).resolve().parents[1]), port=port, mode=mode,
-                                          app_dir=app_dir and str(self.root / app_dir)))
-        app = self.root / app_dir if app_dir else self.root / "data/app"
-        return result, json.loads((app / "installation.json").read_text())
+            result = helper.run(self.args(source=str(Path(__file__).resolve().parents[1]), port=port, mode=mode))
+        return result, json.loads((self.root / "data/app/installation.json").read_text())
 
     def test_real_installer_preserves_app_record_without_creating_first_task(self):
         result, receipt = self.run_installer_fixture()
@@ -207,7 +208,7 @@ class BootstrapTests(unittest.TestCase):
         self.assertEqual((len(state["projects"]), len(state["tasks"])), (1, 0))
         self.assertNotIn("task_id", receipt)
         self.assertNotIn("task_path", receipt)
-        self.assertEqual(Path(receipt["report_path"]), self.root.resolve() / "app/installation-report.md")
+        self.assertEqual(Path(receipt["report_path"]), self.root.resolve() / "data/app/installation-report.md")
         self.assertTrue(Path(receipt["report_path"]).is_file())
         self.assertEqual(state["files"], [])
         self.assertEqual(receipt["default_workspace"], "registered")
@@ -243,7 +244,7 @@ class BootstrapTests(unittest.TestCase):
         state = Workspace(self.root / "data").snapshot()
         self.assertEqual(state["tasks"], [])
         self.assertNotIn("task_id", receipt)
-        self.assertEqual(Path(receipt["report_path"]).parent, self.root.resolve() / "app")
+        self.assertEqual(Path(receipt["report_path"]).parent, self.root.resolve() / "data/app")
         self.assertIn("fixture isolated workflow failed", Path(receipt["report_path"]).read_text())
 
     def test_failed_pypi_install_is_retried_once_on_the_mirror(self):
@@ -261,7 +262,8 @@ class BootstrapTests(unittest.TestCase):
         self.assertEqual(receipt["checks"], [])
         self.assertNotIn("task_id", receipt)
         self.assertNotIn("system_project_id", receipt)
-        self.assertFalse((self.root / "data").exists())
+        self.assertEqual([path.name for path in (self.root / "data").iterdir()], ["app"])  # only the program's receipt
+        self.assertFalse((self.root / "data文档").exists())
 
 
 if __name__ == "__main__":

@@ -15,10 +15,15 @@ class Fixture(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.app = self.root / "app"
-        self.app.mkdir()
         self.workspace = Workspace(self.root / "data")
         self.workspace.initialize()
+
+    @property
+    def app(self):
+        """The program folder of the current workspace: always its system folder's app/."""
+        app = self.workspace.path / "app"
+        app.mkdir(exist_ok=True)
+        return app
 
     def begin(self, **kwargs):
         from ember.onboarding import begin_installation
@@ -48,7 +53,8 @@ class Fixture(unittest.TestCase):
     def files(self):
         return {self.workspace._rel(p): p.read_bytes()
                 for root in (self.workspace.path, self.workspace.docs) for p in root.rglob("*")
-                if p.is_file() and p.name != "service.lock"}  # Windows refuses to read a locked range.
+                if p.is_file() and p.name != "service.lock"  # Windows refuses to read a locked range.
+                and self.app not in p.parents}  # The program's own records live in the system folder's app/.
 
 
 class OnboardingTests(Fixture):
@@ -204,6 +210,15 @@ class OnboardingTests(Fixture):
         before = self.files()
         with self.assertRaises(WorkspaceError):
             self.begin()
+        self.assertEqual(before, self.files())
+
+    def test_program_folder_outside_the_system_folder_is_refused(self):
+        from ember.onboarding import begin_installation
+        outside = self.root / "Ember-app"
+        outside.mkdir()
+        before = self.files()
+        with self.assertRaises(WorkspaceError):
+            begin_installation(self.workspace, app_dir=outside, executor="opencode")
         self.assertEqual(before, self.files())
 
     def test_incomplete_ready_or_changed_plan_never_produces_success_report(self):

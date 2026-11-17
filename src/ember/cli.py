@@ -156,6 +156,10 @@ def main(argv=None):
             verify_workspace_contract(workspace)
             state = workspace.snapshot()
             say(f"校验通过：{len(state['projects'])} 项目 / {len(state['tasks'])} 任务 / {len(state['files'])} 文件")
+            from .updates import program_outside
+            outside = program_outside(workspace)
+            if outside:
+                say(f"提示：程序装在系统目录之外（{outside}）。余烬只应有系统目录和文档库两个文件夹；下次更新时，工作台“检查更新”里的更新提示词会带上把程序移进 {workspace.path / 'app'} 的步骤。")
         else:
             if not 0 <= args.port <= 65535:
                 parser.error("端口应在 0–65535 内")

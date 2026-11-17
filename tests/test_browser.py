@@ -441,7 +441,7 @@ class SettingsBrowserTests(unittest.TestCase):
 
     def test_project_task_list_filters_without_losing_search_focus(self):
         self.page.goto(self.base + "/#project/chenyu")
-        rows = self.page.locator(".project-task-row:visible")
+        rows = self.page.locator(".project-task-table-row:visible")
         expect(rows).to_have_count(5)
         search = self.page.locator("#projectTaskSearch")
         search.press_sequentially("秋季")
@@ -545,10 +545,10 @@ class SettingsBrowserTests(unittest.TestCase):
         from ember import __version__
         from ember.onboarding import begin_installation, record_installation
         with tempfile.TemporaryDirectory() as temporary:
-            app = Path(temporary) / 'app'
-            app.mkdir()
             workspace = Workspace(Path(temporary) / 'new-data')
             workspace.initialize()
+            app = workspace.path / 'app'
+            app.mkdir()
             system = begin_installation(workspace, app_dir=app, executor='opencode')
             receipt = {**system, 'version': __version__, 'workspace': str(workspace.path),
                        'app_dir': str(app.resolve()), 'mode': 'empty', 'status': 'ready', 'stage': 'complete',

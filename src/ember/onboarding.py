@@ -46,12 +46,9 @@ def _app_directory(workspace: Workspace, app_dir: Path) -> Path:
     if original.is_symlink() or not original.is_dir():
         raise WorkspaceError("应用目录必须是实际存在的独立目录。")
     app = original.resolve()
-    # The program lives in the system folder's app/ subfolder, or in its own folder;
-    # it must never hold, or sit inside, the document library.
-    if app != workspace.path / "app" and (app == workspace.path or app in workspace.path.parents or workspace.path in app.parents):
-        raise WorkspaceError("应用目录应为系统目录下的 app，或与系统目录互不包含。")
-    if app == workspace.docs or app in workspace.docs.parents or workspace.docs in app.parents:
-        raise WorkspaceError("应用目录和文档库不能互相包含。")
+    # The program lives only in the system folder's app/ subfolder: Ember is the system folder and the document library.
+    if app != workspace.path / "app":
+        raise WorkspaceError("应用目录应为系统目录下的 app。")
     return app
 
 

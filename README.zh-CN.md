@@ -58,15 +58,15 @@ AI 会从[最新发行版](https://github.com/Evankoo/Ember/releases/latest)下�
 5. 用建项目 Skill 带你确认并建立一个简单练习项目，再到工作台查看；
 6. 最后问你是否确认完成并移除一次性安装向导。确认后保留任务、项目和资料，日常 / 建项目两个 Skill 继续使用，只移除这份文档库内的初始化 Skill。
 
-文档库是存放项目、任务、资料与成果的普通文件夹，只放这些内容；规则文件、Skill 和程序都在系统目录里。命令中的 `--workspace` 指向系统目录。安装不需要 VS Code；编辑器“打开文件夹”也不会自动建立余烬文档库。三个 Skill 已随包提供，无需另找初始化 Skill。“开始引导”由安装中的 AI 读取并执行 Skill、在当前对话主动提问；程序本身不会调用 AI 或自己发起聊天。
+余烬就是两个文件夹：系统目录 `~/Ember` 放规则、Skill、配置和程序（程序在 `~/Ember/app/`），文档库 `~/Ember文档` 放项目、任务、资料与成果，都是普通文件夹。此外只有几处本机登记：`~/.config/ember/` 记下这两个文件夹的位置和设置页选定的软件，装进各 AI 工具的日常 Skill 副本，以及开了自动启动时的登录启动项；它们不存放任务或资料，删掉不会丢失内容，重新安装即可补回。命令中的 `--workspace` 指向系统目录。安装不需要 VS Code；编辑器“打开文件夹”也不会自动建立余烬文档库。三个 Skill 已随包提供，无需另找初始化 Skill。“开始引导”由安装中的 AI 读取并执行 Skill、在当前对话主动提问；程序本身不会调用 AI 或自己发起聊天。
 
 ### 手动安装
 
-需要 Python 3.10 或更新版本（可用 `python3 --version` 查看；版本不够时换成 `python3.12` 等实际可用的命令）。在仓库目录执行：
+需要 Python 3.10 或更新版本（可用 `python3 --version` 查看；版本不够时换成 `python3.12` 等实际可用的命令）。程序装在系统目录的 `app/` 里。在仓库目录执行：
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv ~/Ember/app/.venv
+source ~/Ember/app/.venv/bin/activate
 python -m pip install .
 ember init ~/Ember --language zh --example     # 同时建立 ~/Ember文档；英文用 --language en
 ember use ~/Ember

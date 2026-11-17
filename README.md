@@ -56,16 +56,18 @@ The AI downloads `ember-init-*.zip` from the [latest release](https://github.com
 
 ### Manual install
 
-Python 3.10 or newer is required. In the repository folder:
+Python 3.10 or newer is required. The program goes in the system folder's `app/`. In the repository folder:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv ~/Ember/app/.venv
+source ~/Ember/app/.venv/bin/activate
 python -m pip install .
 ember init ~/Ember --language en --example     # also creates ~/EmberDocs
 ember use ~/Ember
 ember serve
 ```
+
+Ember is just two folders: the system folder `~/Ember` holds rules, Skills, configuration and the program (in `~/Ember/app/`), and the document library `~/EmberDocs` holds projects, tasks, materials and results; both are ordinary folders. Besides them there are only a few registrations on this computer: `~/.config/ember/` records where the two folders are and the software chosen in Settings, the daily Skill copies installed into your AI tools, and the login item when start at login is on. None of them holds tasks or materials; deleting them loses nothing, and installing again restores them.
 
 Open **http://127.0.0.1:8783/** in a browser and press `Ctrl+C` to stop. `--language` sets the workspace language and cannot be changed later; without it, `ember init` asks in the terminal. `--example` adds a completely fictional example with clients, projects and tasks; leave it out for an empty document library. The document library defaults to “<system folder name>Docs” next to the system folder, or set it with `--documents`.
 

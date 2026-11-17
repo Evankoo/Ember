@@ -56,7 +56,7 @@ bootstrap.add_bundled_skills(workspace)  # 旧工作区补装 ember-review、emb
 
 `executor` 是真实执行工具或界面，不是模型名；`skills_used` 是实际调用的非空、无重复 Skill 名称列表。创建时未传则沿用 `manual` 与 `['ember']` 的既有默认值。续接更新只替换最新执行器，并把新 Skill 去重追加到原有历史，不改变项目、生命周期或交付。空值、非文本、多行名称及重复列表在写入前拒绝。这些字段不会启动执行器或安装 Skill；Agent 应按实际执行填写，而不是依赖默认值猜测历史。
 
-`onboarding.begin_installation(workspace, app_dir, executor, mode)` 只接受新空白 / 原样示例工作区，登记一个 system:ember，不创建任务。`record_installation(workspace, receipt)` 校验版本、目录、状态、技术检查和 app/installation.json 的实际记录，将成功 / 失败报告保存在应用目录，不写任务、输入或交付。日常 Skill 后续使用普通 create_task 创建首卡，将安装收据作为 input 快照登记。
+`onboarding.begin_installation(workspace, app_dir, executor, mode)` 只接受新空白 / 原样示例工作区，`app_dir` 必须是系统目录下的 `app`，登记一个 system:ember，不创建任务。`record_installation(workspace, receipt)` 校验版本、目录、状态、技术检查和 app/installation.json 的实际记录，将成功 / 失败报告保存在应用目录，不写任务、输入或交付。日常 Skill 后续使用普通 create_task 创建首卡，将安装收据作为 input 快照登记。
 
 `onboarding_completion.remove_init_skill(workspace, {task_id, confirmation:true})` 仅在最终用户确认后调用；要求同一安装收据关联的已完成 ember 系统任务及实际日常/建项 Skill 历史。固定移除本库 `.agents/skills/ember-init`，同步 manifest 的完成记录和 Resolver，保护用户修改；程序内原版、其他 Skill 与业务数据保留。使用 POST `/api/onboarding/remove-init-skill`，离线则 `python -m ember.onboarding_completion --workspace <path> --task-id <id> --confirm`（跨进程锁）。仅此有效完成记录允许初始化 Skill 缺席，直接手动删除仍报错。
 

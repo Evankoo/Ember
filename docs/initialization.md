@@ -92,10 +92,10 @@ AI 读取 `ember-project`，先查重并展示名称、用途、范围和独立�
 ## 可执行边界
 
 ```text
-<实际Python> <ember-init目录>/scripts/bootstrap.py --app-dir <新程序目录> --workspace <新文档库> --mode empty --name 余烬 --port 8783 --executor <实际工具>
+<实际Python> <ember-init目录>/scripts/bootstrap.py --language zh --mode empty --name 余烬 --port 8783 --executor <实际工具>
 ```
 
-两个目录必须为空或不存在、互不包含，执行器未知时用 manual，不填模型。脚本默认用附带 wheel，没有时才取同版本发行包；开发验证使用 `--source`。新版本发行前只使用配套本地候选包，不混用旧版安装脚本。
+余烬只有系统目录和文档库两个文件夹：程序固定装在系统目录的 `app/` 里，没有改到别处的选项。两个目录必须为空或不存在、互不包含，执行器未知时用 manual，不填模型。脚本默认用附带 wheel，没有时才取同版本发行包；开发验证使用 `--source`。新版本发行前只使用配套本地候选包，不混用旧版安装脚本。
 
 `installation.json` 的 `ready` 表示技术检查通过，不代表服务常驻或用户验收；是否常驻由第四轮的用户选择决定。报告路径为应用目录内绝对路径。失败不覆盖记录或重置目录；早于系统登记的失败也保留应用收据，但不谎报已有任务。技术测试只在脚本自建临时文档库进行。
 

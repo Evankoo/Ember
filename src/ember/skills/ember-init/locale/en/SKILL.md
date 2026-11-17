@@ -72,7 +72,7 @@ Use the real interpreter and paths, without guessing the executor or model:
 <real Python> <Skill folder>/scripts/bootstrap.py --language en --mode empty|example --name <name> --port 8783 --executor <actual calling tool>
 ```
 
-The actual calling tool can be opencode, codex, claude-code, workbuddy, qianwen-office, doubao-work and so on; when unknown use manual, never a model name. The standalone initial package contains the three Skill folders `ember-init`, `ember` and `ember-project`, and init contains `assets/ember-0.22.0-py3-none-any.whl`; without the wheel it is taken from `ember-init-0.22.0.zip` at the fixed v0.22.0 address. For development you can pass `--source`. The PyYAML dependency still needs the network or a cache; never claim it is fully offline.
+The actual calling tool can be opencode, codex, claude-code, workbuddy, qianwen-office, doubao-work and so on; when unknown use manual, never a model name. The standalone initial package contains the three Skill folders `ember-init`, `ember` and `ember-project`, and init contains `assets/ember-0.23.0-py3-none-any.whl`; without the wheel it is taken from `ember-init-0.23.0.zip` at the fixed v0.23.0 address. For development you can pass `--source`. The PyYAML dependency still needs the network or a cache; never claim it is fully offline.
 
 ### 4. Save the installation record and keep the task list empty
 

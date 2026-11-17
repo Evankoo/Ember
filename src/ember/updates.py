@@ -80,8 +80,19 @@ def release_files(latest: str) -> tuple[str, str]:
     return f"ember-init-{latest}.zip", f"ember-init/assets/ember-{latest}-py3-none-any.whl"
 
 
+def program_outside(workspace, prefix=None, package=PACKAGE) -> Path | None:
+    """The program's own folder when an installed program sits outside the system folder's app/, as older
+    installs that chose another folder do; None when it is in place or runs from source."""
+    if "site-packages" not in package.parts:
+        return None
+    environment = Path(prefix or sys.prefix).resolve()
+    folder = environment.parent if environment.name == ".venv" else environment
+    return None if folder == (workspace.path / "app").resolve() else folder
+
+
 def update_prompt(workspace, latest: str) -> dict:
     name, wheel = release_files(latest)
+    outside = program_outside(workspace)
     # Every line is written in Chinese and translated as a whole for an English workspace.
     w = lambda text: finished(workspace.language, text)
     return shared_prompt(
@@ -92,6 +103,7 @@ def update_prompt(workspace, latest: str) -> dict:
             f"- 余烬系统目录：{workspace.path}（规则、Skill、配置与程序）",
             f"- 余烬文档库：{workspace.docs}（任务、资料与交付）",
             f"- 程序 Python：{sys.executable}",
+            *([f"- 程序目前在系统目录之外：{outside}"] if outside else []),
         ])),
         "\n".join(map(w, [
             f"- 发行页与更新说明：{RELEASES}/tag/v{latest}",
@@ -105,8 +117,11 @@ def update_prompt(workspace, latest: str) -> dict:
         "停止正在运行的工作台服务后，用上面的程序 Python 执行 `-m pip install --upgrade <程序包>`；再运行 `-m ember install-skill`（不带参数）更新已登记的 AI 工具日常 Skill。"
         "系统目录里的规则文件与自带 Skill（`ember`、`ember-project`、`ember-review`、`ember-skill-authoring`）不自动覆盖：先与新版逐项比较，用户改过的部分说明差异并取得确认后再合并；系统目录缺少新版新增的自带 Skill 时，运行 `-m ember add-skills` 补装，它只新增、不覆盖。"
         "初始化 Skill `ember-init` 只用于首次安装，确认完成后会从系统目录移除：已移除的不恢复，也不装进 AI 工具的 Skill 目录。"
-        "若 `ember check` 提示旧版单目录工作区，先说明 `ember migrate-layout` 的作用并取得确认再迁移。不删除任务、资料或交付，不修改模型、账号或权限配置。"
-        "在余烬系统项目（ember）下建立或继续一张系统维护任务卡，记录本次更新过程与结果。"),
+        "若 `ember check` 提示旧版单目录工作区，先说明 `ember migrate-layout` 的作用并取得确认再迁移。不删除任务、资料或交付，不修改模型、账号或权限配置。")
+        + (w(f"这次同时把程序移进系统目录：新版程序包不装进 {outside}，而是用 Python 3.10+ 在 `{workspace.path / 'app' / '.venv'}` 新建环境后装入；"
+             "再用新环境的 Python 运行 `-m ember use <系统目录>` 重新登记本机默认，原来开着开机自启的再运行 `-m ember service install`；"
+             f"确认新环境能启动工作台后，告诉用户旧的 {outside} 已不再使用、可以自行删除，不替用户删除。") if outside else "")
+        + w("在余烬系统项目（ember）下建立或继续一张系统维护任务卡，记录本次更新过程与结果。"),
         w(f"`<程序 Python> -m ember --version` 显示 {latest}；`ember check` 通过；重新启动工作台后侧栏显示新版本；全局日常 Skill 已更新或说明未更新的原因；备份位置已告诉用户。"),
         language=workspace.language,
     )
@@ -249,7 +264,8 @@ def check_update(workspace, fetch=None) -> dict:
     newer = parse_version(latest) > parse_version(__version__)
     result = {"current": __version__, "latest": latest, "newer": newer, "url": release["url"],
               "source": release.get("source", "github"),
-              "published_at": release["published_at"], "notes": release["notes"][:6000]}
+              "published_at": release["published_at"], "notes": release["notes"][:6000],
+              "program_outside": str(program_outside(workspace) or "")}
     if newer:
         result["prompt"] = update_prompt(workspace, latest)
     return result
