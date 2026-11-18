@@ -1,6 +1,6 @@
 ---
 name: ember-review
-version: 1.0.0
+version: 1.1.0
 description: Review the tasks in this computer's Ember. Use it when the user clicks “Start review” in Review, says “do the weekly review”, or selects some tasks to review. It reads the review context, proposes promotion, closing, merge and split item by item, and saves a review report; after the user confirms items by number, it runs only the existing promote and complete APIs and reads back. It never merges, splits or deletes tasks. Continue daily work with ember.
 triggers: [weekly review, do the weekly review, start review, review again, review the selected tasks, review report, carry out the review suggestions]
 tools: [read_file, terminal, browser]
@@ -44,11 +44,11 @@ Asking about one task's progress or continuing daily work uses `ember`; creating
 2. **Get the review scope.** When the user pasted the “Start review” prompt, the scope is the tasks it lists; otherwise call the weekly or selected-task context API as the user asked. Read each card's goal, current result, delivery state and execution log; record missing facts as gaps and never guess.
 3. **Judge each task.** Put every task in one class and give the reason:
    - **P promote**: a draft delivery exists and the current result says it is finished or the user accepted it; propose promoting it to final delivery and completing the task.
-   - **C close**: `artifact_mode` is `none`, `system`, `archive` or `external` and the execution log shows completion evidence; propose completing the task. A next step on the card does not block proposing a close; just mention it.
+   - **C close**: an active task whose `artifact_mode` is `none`, `system`, `archive` or `external`. Each item says plainly “suggest closing” or “suggest continuing” with a one-line reason. A card with no next step whose current result says the work is done: suggest closing, quoting the first sentence of the current result. A card that still lists a next step: suggest continuing, quoting that next step. The user can still close a “suggest continuing” item by naming it.
    - **M merge / S split**: when goals repeat or are tangled, propose it with the surviving task, the source tasks and where the materials go; the open-source edition only records it.
    - **Keep**: not enough evidence or still in progress, classed as `no_change` without listing each one.
    - **Long-term tasks**: listed separately with what happened this week, with no proposal.
-4. **Write and save the report.** Open with one summary sentence (scope and the count per class), then list items grouped by P, C, M and S, one line each: number, task title, project and reason. Numbers are unique within the report, such as P01 or C02. Save it with `save_report`, with a `title` naming the review date and scope, `mode` set to `weekly` or `selected` by its source, and `task_ids` for the tasks in the report. Read it back and check that it appears in Review's past review reports.
+4. **Write and save the report.** Open with one summary sentence (scope and the count per class), then list items grouped by P, C, M and S, one line each: number, task title, project and reason; a C item's reason starts with “suggest closing” or “suggest continuing”. Numbers are unique within the report, such as P01 or C02. Save it with `save_report`, with a `title` naming the review date and scope, `mode` set to `weekly` or `selected` by its source, and `task_ids` for the tasks in the report. Read it back and check that it appears in Review's past review reports.
 5. **Wait for item-by-item confirmation.** Send the user the report summary and numbers and say that replying with numbers is enough. Numbers the user does not name are left alone; for “confirm all”, first restate each number and action to be carried out, and act only after the user confirms again. Even when M or S items are confirmed, reply only that the open-source edition does not merge or split, and suggest the user handle it by hand.
 6. **Carry out confirmed items.** Call `promote_task` for each confirmed P item and `complete_task` for each C item, both with `confirmation:true`. When the target conflicts, the delivery state does not fit or the API refuses, stop that item and report the error as it is; never work around it another way. Read back each task's state and delivery location after acting.
 7. **Report back.** Run `ember check`, read back the report and the tasks acted on, and report in the format below.
@@ -58,7 +58,7 @@ Asking about one task's progress or continuing daily work uses `ember`; creating
 ```markdown
 Review scope: <weekly / selected tasks>, N items; report saved: <report title>
 - Promote P: <number task title> (<done / awaiting confirmation / failed: reason>)
-- Close C: …
+- Close C: <number task title> (suggest closing / suggest continuing: reason; <done / awaiting confirmation / failed: reason>)
 - Merge or split proposals M/S: … (not carried out in the open-source edition)
 - Long-term tasks: <task title>: <what happened this week>
 Waiting for you: <numbers, or “none”>
